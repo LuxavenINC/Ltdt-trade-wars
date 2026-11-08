@@ -3978,8 +3978,77 @@ function hasSave(){try{return localStorage.getItem(SAVE_KEY)!==null;}catch(e){re
 /* =================== Online play: rooms, 15-seat servers, lockstep =================== */
 let ROOM=null,roomState='connecting';
 const NET={r:null,srv:null,srvName:'',match:null,slot:-1,host:false,hostPeer:null,F:0,L:[],ak:[],seq:0,myc:[],applied:new Set(),active:[],lastT:[],hbVal:[],hbAt:[],acc:0,lastNow:0,hb:0,myHbAt:0,pubDirty:true,hostGone:0,lastMid:null,hostAI:9,hostDiff:'normal',hostMap:'world',joining:false};
+/* ---------- Public site (outside Claude): the same online servers, carried by Firebase ----------
+   Inside Claude nothing here runs: Claude's own room carries online play. On the public website there is no
+   window.claude, so this builds an object with the same calls the game already uses (presence, peers, onPeers,
+   join, leave) on top of a Firebase Realtime Database. Each open tab is one peer; its presence fields are stored
+   as JSON text under ltdt/v1/lobby/<peer> (or ltdt/v1/rooms/<server>/<peer>) and removed when the tab closes. */
+const FB_URL='https://ltdt-trade-wars-default-rtdb.firebaseio.com',FB_SDK='https://www.gstatic.com/firebasejs/10.12.2/';
+function loadScript(src){return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;sc.async=false;sc.onload=()=>ok();sc.onerror=()=>no(new Error('load '+src));document.head.appendChild(sc);});}
+async function fbRoom(){
+  if(!window.firebase){await loadScript(FB_SDK+'firebase-app-compat.js');await loadScript(FB_SDK+'firebase-database-compat.js');}
+  const fb=window.firebase;if(!fb||!fb.database)throw new Error('no firebase');
+  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp({databaseURL:FB_URL});
+  const db=app.database(),base=db.ref('ltdt/v1'),TS=fb.database.ServerValue.TIMESTAMP;
+  const myId=('p'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,8)).slice(0,16);
+  let offset=0,online=false;
+  db.ref('.info/serverTimeOffset').on('value',sn=>{offset=+sn.val()||0;});
+  /* wait (up to 8 s) for the first connection, so a blocked network falls back to solo play quickly */
+  await new Promise((ok,no)=>{const to=setTimeout(()=>no(new Error('timeout')),8000);db.ref('.info/connected').on('value',sn=>{online=!!sn.val();if(online){clearTimeout(to);ok();}});});
+  const rooms=new Set();
+  function makeRoom(ref,name){
+    const peersMap=new Map(),subs=[],sent={};let cur={},dirty={},lastFlush=0,flushT=0,snap=Object.freeze([]),gone=false,hbT=0,queued=false,dead=null;
+    const decode=v=>{const o={};let at=0;if(v&&typeof v==='object')for(const k in v){if(k==='_at'){at=+v[k]||0;continue;}try{o[k]=JSON.parse(v[k]);}catch(e){}}return {o,at};};
+    function rebuild(){
+      const now=Date.now()+offset,arr=[];
+      for(const [id,e] of peersMap){if(id!==myId&&e.at&&now-e.at>150000)continue;arr.push(Object.freeze({peer:id,presence:Object.freeze(e.o),kind:'viewer',sameTab:id===myId,isMe:id===myId,guest:false,by:null,updatedAt:e.u}));}
+      if(!peersMap.has(myId)&&!gone)arr.push(Object.freeze({peer:myId,presence:Object.freeze({...cur}),kind:'viewer',sameTab:true,isMe:true,guest:false,by:null,updatedAt:Date.now()}));
+      snap=Object.freeze(arr);
+      if(!queued){queued=true;setTimeout(()=>{queued=false;const ch={peers:snap,joined:[],left:[],updated:[]};for(const f of subs.slice())try{f.cb(ch);}catch(e){console.error(e);}},0);}
+    }
+    const fail=err=>{dead=dead||err;for(const f of subs.slice())if(f.err&&!f.dead){f.dead=true;try{f.err({code:'not_granted',message:String(err&&err.message||err)});}catch(e){}}};
+    const put=sn=>{const d=decode(sn.val());peersMap.set(sn.key,{o:sn.key===myId?{...cur}:d.o,at:d.at,u:Date.now()});rebuild();};
+    const hA=ref.on('child_added',put,fail),hC=ref.on('child_changed',put,fail),hR=ref.on('child_removed',sn=>{peersMap.delete(sn.key);rebuild();if(sn.key===myId&&!gone&&online)writeAll().catch(fail);},fail);
+    const meRef=ref.child(myId);
+    function writeAll(){const u={_at:TS};for(const k in cur){u[k]=JSON.stringify(cur[k]);sent[k]=u[k];}meRef.onDisconnect().remove();return meRef.update(u);}
+    function flush(){
+      flushT=0;if(gone)return;lastFlush=performance.now();
+      const u={};let any=false;for(const k in dirty){const v=cur[k]==null?null:JSON.stringify(cur[k]);if(v===(k in sent?sent[k]:null))continue;any=true;u[k]=v;if(v===null)delete sent[k];else sent[k]=v;}
+      dirty={};if(any)meRef.update(u).catch(fail);
+    }
+    const conn=sn=>{if(sn.val()&&!gone)writeAll().catch(fail);};
+    db.ref('.info/connected').on('value',conn);
+    hbT=setInterval(()=>{if(!gone&&online)meRef.update({_at:TS}).catch(()=>{});
+      /* tidy tabs that vanished without saying goodbye */
+      const now=Date.now()+offset;for(const [id,e] of peersMap)if(id!==myId&&e.at&&now-e.at>300000)ref.child(id).remove().catch(()=>{});
+      rebuild();},15000);
+    const R={
+      name,
+      presence(patch){
+        if(gone)return Promise.reject({code:'invalid_argument',message:'left'});
+        if(!patch||typeof patch!=='object')return Promise.reject({code:'invalid_argument',message:'patch'});
+        for(const k in patch){if(!/^[A-Za-z_][A-Za-z0-9_]{0,40}$/.test(k))continue;if(patch[k]==null)delete cur[k];else cur[k]=patch[k];dirty[k]=1;}
+        const e=peersMap.get(myId);if(e){e.o={...cur};e.u=Date.now();}rebuild();
+        /* at most 20 updates a second per tab, only the fields that changed: the game always sends absolute state, so merging is safe */
+        if(!flushT){const wait=Math.max(0,50-(performance.now()-lastFlush));flushT=setTimeout(flush,wait);}
+        return Promise.resolve();
+      },
+      peers(){return snap;},
+      onPeers(cb,err){const f={cb,err};subs.push(f);setTimeout(()=>{if(!subs.includes(f))return;if(dead){fail(dead);return;}try{cb({peers:snap,joined:snap,left:[],updated:[]});}catch(e){}},0);return ()=>{const i=subs.indexOf(f);if(i>=0)subs.splice(i,1);};},
+      connected(){return online&&!gone;},
+      leave(){if(gone)return Promise.resolve();gone=true;clearInterval(hbT);if(flushT)clearTimeout(flushT);ref.off('child_added',hA);ref.off('child_changed',hC);ref.off('child_removed',hR);db.ref('.info/connected').off('value',conn);rooms.delete(R);subs.length=0;meRef.onDisconnect().cancel();return meRef.remove().catch(()=>{});}
+    };
+    rooms.add(R);rebuild();
+    return R;
+  }
+  const lobby=makeRoom(base.child('lobby'),'lobby');
+  lobby.join=async nm=>{if(!/^[a-z0-9][a-z0-9_.-]{0,47}$/.test(String(nm)))throw {code:'invalid_argument',message:'name'};for(const r of rooms)if(r.name===nm)return r;return makeRoom(base.child('rooms').child(nm),nm);};
+  window.addEventListener('pagehide',()=>{for(const r of [...rooms])r.leave();});
+  return lobby;
+}
 async function initRoom(){
   try{ROOM=window.claude&&window.claude.use?await window.claude.use('room'):null;}catch(e){ROOM=null;}
+  if(!ROOM&&!window.claude){try{ROOM=await fbRoom();}catch(e){ROOM=null;}}
   if(!ROOM){roomState='off';refreshHome();return;}
   roomState='on';
   ROOM.onPeers(()=>scheduleHome(),()=>{ROOM=null;roomState='off';refreshHome();});
@@ -4133,7 +4202,7 @@ function refreshHome(){
   $('ctaContinue').hidden=!hasSave();
   let html='';
   if(roomState!=='on'){
-    html=`<p class="hint">${roomState==='off'?'Online servers need you to be signed in to Claude with access to this game (the owner invites you from its Share menu). Solo war works for everyone.':'Looking for servers…'}</p>`;
+    html=`<p class="hint">${roomState==='off'?(window.claude?'Online servers need you to be signed in to Claude with access to this game (the owner invites you from its Share menu). Solo war works for everyone.':'The online servers could not be reached. Check your internet connection and refresh the page. Solo war works offline.'):'Looking for servers…'}</p>`;
   }else if(NET.r&&!NET.match){
     const st=seated(),meIdx=st.findIndex(p=>p.sameTab),isHost=meIdx===0,host=st[0];
     const hm=host&&validMatch(host.presence.m)?host.presence.m:null;
