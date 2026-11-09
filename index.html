@@ -498,6 +498,82 @@ body.home #econ{display:none}
   #candleCv{height:120px}
 }
 @media (max-width:480px){.grid2{grid-template-columns:1fr}.modal{padding:20px}.srv{grid-template-columns:minmax(0,1fr) auto}.srv .btn{grid-column:1/-1}}
+/* ---------- Phones ---------- */
+/* phone (portrait): the date and peace timer wrap instead of sliding under the speed buttons (the era is on the Realm tab), the 2D/3D switch lives with the map buttons,
+   and the map buttons sit in two columns so all of them fit in 3D */
+@media (max-width:760px){
+  .realm-sub{white-space:normal;font-size:0;line-height:1.25}
+  .realm-sub span{font-size:11.5px}
+  #hudEra{display:none}
+  #hudPeace:not(:empty){margin-left:4px}
+  .speed button{padding:6px 8px}
+  #armyBar{gap:10px;padding:8px 10px}
+  .ab{min-width:100px}
+  .ab label{font-size:10.5px;letter-spacing:.08em;white-space:nowrap}
+  #viewSw{display:none}
+  .zoom{display:grid;grid-template-columns:repeat(2,34px);gap:6px;align-content:end}
+  .zoom .zb[hidden]{display:none}
+}
+/* phone turned sideways: one slim top bar, the map on the left and the panel on the right (fold it away with the arrow for a full-width map) */
+@media (orientation:landscape) and (max-height:520px){
+  #app{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr)}
+  #hud{flex-wrap:nowrap;gap:8px;padding-block:4px}
+  #hud .crest{width:30px;height:30px}
+  .realm{flex:none;max-width:170px}
+  .realm-name{font-size:14px;max-width:170px}
+  .realm-sub{font-size:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .realm-sub span{font-size:10.5px}
+  #hudEra{display:none}
+  #hudPeace:not(:empty){margin-left:4px}
+  .stats{order:0;flex:1 1 auto;flex-basis:auto}
+  .stat{padding:0 9px}
+  .stat:first-child{border-left:0;padding-left:0}
+  .stat .k{font-size:9.5px;letter-spacing:.1em}
+  .stat b{font-size:13px}
+  .stat i{font-size:10.5px}
+  .speed button{padding:4px 7px;font-size:12px}
+  #viewSw{display:none}
+  .mp-chip{padding:4px 8px;font-size:11px;gap:6px}
+  .menu-btn{padding:5px 8px}
+  .menu-btn span{display:none}
+  #ledger{grid-column:2;grid-row:2;width:min(46vw,340px);height:auto;border-top:0;border-left:1px solid var(--rule-hi)}
+  #ledger .tab{min-height:38px;padding:10px 1px 8px;font-size:10px;letter-spacing:.02em}
+  #ledger .pane{padding-block:12px 18px;padding-left:12px;padding-right:max(12px,env(safe-area-inset-right,0px));gap:16px}
+  .ltoggle{display:block;flex:none;padding:0 6px}
+  .ltoggle svg{transform:rotate(-90deg)}
+  #ledger.collapsed{width:40px;height:auto}
+  #ledger.collapsed .tab{display:none}
+  #ledger.collapsed .tabs{padding:0;justify-content:center;border-bottom:0}
+  #ledger.collapsed .ltoggle{margin:0;padding:12px 0;width:100%}
+  #ledger.collapsed .ltoggle svg{transform:rotate(90deg)}
+  #ledger.collapsed .pane{display:none}
+  #econ{top:8px;width:min(270px,calc(100% - 24px));left:max(10px,env(safe-area-inset-left,0px));max-height:calc(100% - 16px);overflow-y:auto}
+  #econCv{height:64px}
+  #candleCv{height:100px}
+  #dock{padding-block:8px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:10px;gap:6px}
+  #armyBar{max-width:none;gap:10px;padding:6px 10px}
+  .ab{min-width:100px;gap:1px 8px}
+  .ab label{font-size:10px;letter-spacing:.08em}
+  .ab b{font-size:12px}
+  .ab small{font-size:11px}
+  .zb{width:34px;height:34px}
+  .zoom{display:grid;grid-template-columns:repeat(2,34px);gap:6px;align-content:end}
+  .zoom .zb[hidden]{display:none}
+  #spawnBanner{padding:8px 10px;gap:10px;font-size:13.5px}
+  #toasts{top:calc(env(safe-area-inset-top,0px) + 46px);left:max(10px,env(safe-area-inset-left,0px));right:auto;width:min(340px,calc(100% - 20px));max-height:45vh;overflow:hidden}
+  #walkPad{bottom:8px;padding:8px 10px}
+  .wp-grid{grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px)}
+  .wp-grid .zb{width:40px;height:40px}
+  .wp-hint{display:none}
+  #econ:not(.min){z-index:4}
+  /* home screen: a smaller emblem and title so Play online and Solo are on screen without scrolling */
+  .home-inner{gap:16px;padding-block:10px 24px}
+  .hero{gap:10px;padding-top:0}
+  .emblem{width:min(110px,30vh)}
+  .wm-main{font-size:clamp(26px,9vh,40px)}
+  .wm-rule{margin-top:2px}
+  .hero-lede{display:none}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -3362,7 +3438,7 @@ function buildStaticUI(){
   $('spPause').onclick=()=>{paused=!paused;setPauseIcon();};
   document.querySelectorAll('.speed [data-s]').forEach(b=>b.onclick=()=>{speed=+b.dataset.s;paused=false;setPauseIcon();syncSpeed();});
   document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
-    if(b.dataset.tab===activeTab&&window.matchMedia('(max-width:760px)').matches){$('ledger').classList.toggle('collapsed');requestAnimationFrame(resize);return;}
+    if(b.dataset.tab===activeTab&&window.matchMedia(PHONE_MQ).matches){$('ledger').classList.toggle('collapsed');requestAnimationFrame(resize);return;}
     $('ledger').classList.remove('collapsed');openTab(b.dataset.tab);requestAnimationFrame(resize);
   });
   $('ledgerToggle').onclick=()=>{$('ledger').classList.toggle('collapsed');requestAnimationFrame(resize);};
@@ -3724,6 +3800,8 @@ function updateCities(P){
   $('cSh').textContent=P.shield>0.0005?`${Math.round(P.shield*100)}% less damage`:'None';
   $('cityHint').textContent=list.length?`Each city starts with room for 1 million people and expands to 3 million (${P.era<2?`up to ${mx} million in the ${ERAS[P.era].name} era`:'the full 3 million from the Industrial era on'}). Residents pay city tax at your income tax rate: about 10 ${P.cur}/s per million at 20%. Their taxes fund public works (every million residents cuts building and expansion costs 1% and adds 0.5% output; past 30% it keeps rising more slowly, with no cap on residents) and back your currency, blocking 2.5% of the damage from foreign money printing and dumping per million residents; past 50% it keeps rising more slowly. Below a 10% tax these benefits shrink. Residents eat food; famine and poverty drive them away, and a conquered city loses 30% of its people.`:(P.era<1?'Cities unlock in the Renaissance era. Each holds 1 million residents and expands to 10 million.':'Build a city from the Build tab. Each holds 1 million residents and expands to 10 million.');
 }
+/* phone screens: portrait up to 760px wide, or any phone turned sideways */
+const PHONE_MQ='(max-width:760px),(orientation:landscape) and (max-height:520px)';
 let fxRowEls=[],fxRowsFor=null,fxPct=20,printPct=0;
 function buildFxRows(){
   fxRowsFor=G;fxRowEls=[];const box=$('fxList');box.innerHTML='';
@@ -3936,7 +4014,7 @@ function enterGame(){
   document.body.classList.remove('home');
   requestAnimationFrame(()=>{resize();const P=me();if(P&&P.capital>=0)focusTile(P.capital,Math.max(fitZ()*2,8.5));});
   resize();fx=[];walkers=[];selNation=-1;fallenShown=false;cardWait=-1;follow=null;resetHist();V3.yaw=V3.yawT=0;
-  {const e=$('econ'),m=window.matchMedia('(max-width:760px)').matches;e.classList.toggle('min',m);$('econMin').textContent=m?'+':'–';}
+  {const e=$('econ'),m=window.matchMedia(PHONE_MQ).matches;e.classList.toggle('min',m);$('econMin').textContent=m?'+':'–';}
   buildNationRows();rebuildLog();renderInspector();setMode({k:'attack'});
   paused=false;if(!NET.match)speed=1;setPauseIcon();syncSpeed();openTab('realm');
   paintMap();G.dirty=false;
