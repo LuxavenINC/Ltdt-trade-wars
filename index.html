@@ -1153,7 +1153,7 @@ function makeNation(id,name,color,human){
   const cur=String(name).split(' ')[0].slice(0,8)||'Credit';
   return {id,name,cur,color,css:rgb(color,1),cssDark:rgb(color,0.62),cssLight:`rgb(${lt[0]},${lt[1]},${lt[2]})`,human,alive:true,capital:-1,spawned:false,
     troops:500,workers:700,money:150,reserve:20,food:160,wood:120,stone:40,happiness:65,hTarget:65,hParts:{},
-    printed:0,imported:0,support:0,poverty:0,povLog:-99,fxh:[],fxRes:0,goldAcc:0,pw:0,shield:0,manipCd:0,urbanCap:0,oil:0,cars:0,gp:1,issued:0,issuedB:0,urbanArmy:0,trend:1,trendDir:0,debt:0,loanBan:0,overdue:0,prizes:0,prizeV:0,raidLog:-99,raidMsg:-99,urban:0,fxm:1,portFlow:0,portFood:0,foodAcc:0,tarAcc:0,tarRate:0,tarSup:0,raidN:0,gdpBoost:0,buys:0,warCd:0,fx:FX0,rfx:1,str:1,irate:0.05,printCd:0,gdp:0,val:0,pl:1,sancBy:0,locked:false,devalLog:-99,
+    printed:0,imported:0,support:0,poverty:0,povLog:-99,fxh:[],fxRes:0,goldAcc:0,pw:0,shield:0,manipCd:0,urbanCap:0,oil:0,cars:0,gp:1,issued:0,issuedB:0,urbanArmy:0,trend:1,trendDir:0,debt:0,loanBan:0,overdue:0,prizes:0,prizeV:0,raidLog:-99,raidMsg:-99,urban:0,fxm:1,fxr:1,fxl:[],portFlow:0,portFood:0,foodAcc:0,tarAcc:0,tarRate:0,tarSup:0,raidN:0,gdpBoost:0,buys:0,warCd:0,fx:FX0,rfx:1,str:1,irate:0.05,printCd:0,gdp:0,val:0,pl:1,sancBy:0,locked:false,devalLog:-99,
     tax:0.2,tariff:0.1,rations:1,troopRatio:0.45,attackRatio:0.4,era:0,cards:[],offers:[],
     mods:{food:1,wood:1,stone:1,tax:1,growth:1,attackCost:1,defense:1,trade:1,boatSpeed:1,wildCost:1,winter:1,happy:0,boatCap:0,marketGold:0},
     tiles:0,cnt:[0,0,0,0,0,0],coastTiles:0,b:emptyCounts(),maxPop:1000,foodCap:800,foodIn:0,foodOut:0,
@@ -1835,10 +1835,11 @@ function dumpForex(A,X,frac){
   /* the full value of the dumped currency goes into your economy: cash into the treasury and a boost to output (GDP) that fades over a few minutes */
   const wc=units*X.fx,got=wc/A.fx,rise=dumpRise(A,got);A.fxh[X.id]=fr>=0.999?0:hold-units;A.money+=got;
   const gb=A.gdpBoost||0,boost=Math.max(0,Math.min(wc/150,Math.max(25,(A.gdp-gb)*0.6)-gb));A.gdpBoost=gb+boost;A.gdp+=boost;
-  /* your currency rises and the dumped one melts; both moves fade slowly over about ten minutes */
-  if(rise>0.0005){A.fxm=Math.min(3,(A.fxm||1)*(1+rise));A.fx*=1+rise;A.rfx*=1+rise;}
-  const drop=dumpDrop(X,wc);
+  /* the dumped currency melts and recovers slowly (about 0.02 a minute). Your currency rises, and that rise is tied to the
+     currency you dumped: it stays while that currency stays down and fades only as it gets stronger again */
+  const drop=dumpDrop(X,wc),pre=X.fx;
   X.support=Math.max(0,X.support-wc*0.4);if(drop>0.0005){X.fxm=Math.max(0.3,(X.fxm||1)*(1-drop));X.fx*=1-drop;X.rfx*=1-drop;}
+  if(rise>0.0005){(A.fxl||(A.fxl=[])).push({x:X.id,r:rise,pre,post:X.fx,rg:0});if(A.fxl.length>16)A.fxl.shift();A.fxr=Math.min(3,(A.fxr||1)*(1+rise));A.fx*=1+rise;A.rfx*=1+rise;}
   relAdd(A.id,X.id,-Math.min(40,8+wc/(X.gdp*10+100)));
   if(X.human)log(X.id,`${A.name} dumped ${fmt(units)} ${X.cur} on the world market. Your currency fell ${(drop*100).toFixed(drop<0.1?1:0)}%.`,null,'bad');
   /* everyone else holding that currency is warned: their reserve just lost value */
@@ -2100,7 +2101,12 @@ function secondly(){
   for(const n of ns){
     if(!n.alive)continue;
     if(n.warCd>0)n.warCd=Math.max(0,n.warCd-1);
-    n.fxm=1+((n.fxm||1)-1)*0.998;
+    {const fm=n.fxm||1,fr0=n.fxr||1,base=Math.max(0.05,n.fx/(fm*fr0)),step=0.02/60/base;
+     if(fm<1)n.fxm=Math.min(1,fm+step);else if(fm>1)n.fxm=Math.max(1,fm-step);
+     let tgt=1;
+     if(n.fxl&&n.fxl.length){for(const L of n.fxl){const X=ns[L.x];if(X&&X.alive)L.rg=clamp((X.fx-L.post)/Math.max(L.pre-L.post,L.pre*0.01),0,1);tgt*=1+L.r*(1-L.rg);}
+       if(n.fxl.some(L=>L.rg>=0.999))n.fxl=n.fxl.filter(L=>L.rg<0.999);}
+     n.fxr=fr0>tgt?Math.max(tgt,fr0-step):tgt;}
     n.printed*=0.997;n.imported*=0.985;n.pump=(n.pump||0)*0.97;n.support*=0.9975;n.tarSup=(n.tarSup||0)*0.98;n.issuedB=(n.issuedB||0)*0.997;{const gc=backingBars(n);if(n.issuedB>gc){n.printed+=(n.issuedB-gc)*goldPrice(n)*n.fx;n.issuedB=gc;}}
     const claims=Math.max(CLAIM0,n.gdp*60)+n.printed+n.imported;
     const tb=n.reserve*GOLD_WC+n.support+(n.tarSup||0)+(n.pump||0),back=tb<=claims?tb:claims+Math.sqrt((tb-claims)*claims);n.str=(back+n.gdp*60)/claims*(1+(n.irate-0.05)*3);
@@ -2112,7 +2118,7 @@ function secondly(){
      else n.trendDir=0;
      n.trend=tr;}
     /* every currency is tied to gold: when the gold price rises, gold-poor currencies fall and those backed by 5,000+ bars rise with it */
-    const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr)*(n.fxm||1);n.str*=gmul;
+    const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr)*(n.fxm||1)*(n.fxr||1);n.str*=gmul;
     /* the currency's value without a buy-back pump: city taxes support the currency at this rate, so a pump fades instead of feeding itself */
     {const tb0=n.reserve*GOLD_WC+n.support+(n.tarSup||0),b0=tb0<=claims?tb0:claims+Math.sqrt((tb0-claims)*claims),s0=(b0+n.gdp*60)/claims*(1+(n.irate-0.05)*3)*gmul;n.fxB=(n.fxB||n.fx)+(Math.max(0.05,s0)-(n.fxB||n.fx))*0.1;}
     const w=n.gdp+1;sum+=n.str*w;wsum+=w;
@@ -3969,7 +3975,7 @@ function updateForex(P){
   $('fxTot').textContent=`${fmt(held)} WC held`;$('fxAmtV').textContent=`= ${fmt(Math.floor(P.money*fxPct/100))} ${P.cur} · your ${P.cur} dips ~${(0.2*fxPct).toFixed(fxPct<10?1:0)}%`;
   {let dw=0,dd=0;for(const X of G.nations){if(X.id===ME||!X.alive)continue;const w=(P.fxh[X.id]||0)*X.fx*fxDumpPct/100;if(w>dw){dw=w;dd=dumpDrop(X,w);}}
    $('fxDumpV').textContent=dw>0?`of a holding · your biggest: +${(dumpRise(P,dw/P.fx)*100).toFixed(1)}% to your ${P.cur}, −${(dd*100).toFixed(1)}% to theirs`:'of the holding you dump';}
-  $('fxHint').textContent=P.locked?'Sanctions lock you out of currency exchange.':(G.top===ME?(P.manipCd>0?`Market desk ready in ${Math.ceil(P.manipCd)}s. `:'Market desk ready: as the world reserve you can short (▼) or prop up (▲) any currency by 12% every 30 seconds. '):'')+`Values are in world credits (WC), the same numbers and colours as the Currency markets panel; your ${P.cur} is worth ${fxv(P.fx)} WC. Buy spends the share of your cash picked above on that currency and props it up; holdings count toward your valuation. Dump sells the share of a holding picked above (All by default): its full value goes into your treasury and grows your economy (GDP), your own ${P.cur} rises (more when the holding grew), and that currency melts in proportion to how much you dump next to its money supply, up to 8% per seller, so two or three big holders dumping can knock it down 10-20%. Both moves fade over about ten minutes.`;
+  $('fxHint').textContent=P.locked?'Sanctions lock you out of currency exchange.':(G.top===ME?(P.manipCd>0?`Market desk ready in ${Math.ceil(P.manipCd)}s. `:'Market desk ready: as the world reserve you can short (▼) or prop up (▲) any currency by 12% every 30 seconds. '):'')+`Values are in world credits (WC), the same numbers and colours as the Currency markets panel; your ${P.cur} is worth ${fxv(P.fx)} WC. Buy spends the share of your cash picked above on that currency and props it up; holdings count toward your valuation. Dump sells the share of a holding picked above (All by default): its full value goes into your treasury and grows your economy (GDP), your own ${P.cur} rises (more when the holding grew), and that currency melts in proportion to how much you dump next to its money supply, up to 8% per seller, so two or three big holders dumping can knock it down 10-20%. The dumped currency recovers slowly, about 0.02 a minute; your rise stays as long as it stays down and gives back at the same slow pace only as that currency gets stronger again.`;
 }
 /* who holds each currency: every nation's foreign exchange reserves, and how far a dump by the biggest holder would knock it down */
 function dumpRisk(X,wc){return dumpDrop(X,wc);}
