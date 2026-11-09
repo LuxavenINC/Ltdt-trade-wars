@@ -821,6 +821,7 @@ html,body,body *{touch-action:pan-x pan-y}
       <div class="block">
         <div class="eyebrow">Foreign exchange <b id="fxTot">0 WC held</b></div>
         <div class="fxamt"><span>Buy with</span><div class="seg mini" id="fxAmt" role="group" aria-label="Share of your cash to spend on each purchase"><button type="button" data-p="5" aria-pressed="false">5%</button><button type="button" data-p="10" aria-pressed="false">10%</button><button type="button" data-p="20" aria-pressed="true">20%</button><button type="button" data-p="50" aria-pressed="false">50%</button><button type="button" data-p="100" aria-pressed="false">All</button></div><b id="fxAmtV"></b></div>
+        <div class="fxamt"><span>Dump</span><div class="seg mini" id="fxDumpAmt" role="group" aria-label="Share of each holding to sell when you dump"><button type="button" data-d="10" aria-pressed="false">10%</button><button type="button" data-d="25" aria-pressed="false">25%</button><button type="button" data-d="50" aria-pressed="false">50%</button><button type="button" data-d="100" aria-pressed="true">All</button></div><b id="fxDumpV">of the holding</b></div>
         <div class="fxhead"><span></span><span>Currency</span><span id="fxRateH">Value WC</span><span>Held WC</span><span></span></div>
         <div class="fxlist" id="fxList"></div>
         <p class="hint" id="fxHint"></p>
@@ -1152,7 +1153,7 @@ function makeNation(id,name,color,human){
   const cur=String(name).split(' ')[0].slice(0,8)||'Credit';
   return {id,name,cur,color,css:rgb(color,1),cssDark:rgb(color,0.62),cssLight:`rgb(${lt[0]},${lt[1]},${lt[2]})`,human,alive:true,capital:-1,spawned:false,
     troops:500,workers:700,money:150,reserve:20,food:160,wood:120,stone:40,happiness:65,hTarget:65,hParts:{},
-    printed:0,imported:0,support:0,poverty:0,povLog:-99,fxh:[],fxRes:0,goldAcc:0,pw:0,shield:0,manipCd:0,urbanCap:0,oil:0,cars:0,gp:1,issued:0,issuedB:0,urbanArmy:0,trend:1,trendDir:0,debt:0,loanBan:0,overdue:0,prizes:0,prizeV:0,raidLog:-99,raidMsg:-99,urban:0,portFlow:0,portFood:0,foodAcc:0,tarAcc:0,tarRate:0,tarSup:0,raidN:0,gdpBoost:0,buys:0,warCd:0,fx:FX0,rfx:1,str:1,irate:0.05,printCd:0,gdp:0,val:0,pl:1,sancBy:0,locked:false,devalLog:-99,
+    printed:0,imported:0,support:0,poverty:0,povLog:-99,fxh:[],fxRes:0,goldAcc:0,pw:0,shield:0,manipCd:0,urbanCap:0,oil:0,cars:0,gp:1,issued:0,issuedB:0,urbanArmy:0,trend:1,trendDir:0,debt:0,loanBan:0,overdue:0,prizes:0,prizeV:0,raidLog:-99,raidMsg:-99,urban:0,fxm:1,portFlow:0,portFood:0,foodAcc:0,tarAcc:0,tarRate:0,tarSup:0,raidN:0,gdpBoost:0,buys:0,warCd:0,fx:FX0,rfx:1,str:1,irate:0.05,printCd:0,gdp:0,val:0,pl:1,sancBy:0,locked:false,devalLog:-99,
     tax:0.2,tariff:0.1,rations:1,troopRatio:0.45,attackRatio:0.4,era:0,cards:[],offers:[],
     mods:{food:1,wood:1,stone:1,tax:1,growth:1,attackCost:1,defense:1,trade:1,boatSpeed:1,wildCost:1,winter:1,happy:0,boatCap:0,marketGold:0},
     tiles:0,cnt:[0,0,0,0,0,0],coastTiles:0,b:emptyCounts(),maxPop:1000,foodCap:800,foodIn:0,foodOut:0,
@@ -1820,21 +1821,30 @@ function buyForex(A,X,frac){
   mv(A,'fb'+X.id,`bought ${fmt(units)} ${X.cur} (${fmt(units*X.fx)} WC) and now holds ${fmt(A.fxh[X.id]*X.fx)} WC of it`,'mv');
   return {spend,units};
 }
-function dumpForex(A,X){
-  const units=A.fxh[X.id];if(!(units>0))return `You hold no ${X.cur}.`;
+/* how far a currency melts when someone dumps wc world credits of it: in proportion to how much of its money supply that is,
+   at most 8% per seller; big taxed cities soften it by up to 45%. Two or three big holders dumping knock it down about 10-20% */
+function dumpDrop(X,wc){const cX=Math.max(300,X.gdp*60)+X.printed+X.imported;return Math.min(0.08,0.3*wc/cX)*(1-(X.shield||0)*0.5);}
+/* selling a foreign holding brings its value home and strengthens your own currency: the mirror of buying
+   (spend 10% of your cash and your currency dips 2%), so a holding that grew is worth more strength than it cost */
+function dumpRise(A,got){return Math.min(0.2,0.2*got/Math.max(1,got+Math.max(0,A.money)));}
+function dumpForex(A,X,frac){
+  const hold=A.fxh[X.id];if(!(hold>0))return `You hold no ${X.cur}.`;
   if(A.locked)return `Sanctions lock the ${A.cur} out of currency exchange.`;
   if(X.locked)return `The ${X.cur} is frozen by sanctions; nobody will buy it.`;
+  const fr=clamp(frac||1,0.01,1),units=fr>=0.999?hold:hold*fr;
   /* the full value of the dumped currency goes into your economy: cash into the treasury and a boost to output (GDP) that fades over a few minutes */
-  const wc=units*X.fx,got=wc/A.fx;A.fxh[X.id]=0;A.money+=got;
+  const wc=units*X.fx,got=wc/A.fx,rise=dumpRise(A,got);A.fxh[X.id]=fr>=0.999?0:hold-units;A.money+=got;
   const gb=A.gdpBoost||0,boost=Math.max(0,Math.min(wc/150,Math.max(25,(A.gdp-gb)*0.6)-gb));A.gdpBoost=gb+boost;A.gdp+=boost;
-  const cX=Math.max(300,X.gdp*60)+X.printed+X.imported,drop=clamp(0.04+wc/cX*0.8,0.04,0.6)*(1-(X.shield||0));
-  X.imported+=cX*drop/(1-drop)+wc*0.5;X.support=Math.max(0,X.support-wc*0.5);X.fx*=1-drop;X.rfx*=1-drop;
+  /* your currency rises and the dumped one melts; both moves fade slowly over about ten minutes */
+  if(rise>0.0005){A.fxm=Math.min(3,(A.fxm||1)*(1+rise));A.fx*=1+rise;A.rfx*=1+rise;}
+  const drop=dumpDrop(X,wc);
+  X.support=Math.max(0,X.support-wc*0.4);if(drop>0.0005){X.fxm=Math.max(0.3,(X.fxm||1)*(1-drop));X.fx*=1-drop;X.rfx*=1-drop;}
   relAdd(A.id,X.id,-Math.min(40,8+wc/(X.gdp*10+100)));
-  if(X.human)log(X.id,`${A.name} dumped ${fmt(units)} ${X.cur} on the world market. Your currency fell ${Math.round(drop*100)}%.`,null,'bad');
+  if(X.human)log(X.id,`${A.name} dumped ${fmt(units)} ${X.cur} on the world market. Your currency fell ${(drop*100).toFixed(drop<0.1?1:0)}%.`,null,'bad');
   /* everyone else holding that currency is warned: their reserve just lost value */
-  for(const q of G.nations)if(q.human&&q.alive&&q!==A&&q!==X&&q.fxh[X.id]>0)log(q.id,`${A.name} dumped ${fmt(units)} ${X.cur} on the world market. The ${X.cur} fell ${Math.round(drop*100)}%, so the ${fmt(q.fxh[X.id])} ${X.cur} you hold is now worth ${fmt(q.fxh[X.id]*X.fx)} WC.`,null,'warn');
-  mv(A,'fd'+X.id,`dumped ${fmt(units)} ${X.cur} (${fmt(wc)} WC) on the world market; the ${X.cur} fell ${Math.round(drop*100)}%`,'bad');
-  return {units,got,drop,boost};
+  for(const q of G.nations)if(q.human&&q.alive&&q!==A&&q!==X&&q.fxh[X.id]>0)log(q.id,`${A.name} dumped ${fmt(units)} ${X.cur} on the world market. The ${X.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}%, so the ${fmt(q.fxh[X.id])} ${X.cur} you hold is now worth ${fmt(q.fxh[X.id]*X.fx)} WC.`,null,'warn');
+  mv(A,'fd'+X.id,`dumped ${fr>=0.999?'all its':Math.round(fr*100)+'% of its'} ${X.cur}: ${fmt(units)} ${X.cur} (${fmt(wc)} WC); the ${X.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and the ${A.cur} rose ${(rise*100).toFixed(rise<0.1?1:0)}%`,'bad');
+  return {units,got,drop,boost,rise,fr};
 }
 /* world credit market: borrow in world credits, pay interest, default if you over-borrow */
 function creditLimit(n){return Math.max(0,(n.gdp*150*Math.sqrt(Math.max(0.2,n.fx))+n.reserve*GOLD_WC+n.tiles*4)*0.35);}
@@ -1924,7 +1934,7 @@ function applyCmd(s,type,a){
     case 'sg':if(A.alive&&G.phase==='play'){const x=sellGold(A);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Sold ${fmt(x.bars)} gold bars for ${fmt(x.got)} ${A.cur}. The gold price holds steady at ${fmt(x.price)} ${A.cur} a bar.`,kind:'good'};}break;
     case 'ir':{const v=clamp(a[0]|0,0,15)/100;if(v!==A.irate)mv(A,'ir',`set its interest rate to ${Math.round(v*100)}%`,'pol');A.irate=v;break;}
     case 'fb':{const X=natArg(a[0]);if(X&&X.alive&&X!==A&&A.alive&&G.phase==='play'){const x=buyForex(A,X,a[1]?clamp(a[1]|0,1,100)/100:0.2);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Bought ${fmt(x.units)} ${X.cur} for ${fmt(x.spend)} ${A.cur}.`,kind:'good'};}break;}
-    case 'fd':{const X=natArg(a[0]);if(X&&X!==A&&A.alive&&G.phase==='play'){const x=dumpForex(A,X);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Dumped ${fmt(x.units)} ${X.cur}: ${fmt(x.got)} ${A.cur} went into your treasury${x.boost>=0.5?` and your economy grew by ${fmt(Math.round(x.boost))} GDP`:''}. The ${X.cur} fell ${Math.round(x.drop*100)}%.`,kind:'good'};}break;}
+    case 'fd':{const X=natArg(a[0]);if(X&&X!==A&&A.alive&&G.phase==='play'){const x=dumpForex(A,X,a[1]?clamp(a[1]|0,1,100)/100:1);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Dumped ${x.fr>=0.999?'all':Math.round(x.fr*100)+'%'} of your ${X.cur} (${fmt(x.units)}): ${fmt(x.got)} ${A.cur} went into your treasury${x.boost>=0.5?` and your economy grew by ${fmt(Math.round(x.boost))} GDP`:''}. Your ${A.cur} rose ${(x.rise*100).toFixed(x.rise<0.1?1:0)}% and the ${X.cur} fell ${(x.drop*100).toFixed(x.drop<0.1?1:0)}%.`,kind:'good'};}break;}
     case 'ln':if(A.alive&&G.phase==='play'){const x=takeLoan(A);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Borrowed ${fmt(x.amt)} WC: +${fmt(x.got)} ${A.cur}. Interest grows the debt until you repay it.`,kind:'good'};}break;
     case 'lr':if(A.alive&&G.phase==='play'){const x=repayLoan(A);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Repaid ${fmt(x.amt)} WC of debt for ${fmt(x.paid)} ${A.cur}.`,kind:'good'};}break;
     case 'rs':if(A.alive&&G.phase==='play'){const tg=a[0]==null?-1:a[0]|0,e=launchRaider(A,tg),T=tg>=0?G.nations[tg]:null;r=e?{msg:e,kind:'warn'}:{msg:`Raider warship launched${T?` against ${T.name}'s trade ships`:''}. It hunts for ${RAID_LIFE} seconds.`,kind:'good'};}break;
@@ -2090,6 +2100,7 @@ function secondly(){
   for(const n of ns){
     if(!n.alive)continue;
     if(n.warCd>0)n.warCd=Math.max(0,n.warCd-1);
+    n.fxm=1+((n.fxm||1)-1)*0.998;
     n.printed*=0.997;n.imported*=0.985;n.pump=(n.pump||0)*0.97;n.support*=0.9975;n.tarSup=(n.tarSup||0)*0.98;n.issuedB=(n.issuedB||0)*0.997;{const gc=backingBars(n);if(n.issuedB>gc){n.printed+=(n.issuedB-gc)*goldPrice(n)*n.fx;n.issuedB=gc;}}
     const claims=Math.max(CLAIM0,n.gdp*60)+n.printed+n.imported;
     const tb=n.reserve*GOLD_WC+n.support+(n.tarSup||0)+(n.pump||0),back=tb<=claims?tb:claims+Math.sqrt((tb-claims)*claims);n.str=(back+n.gdp*60)/claims*(1+(n.irate-0.05)*3);
@@ -2101,7 +2112,7 @@ function secondly(){
      else n.trendDir=0;
      n.trend=tr;}
     /* every currency is tied to gold: when the gold price rises, gold-poor currencies fall and those backed by 5,000+ bars rise with it */
-    const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr);n.str*=gmul;
+    const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr)*(n.fxm||1);n.str*=gmul;
     /* the currency's value without a buy-back pump: city taxes support the currency at this rate, so a pump fades instead of feeding itself */
     {const tb0=n.reserve*GOLD_WC+n.support+(n.tarSup||0),b0=tb0<=claims?tb0:claims+Math.sqrt((tb0-claims)*claims),s0=(b0+n.gdp*60)/claims*(1+(n.irate-0.05)*3)*gmul;n.fxB=(n.fxB||n.fx)+(Math.max(0.05,s0)-(n.fxB||n.fx))*0.1;}
     const w=n.gdp+1;sum+=n.str*w;wsum+=w;
@@ -3526,7 +3537,9 @@ function buildStaticUI(){
   document.querySelectorAll('#fxAmt [data-p]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.p===fxPct));b.onclick=()=>{fxPct=+b.dataset.p;document.querySelectorAll('#fxAmt [data-p]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-fxpct',String(fxPct));}catch(e){}if(G)updateTreasury();};});
   document.querySelectorAll('#chFilter [data-ch]').forEach(b=>b.onclick=()=>{chFilter=b.dataset.ch;document.querySelectorAll('#chFilter [data-ch]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderChron(true);});
   $('chNation').onchange=e=>{chNation=+e.target.value;const q=G&&chNation>=0?G.nations[chNation]:null;chRe=q?new RegExp(`\\b(${[q.name,q.cur].map(v=>v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})\\b`):null;renderChron(true);};
-  $('fxList').onclick=e=>{const b=e.target.closest('[data-fx]');if(!b)return;const id=+b.closest('.fxrow').dataset.id,f=b.dataset.fx;if(f==='b')issue('fb',id,fxPct);else if(f==='d')issue('fd',id);else issue('mm',id,f==='p'?1:-1);};
+  try{const v=+localStorage.getItem('ltdt-fxdump');if([10,25,50,100].includes(v))fxDumpPct=v;}catch(e){}
+  document.querySelectorAll('#fxDumpAmt [data-d]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.d===fxDumpPct));b.onclick=()=>{fxDumpPct=+b.dataset.d;document.querySelectorAll('#fxDumpAmt [data-d]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-fxdump',String(fxDumpPct));}catch(e){}updateUI();};});
+  $('fxList').onclick=e=>{const b=e.target.closest('[data-fx]');if(!b)return;const id=+b.closest('.fxrow').dataset.id,f=b.dataset.fx;if(f==='b')issue('fb',id,fxPct);else if(f==='d')issue('fd',id,fxDumpPct);else issue('mm',id,f==='p'?1:-1);};
   $('cityList').onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const t=+b.closest('.crow').dataset.t;if(b.dataset.act==='up')issue('cu',t);else focusTile(t);};
   try{const v=+localStorage.getItem('ltdt-printpct');if([0,25,50,100].includes(v))printPct=v;}catch(e){}
   document.querySelectorAll('#prAmt [data-pp]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.pp===printPct));b.onclick=()=>{printPct=+b.dataset.pp;document.querySelectorAll('#prAmt [data-pp]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-printpct',String(printPct));}catch(e){}updateUI();};});
@@ -3797,7 +3810,7 @@ function onInspector(e){
     case 'sanction':issue('sn',n.id);break;
     case 'raid':issue('rs',n.id);break;
     case 'fxb':issue('fb',n.id,fxPct);break;
-    case 'fxd':issue('fd',n.id);break;
+    case 'fxd':issue('fd',n.id,fxDumpPct);break;
   }
   updateInspector();
 }
@@ -3925,7 +3938,7 @@ function updateCities(P){
 }
 /* phone screens: portrait up to 760px wide, or any phone turned sideways */
 const PHONE_MQ='(max-width:760px),(orientation:landscape) and (max-height:520px)';
-let fxRowEls=[],fxRowsFor=null,fxPct=20,printPct=0;
+let fxRowEls=[],fxRowsFor=null,fxPct=20,printPct=0,fxDumpPct=100;
 function buildFxRows(){
   fxRowsFor=G;fxRowEls=[];const box=$('fxList');box.innerHTML='';
   for(const X of G.nations){
@@ -3949,14 +3962,17 @@ function updateForex(P){
     const he=el.querySelector('.held');he.textContent=h>0?fmt(h*X.fx):'–';he.title=h>0?`${fmt(h)} ${X.cur} · worth ${fmt(h*rate)} ${P.cur}`:'';
     const [bb,db,sb,pb]=el.querySelectorAll('button');
     bb.disabled=!play||P.locked||X.locked||sanctioned(ME,X.id)||P.money<100;db.disabled=!play||h<=0||P.locked||X.locked;
+    if(h>0){const dw=h*X.fx*fxDumpPct/100,dg=dw/P.fx;db.title=`Dump ${fxDumpPct>=100?'all':fxDumpPct+'%'} of your ${X.cur} (${fmt(dw)} WC = ${fmt(dg)} ${P.cur}): your ${P.cur} rises ~${(dumpRise(P,dg)*100).toFixed(1)}%, the ${X.cur} melts ~${(dumpDrop(X,dw)*100).toFixed(1)}%`;}else db.title=`You hold no ${X.cur}`;
     sb.hidden=pb.hidden=G.top!==ME;sb.disabled=pb.disabled=!play||P.manipCd>0;sb.title=`Short the ${X.cur}: push it down 12%`;pb.title=`Prop up the ${X.cur}: push it up 12%`;
     re.title+=`${re.title?' · ':''}Gold: 1 bar = ${fxv(goldPrice(X))} ${X.cur}`;
   }
   $('fxTot').textContent=`${fmt(held)} WC held`;$('fxAmtV').textContent=`= ${fmt(Math.floor(P.money*fxPct/100))} ${P.cur} · your ${P.cur} dips ~${(0.2*fxPct).toFixed(fxPct<10?1:0)}%`;
-  $('fxHint').textContent=P.locked?'Sanctions lock you out of currency exchange.':(G.top===ME?(P.manipCd>0?`Market desk ready in ${Math.ceil(P.manipCd)}s. `:'Market desk ready: as the world reserve you can short (▼) or prop up (▲) any currency by 12% every 30 seconds. '):'')+`Values are in world credits (WC), the same numbers and colours as the Currency markets panel; your ${P.cur} is worth ${fxv(P.fx)} WC. Buy spends the share of your cash picked above on that currency and props it up; holdings count toward your valuation. Dump sells everything you hold at once: that currency drops straight away (more the bigger your holding is next to its economy), its full value goes into your treasury and grows your economy (GDP), and your own ${P.cur} is not affected.`;
+  {let dw=0,dd=0;for(const X of G.nations){if(X.id===ME||!X.alive)continue;const w=(P.fxh[X.id]||0)*X.fx*fxDumpPct/100;if(w>dw){dw=w;dd=dumpDrop(X,w);}}
+   $('fxDumpV').textContent=dw>0?`of a holding · your biggest: +${(dumpRise(P,dw/P.fx)*100).toFixed(1)}% to your ${P.cur}, −${(dd*100).toFixed(1)}% to theirs`:'of the holding you dump';}
+  $('fxHint').textContent=P.locked?'Sanctions lock you out of currency exchange.':(G.top===ME?(P.manipCd>0?`Market desk ready in ${Math.ceil(P.manipCd)}s. `:'Market desk ready: as the world reserve you can short (▼) or prop up (▲) any currency by 12% every 30 seconds. '):'')+`Values are in world credits (WC), the same numbers and colours as the Currency markets panel; your ${P.cur} is worth ${fxv(P.fx)} WC. Buy spends the share of your cash picked above on that currency and props it up; holdings count toward your valuation. Dump sells the share of a holding picked above (All by default): its full value goes into your treasury and grows your economy (GDP), your own ${P.cur} rises (more when the holding grew), and that currency melts in proportion to how much you dump next to its money supply, up to 8% per seller, so two or three big holders dumping can knock it down 10-20%. Both moves fade over about ten minutes.`;
 }
 /* who holds each currency: every nation's foreign exchange reserves, and how far a dump by the biggest holder would knock it down */
-function dumpRisk(X,wc){const cX=Math.max(300,X.gdp*60)+X.printed+X.imported;return clamp(0.04+wc/cX*0.8,0.04,0.6)*(1-(X.shield||0));}
+function dumpRisk(X,wc){return dumpDrop(X,wc);}
 function updateReserves(P){
   const live=G.nations.filter(n=>n.alive),rows=[];let world=0;
   for(const X of live){
