@@ -498,6 +498,36 @@ body.home #econ{display:none}
   #candleCv{height:120px}
 }
 @media (max-width:480px){.grid2{grid-template-columns:1fr}.modal{padding:20px}.srv{grid-template-columns:minmax(0,1fr) auto}.srv .btn{grid-column:1/-1}}
+/* ---------- Markets screen (any player, any screen) ---------- */
+.mk-sheet{position:fixed;inset:0;z-index:20;background:var(--scrim);display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;padding-block:max(12px,env(safe-area-inset-top,0px)) 16px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.mk-in{width:min(760px,100%);padding:14px;display:flex;flex-direction:column;gap:12px}
+.mk-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mk-head h3{margin:0;font:400 18px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.06em}
+.mk-sub{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.mk-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.mk-tile{display:flex;flex-direction:column;gap:2px;padding:10px 11px;background:var(--panel-2);border:1px solid var(--rule-hi);border-radius:2px;min-width:0}
+.mk-tile .k{font:600 10.5px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.mk-tile .v{font:500 16px/1.25 var(--f-num);color:var(--paper);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.mk-tile .s{font-size:12px;color:var(--muted);line-height:1.35}
+.mk-tile .up{color:var(--good)}.mk-tile .dn{color:var(--bad)}
+.mk-slot #econ{position:static;width:100%;max-height:none;overflow:visible;box-shadow:none}
+.mk-slot #econ.cv{width:100%}
+.mk-slot .econ-min{display:none}
+.mk-slot #econCv{height:200px}
+.mk-slot #candleCv{height:240px}
+.mk-slot .econ-leg{font-size:13px}
+@media (max-width:560px){.mk-board{grid-template-columns:1fr 1fr}.mk-tile .v{font-size:15px}.mk-slot #econCv{height:150px}.mk-slot #candleCv{height:190px}}
+/* full-screen map: the panel, chart and sliders step aside so the whole map takes touches; the top bar and map buttons stay */
+body.fullmap #ledger,body.fullmap #stage>#econ,body.fullmap #armyBar{display:none}
+body.fullmap #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+body.fullmap .zoom{margin-left:auto}
+#zFull[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+#zMk{display:none}
+/* fingers: no accidental page zoom from a pinch or double tap anywhere in the game (the map handles its own pinch) */
+html,body,body *{touch-action:pan-x pan-y}
+#map{touch-action:none}
+.tab{touch-action:pan-x pan-y}
+#candleCv,.wp-grid .zb{touch-action:none}
 /* ---------- Phones ---------- */
 /* phone (portrait): the date and peace timer wrap instead of sliding under the speed buttons (the era is on the Realm tab), the 2D/3D switch lives with the map buttons,
    and the map buttons sit in two columns so all of them fit in 3D */
@@ -513,6 +543,8 @@ body.home #econ{display:none}
   #viewSw{display:none}
   .zoom{display:grid;grid-template-columns:repeat(2,34px);gap:6px;align-content:end}
   .zoom .zb[hidden]{display:none}
+  #mkBtn{display:none}
+  #zMk{display:grid}
 }
 /* phone turned sideways: one slim top bar, the map on the left and the panel on the right (fold it away with the arrow for a full-width map) */
 @media (orientation:landscape) and (max-height:520px){
@@ -566,6 +598,8 @@ body.home #econ{display:none}
   .wp-grid .zb{width:40px;height:40px}
   .wp-hint{display:none}
   #econ:not(.min){z-index:4}
+  #mkBtn{display:flex}
+  #zMk{display:none}
   /* home screen: a smaller emblem and title so Play online and Solo are on screen without scrolling */
   .home-inner{gap:16px;padding-block:10px 24px}
   .hero{gap:10px;padding-top:0}
@@ -605,6 +639,7 @@ body.home #econ{display:none}
     </div>
     <div class="speed viewsw" id="viewSw" role="group" aria-label="Map view (press V)" hidden><button type="button" data-v="2d" aria-pressed="false" title="Flat map (V)">2D</button><button type="button" data-v="3d" aria-pressed="true" title="3D world (V)">3D</button></div>
     <div class="mp-chip" id="mpChip" hidden><i></i><span id="mpText">Online</span></div>
+    <button type="button" class="menu-btn" id="mkBtn" aria-haspopup="dialog" aria-label="Markets: currencies, gold and food prices"><svg viewBox="0 0 14 14"><path d="M1.5 12.5h11M3.5 10V7.5M7 10V4.5M10.5 10V2"/></svg><span>Markets</span></button>
     <button type="button" class="menu-btn" id="menuBtn" aria-haspopup="dialog"><svg viewBox="0 0 14 14"><path d="M2 3.5h10M2 7h10M2 10.5h10"/></svg><span>Menu</span></button>
   </header>
 
@@ -648,6 +683,8 @@ body.home #econ{display:none}
           <button type="button" id="zOut" class="zb" aria-label="Zoom out">−</button>
           <button type="button" id="zHome" class="zb" aria-label="Go to your capital"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="1.6" fill="currentColor"/><path d="M10 1v4M10 15v4M1 10h4M15 10h4"/></svg></button>
           <button type="button" id="zFit" class="zb" aria-label="Show the whole map"><svg viewBox="0 0 20 20"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5"/></svg></button>
+          <button type="button" id="zFull" class="zb" aria-pressed="false" aria-label="Full-screen map" title="Full screen: hides the panel, chart and sliders so the whole map takes your touches"></button>
+          <button type="button" id="zMk" class="zb" aria-label="Markets: currencies, gold and food prices" title="Markets"><svg viewBox="0 0 20 20"><path d="M3 17h14M5.5 14v-4M10 14V6M14.5 14V3"/></svg></button>
           <button type="button" id="zRotL" class="zb" aria-label="Rotate view left" hidden><svg viewBox="0 0 20 20"><path d="M5 9a6 6 0 1 1 2 5"/><path d="M2 6l3 3 3-3"/></svg></button>
           <button type="button" id="zRotR" class="zb" aria-label="Rotate view right" hidden><svg viewBox="0 0 20 20"><path d="M15 9a6 6 0 1 0-2 5"/><path d="M18 6l-3 3-3-3"/></svg></button>
           <button type="button" id="zWalk" class="zb" aria-label="Street view: travel inside your city" title="Street view" hidden><svg viewBox="0 0 20 20"><circle cx="11" cy="3.5" r="1.8" fill="currentColor"/><path d="M10 6.5l-2 5 3 2.5-1 5M10 6.5l3 3 3 1M8.5 10l-3 2M11 14l3 4.5"/></svg></button>
@@ -904,6 +941,15 @@ body.home #econ{display:none}
       </section>
     </div>
     <footer class="home-foot"><span>Thirty minutes of peace to build your economy</span><span>Expand · Govern · Advance through four eras</span><span>Up to 15 nations per world</span><span>The world behind this screen is a live AI battle</span></footer>
+  </div>
+</section>
+
+<section id="mkSheet" class="mk-sheet" role="dialog" aria-labelledby="mkTitle" hidden>
+  <div class="mk-in hudbox">
+    <div class="mk-head"><h3 id="mkTitle">Markets</h3><span class="mk-sub" id="mkSub"></span><button type="button" class="btn ghost sm" id="mkClose">Close</button></div>
+    <div class="mk-board" id="mkBoard"></div>
+    <div class="mk-slot" id="mkSlot"></div>
+    <p class="hint">Tap the chart buttons for every currency, your own currency's candles, gold candles or food prices. Changes are over the last minute. The full price table for every nation is on the Treasury tab.</p>
   </div>
 </section>
 
@@ -3207,7 +3253,7 @@ function render3D(rdt,realDt){
 let HIST={t:[],v:[],f:[],p:[]},histT=-99,econMode='fx',econAcc=0,econTop=10,econHover=-1;
 function fxv(v){return !(v>0)?'–':v>=1000?fmt(v):v.toFixed(2);}
 function econShown(){const alive=G.nations.filter(n=>n.alive).sort((a,b)=>econMode==='val'?b.val-a.val:b.fx-a.fx),show=alive.slice(0,econTop),P=me();if(P&&P.alive&&!show.includes(P))show.push(P);return {alive,show};}
-function resetHist(){HIST={t:[],v:G?G.nations.map(()=>[]):[],f:G?G.nations.map(()=>[]):[],p:G?G.nations.map(()=>[]):[]};histT=-99;CND={base:[],cur:null,eps:0,lastT:-1};CNDG={base:[],cur:null,eps:0,lastT:-1};candleHover=-1;}
+function resetHist(){HIST={t:[],v:G?G.nations.map(()=>[]):[],f:G?G.nations.map(()=>[]):[],p:G?G.nations.map(()=>[]):[],gm:[]};histT=-99;CND={base:[],cur:null,eps:0,lastT:-1};CNDG={base:[],cur:null,eps:0,lastT:-1};candleHover=-1;}
 /* ---------- Candlestick chart of your own currency ----------
    one base candle per game second from your real exchange rate: open = last close, close = the rate now.
    Highs and lows also catch small market-noise prints around the real rate, so the wicks look like a live market. */
@@ -3291,7 +3337,8 @@ function sampleHist(){
   if(G.time-histT<2)return;histT=G.time;
   HIST.t.push(G.time);
   G.nations.forEach((n,k)=>{HIST.v[k].push(n.alive?n.val:NaN);HIST.f[k].push(n.alive?n.fx:NaN);if(HIST.p[k])HIST.p[k].push(n.alive?foodPrice(n):NaN);});
-  if(HIST.t.length>150){HIST.t.shift();for(const a of HIST.v)a.shift();for(const a of HIST.f)a.shift();for(const a of HIST.p)a.shift();}
+  if(HIST.gm){const P=me();HIST.gm.push(P&&P.alive?goldPrice(P):NaN);}
+  if(HIST.t.length>150){HIST.t.shift();for(const a of HIST.v)a.shift();for(const a of HIST.f)a.shift();for(const a of HIST.p)a.shift();if(HIST.gm&&HIST.gm.length>150)HIST.gm.shift();}
 }
 function drawEcon(){
   const box=$('econ');if(!G||G.demo||box.classList.contains('min'))return;
@@ -3495,6 +3542,13 @@ function buildStaticUI(){
   $('nlist').onclick=e=>{const r=e.target.closest('.nrow');if(!r)return;selNation=+r.dataset.id;renderInspector();updateNations();};
   $('insp').onclick=onInspector;
   $('menuBtn').onclick=()=>openMenu();
+  $('mkBtn').onclick=$('zMk').onclick=()=>{if($('mkSheet').hidden)openMarkets();else closeMarkets();};
+  $('mkClose').onclick=closeMarkets;
+  $('mkSheet').addEventListener('click',e=>{if(e.target.id==='mkSheet')closeMarkets();});
+  $('zFull').innerHTML=FULL_ON;$('zFull').onclick=()=>setFullMap(!document.body.classList.contains('fullmap'));
+  for(const ev of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(ev,()=>{if(!fsEl()&&document.body.classList.contains('fullmap'))setFullMap(false);requestAnimationFrame(resize);});
+  /* iPhone and iPad Safari: stop the page itself zooming when two fingers pinch outside the map */
+  for(const ev of ['gesturestart','gesturechange'])document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
   bindMap();
   bindHome();
   document.addEventListener('keyup',e=>{const k=WALK_KEYS[e.key];if(k)walkK[k]=false;});
@@ -3504,6 +3558,7 @@ function buildStaticUI(){
     if(document.body.classList.contains('home'))return;
     if(V3.walk&&!modalOpen){const k=WALK_KEYS[e.key];if(k){walkK[k]=true;e.preventDefault();return;}if(e.key==='Escape'){stopWalk();return;}}
     if(e.key==='Escape'){
+      if(!$('mkSheet').hidden){closeMarkets();return;}
       if(!$('pin').hidden){$('pin').hidden=true;return;}
       if(menuIsOpen())closeModal();
       else if(modalOpen)return;
@@ -3519,7 +3574,7 @@ function buildStaticUI(){
 function paintBuildIcons(){document.querySelectorAll('.bld canvas').forEach(c=>{const x=c.getContext('2d'),b=c.closest('.bld');x.setTransform(2,0,0,2,0,0);x.clearRect(0,0,34,34);drawIcon(x,b.dataset.type||b.dataset.weapon||b.dataset.icon,17,17,30,b.dataset.weapon||b.dataset.icon?TK.bad:TK.gold);});}
 function setPauseIcon(){const b=$('spPause');b.innerHTML=paused?'<svg viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z"/></svg>':'<svg viewBox="0 0 12 12"><rect x="2" y="1.5" width="3" height="9" rx=".6"/><rect x="7" y="1.5" width="3" height="9" rx=".6"/></svg>';b.setAttribute('aria-pressed',String(paused));b.setAttribute('aria-label',paused?'Resume':'Pause');}
 function syncSpeed(){document.querySelectorAll('.speed [data-s]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.s===speed)));}
-function openTab(t){activeTab=t;document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));document.querySelectorAll('.pane').forEach(p=>{p.hidden=p.id!=='pane-'+t;});updateUI();}
+function openTab(t){if(document.body.classList.contains('fullmap'))setFullMap(false);activeTab=t;document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));document.querySelectorAll('.pane').forEach(p=>{p.hidden=p.id!=='pane-'+t;});updateUI();}
 function setMode(m){
   mode=m;
   document.querySelectorAll('#blist .bld').forEach(b=>b.setAttribute('aria-pressed',String(m.k==='build'&&m.type===b.dataset.type)));
@@ -3529,6 +3584,49 @@ function setMode(m){
   else{chip.hidden=false;$('modeText').textContent=m.k==='build'?`Placing ${BLD[m.type].name}. Tap your land.`:`Targeting with ${WEAPONS[m.kind].name}. Tap anywhere.`;}
 }
 function zoomBy(f){cam.z=clampZ(cam.z*f);clampCam();}
+/* ---------- Markets screen: the market chart moves in here while it is open, and back onto the map afterwards ---------- */
+let mkPrevMin=false;
+function openMarkets(){
+  if(!G||G.demo)return;const s=$('mkSheet'),e=$('econ');
+  if(s.hidden){mkPrevMin=e.classList.contains('min');e.classList.remove('min');$('econMin').textContent='–';$('mkSlot').appendChild(e);s.hidden=false;$('mkBtn').setAttribute('aria-expanded','true');}
+  updateMarkets();drawEcon();updateEconLegend();
+}
+function closeMarkets(){
+  const s=$('mkSheet'),e=$('econ');if(s.hidden)return;
+  s.hidden=true;$('stage').insertBefore(e,$('dock'));$('mkBtn').setAttribute('aria-expanded','false');
+  if(mkPrevMin){e.classList.add('min');$('econMin').textContent='+';}
+  drawEcon();updateEconLegend();
+}
+/* change over the last minute of samples (one every 2 seconds) */
+function mkChg(a){if(!a||a.length<2)return null;const L=a.length,now=a[L-1];let then=NaN;for(let i=Math.max(0,L-31);i<L-1;i++)if(a[i]>0){then=a[i];break;}return then>0&&now>0?now/then-1:null;}
+function updateMarkets(){
+  if($('mkSheet').hidden||!G||G.demo)return;
+  const P=me();if(!P){$('mkBoard').innerHTML='';return;}
+  const live=G.nations.filter(n=>n.alive).sort((a,b)=>b.fx-a.fx),rk=live.indexOf(P)+1,top=G.top>=0?G.nations[G.top]:null;
+  const pc=v=>v==null?'<span>collecting…</span>':`<span class="${v>=0?'up':'dn'}">${v>=0?'▲':'▼'} ${Math.abs(v*100).toFixed(Math.abs(v)<0.1?1:0)}% in 1 min</span>`;
+  const tile=(k,v,sub)=>`<div class="mk-tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${sub}</span></div>`;
+  $('mkSub').textContent=`${P.name} · ${P.cur} · ${G.phase==='play'?'live prices':'prices start when the war begins'}`;
+  $('mkBoard').innerHTML=[
+    tile('Your currency',`1 ${esc(P.cur)} = ${fxv(P.fx)} WC`,`${pc(mkChg(HIST.f[ME]))}<br>${P.alive&&rk?`Rank ${rk} of ${live.length} currencies`:'Your nation has fallen'}`),
+    tile('Gold price',`${fmt(goldPrice(P))} ${esc(P.cur)}`,`a 1 oz bar · ${pc(mkChg(HIST.gm))}<br>You hold ${fmt(P.reserve)} bars`),
+    tile('Food price',`${fxv(foodPrice(P))} ${esc(P.cur)}`,`per unit · ${pc(mkChg(HIST.p[ME]))}<br>${fmt(P.food)} stored · ${P.rate.food>=0?'+':''}${P.rate.food.toFixed(1)}/s`),
+    tile('World reserve',top?esc(top.cur):'None yet',top?`${esc(top.name)}${top.id===ME?' (you)':''}<br>1 ${esc(top.cur)} = ${fxv(top.fx)} WC`:'Needs a currency backed by gold or oil')
+  ].join('');
+}
+/* ---------- Full-screen map ---------- */
+const FULL_ON='<svg viewBox="0 0 20 20"><path d="M12 3h5v5M17 3l-5 5M8 17H3v-5M3 17l5-5"/></svg>',FULL_OFF='<svg viewBox="0 0 20 20"><path d="M16 8h-4V4M12 8l5-5M4 12h4v4M8 12l-5 5"/></svg>';
+function fsEl(){return document.fullscreenElement||document.webkitFullscreenElement||null;}
+function setFullMap(on){
+  on=!!on;document.body.classList.toggle('fullmap',on);
+  const b=$('zFull');b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Exit full screen':'Full-screen map');b.innerHTML=on?FULL_OFF:FULL_ON;
+  /* also ask the browser to hide its own bars where it allows that (Android, desktop, iPad); iPhones keep their bars */
+  const d=document,el=d.documentElement;
+  try{
+    if(on&&!fsEl()){const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){const r=f.call(el);if(r&&r.catch)r.catch(()=>{});}}
+    else if(!on&&fsEl()){const x=d.exitFullscreen||d.webkitExitFullscreen;if(x){const r=x.call(d);if(r&&r.catch)r.catch(()=>{});}}
+  }catch(e){}
+  requestAnimationFrame(resize);
+}
 
 /* ---------- Map input ---------- */
 function bindMap(){
@@ -3544,9 +3642,9 @@ function bindMap(){
     if(!G||G.demo)return;
     const p=pos(e);
     if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,p);
-    if(V3.walk){if(drag&&ptrs.size>=1){const lx=drag.lx==null?drag.sx:drag.lx,ly=drag.ly==null?drag.sy:drag.ly;V3.walk.yaw+=(p.x-lx)*0.006;V3.walk.pitch=clamp(V3.walk.pitch-(p.y-ly)*0.005,-1.1,1.1);drag.lx=p.x;drag.ly=p.y;if(Math.hypot(p.x-drag.sx,p.y-drag.sy)>6)drag.moved=true;}return;}
+    if(V3.walk){if(drag&&ptrs.size>=1){const lx=drag.lx==null?drag.sx:drag.lx,ly=drag.ly==null?drag.sy:drag.ly;V3.walk.yaw+=(p.x-lx)*0.006;V3.walk.pitch=clamp(V3.walk.pitch-(p.y-ly)*0.005,-1.1,1.1);drag.lx=p.x;drag.ly=p.y;if(Math.hypot(p.x-drag.sx,p.y-drag.sy)>(e.pointerType==='mouse'?6:12))drag.moved=true;}return;}
     if(pinch&&ptrs.size>=2){const [a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2,nz=clampZ(pinch.z*d/pinch.d);if(V3.on){const ddx=mx-pinch.mx,ddy=my-pinch.my,c=Math.cos(V3.yaw),sn=Math.sin(V3.yaw);cam.z=nz;cam.x=pinch.cx-(ddx*c+ddy*sn)/nz;cam.y=pinch.cy-(-ddx*sn+ddy*c)/nz;clampCam();return;}const wx=(pinch.mx-cw/2)/pinch.z+pinch.cx,wy=(pinch.my-ch/2)/pinch.z+pinch.cy;cam.z=nz;cam.x=wx-(mx-cw/2)/nz;cam.y=wy-(my-ch/2)/nz;clampCam();return;}
-    if(drag&&ptrs.size===1){const dx=p.x-drag.sx,dy=p.y-drag.sy;if(!drag.moved&&Math.hypot(dx,dy)>6){drag.moved=true;follow=null;clearTimeout(lp);cvs.classList.add('panning');}if(drag.moved){const yw=V3.on?V3.yaw:0,c=Math.cos(yw),sn=Math.sin(yw);cam.x=drag.cx-(dx*c+dy*sn)/cam.z;cam.y=drag.cy-(-dx*sn+dy*c)/cam.z;clampCam();}return;}
+    if(drag&&ptrs.size===1){const dx=p.x-drag.sx,dy=p.y-drag.sy;if(!drag.moved&&Math.hypot(dx,dy)>(e.pointerType==='mouse'?6:12)){drag.moved=true;follow=null;clearTimeout(lp);cvs.classList.add('panning');}if(drag.moved){const yw=V3.on?V3.yaw:0,c=Math.cos(yw),sn=Math.sin(yw);cam.x=drag.cx-(dx*c+dy*sn)/cam.z;cam.y=drag.cy-(-dx*sn+dy*c)/cam.z;clampCam();}return;}
     if(e.pointerType==='mouse'){hover=tileAt(p.x,p.y);hoverXY=p;placeTip();}
   });
   const end=e=>{
@@ -4011,6 +4109,7 @@ function openFallen(){
 
 /* ---------- Entering and leaving games ---------- */
 function enterGame(){
+  closeMarkets();setFullMap(false);
   document.body.classList.remove('home');
   requestAnimationFrame(()=>{resize();const P=me();if(P&&P.capital>=0)focusTile(P.capital,Math.max(fitZ()*2,8.5));});
   resize();fx=[];walkers=[];selNation=-1;fallenShown=false;cardWait=-1;follow=null;resetHist();V3.yaw=V3.yawT=0;
@@ -4030,6 +4129,7 @@ function startDemo(){
   ME=-1;walkers=[];fx=[];cam.z=Math.max(fitZ()*1.7,4);cam.x=W/2;cam.y=H/2;demoT=Math.random()*100;paintMap();G.dirty=false;
 }
 function goHome(where){
+  closeMarkets();if(document.body.classList.contains('fullmap'))setFullMap(false);
   document.body.classList.add('home');closeModal();setMode({k:'attack'});
   requestAnimationFrame(resize);
   startDemo();refreshHome();
@@ -4351,7 +4451,7 @@ function frame(now){
     updateWalkers(gdt);
     if(V3.on)render3D(gdt>0?rdt:0,rdt);else draw(gdt>0?rdt:0);
     sampleHist();sampleCandles();
-    econAcc+=rdt;if(econAcc>=0.5){econAcc=0;drawEcon();updateEconLegend();}
+    econAcc+=rdt;if(econAcc>=0.5){econAcc=0;drawEcon();updateEconLegend();updateMarkets();}
     uiAcc+=rdt;if(uiAcc>=0.25){uiAcc=0;updateUI();}
     const P=me();
     if(P&&!G.demo&&!modalOpen){
