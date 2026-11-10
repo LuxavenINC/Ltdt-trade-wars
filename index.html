@@ -705,6 +705,39 @@ body.home .compass{display:none}
   .mk-slot #candleCv{height:max(140px,calc(100vh - 180px))}
   .qbuild{left:auto;right:60px;width:min(420px,calc(100vw - 80px));max-height:calc(100vh - 56px)}
 }
+/* phones: Markets is a compact panel over the map area only, so the Treasury (buying currencies, buying back your own)
+   stays in view and usable underneath, or beside it when the phone is sideways */
+#mkTrade{display:none}
+.mk-sheet.mk-docked{position:absolute;inset:0;z-index:20;display:block;padding:0;background:var(--panel);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.mk-docked .mk-in{display:flex;flex-direction:column;width:100%;min-height:100%;gap:6px;padding:0 10px 10px;border:0;border-radius:0;box-shadow:none}
+.mk-docked .mk-in::before{display:none}
+.mk-docked .mk-head{position:sticky;top:0;z-index:2;flex-wrap:nowrap;gap:6px;margin:0 -10px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.mk-docked .mk-head h3{font-size:14px}
+.mk-docked .mk-sub{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-docked #mkTrade{display:inline-flex;align-items:center}
+.mk-docked #mkTrade,.mk-docked #mkClose{min-height:32px;padding:0 10px;font-size:12px;flex:none}
+.mk-docked .mk-board{display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;gap:6px;margin:0 -10px;padding:0 10px;scroll-padding-inline:10px;scrollbar-width:none}
+.mk-docked .mk-board::-webkit-scrollbar{display:none}
+.mk-docked .mk-tile{flex:0 0 auto;padding:5px 9px;gap:0;scroll-snap-align:start}
+.mk-docked .mk-tile .k{font-size:9.5px;letter-spacing:.1em}
+.mk-docked .mk-tile .v{font-size:13px;white-space:nowrap;overflow-wrap:normal}
+.mk-docked .mk-tile .s{font-size:0;line-height:1.25;white-space:nowrap}
+.mk-docked .mk-tile .s>span{font-size:11px}
+.mk-docked .mk-slot{min-width:0}
+.mk-docked .mk-slot #econ{padding:6px 8px;gap:4px}
+.mk-docked .econ-head .econ-t{font-size:10.5px}
+.mk-docked .mk-slot .econ-head .seg.mini button{padding:4px 8px;font-size:11px}
+.mk-docked .econ-views{display:flex;overflow-x:auto;scrollbar-width:none}
+.mk-docked .econ-views::-webkit-scrollbar{display:none}
+.mk-docked .mk-slot .econ-views button{flex:1 0 auto;min-height:30px;padding:4px 10px;font-size:11.5px;white-space:nowrap;border-top:0}
+.mk-docked .mk-slot .econ-views button+button{border-left:1px solid var(--rule-hi)}
+.mk-docked .mk-slot #econCv{height:max(90px,calc(var(--mkH,300px) - 196px))}
+.mk-docked .mk-slot #candleCv{height:max(100px,calc(var(--mkH,300px) - 226px))}
+.mk-docked .mk-slot .econ-leg{font-size:12px;gap:2px 6px}
+.mk-docked .mk-slot #cdTf button{padding:4px 9px;font-size:11px}
+.mk-docked .mk-slot .ohlc{font-size:11px}
+.mk-docked .cd-px{font-size:12px}
+.mk-docked .mk-in>.hint{display:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -1054,7 +1087,7 @@ body.home .compass{display:none}
 
 <section id="mkSheet" class="mk-sheet" role="dialog" aria-labelledby="mkTitle" hidden>
   <div class="mk-in hudbox">
-    <div class="mk-head"><h3 id="mkTitle">Markets</h3><span class="mk-sub" id="mkSub"></span><button type="button" class="btn ghost sm" id="mkClose">Close</button></div>
+    <div class="mk-head"><h3 id="mkTitle">Markets</h3><span class="mk-sub" id="mkSub"></span><button type="button" class="btn sm" id="mkTrade" title="Open the Treasury tab to buy currencies and buy back your own">Trade</button><button type="button" class="btn ghost sm" id="mkClose">Close</button></div>
     <div class="mk-board" id="mkBoard"></div>
     <div class="mk-slot" id="mkSlot"></div>
     <p class="hint">Tap the chart buttons for every currency, your own currency's candles, gold candles or food prices. Changes are over the last minute. The full price table for every nation is on the Treasury tab.</p>
@@ -2392,7 +2425,7 @@ const propCd={};
 const me=()=>G&&ME>=0?G.nations[ME]||null:null;
 
 function readTokens(){const cs=getComputedStyle(document.documentElement),g=k=>cs.getPropertyValue(k).trim();TK={holo:g('--holo'),void:g('--void'),sea:g('--sea'),panel:g('--panel'),panel2:g('--panel-2'),paper:g('--paper'),chrome:g('--chrome'),muted:g('--muted'),gold:g('--gold'),goldHi:g('--gold-hi'),good:g('--good'),bad:g('--bad'),ink:g('--ink')};}
-function resize(){const r=stage.getBoundingClientRect();cw=Math.max(1,r.width);ch=Math.max(1,r.height);dpr=Math.min(2,window.devicePixelRatio||1);cvs.width=Math.round(cw*dpr);cvs.height=Math.round(ch*dpr);if(V3.renderer){V3.renderer.setPixelRatio(dpr);V3.renderer.setSize(cw,ch,false);}}
+function resize(){if(!$('mkSheet').hidden)placeMarkets();const r=stage.getBoundingClientRect();cw=Math.max(1,r.width);ch=Math.max(1,r.height);dpr=Math.min(2,window.devicePixelRatio||1);cvs.width=Math.round(cw*dpr);cvs.height=Math.round(ch*dpr);if(V3.renderer){V3.renderer.setPixelRatio(dpr);V3.renderer.setSize(cw,ch,false);}}
 function fitZ(){return Math.min(cw/W,ch/H)*0.98;}
 function clampZ(z){return clamp(z,fitZ()*0.7,V3.on&&!V3.walk?64:36);}
 function clampCam(){cam.x=clamp(cam.x,0,W);cam.y=clamp(cam.y,0,H);}
@@ -3818,6 +3851,8 @@ function buildStaticUI(){
   $('mkBtn').onclick=$('zMk').onclick=()=>{if($('mkSheet').hidden)openMarkets();else closeMarkets();};
   $('mkClose').onclick=closeMarkets;
   $('mkSheet').addEventListener('click',e=>{if(e.target.id==='mkSheet')closeMarkets();});
+  /* Trade: open the Treasury tab (central bank and foreign exchange) under the chart */
+  $('mkTrade').onclick=()=>{if(document.body.classList.contains('fullmap'))setFullMap(false);$('ledger').classList.remove('collapsed');openTab('treasury');const pn=$('pane-treasury');if(pn)pn.scrollTop=0;requestAnimationFrame(()=>{resize();placeMarkets();});};
   $('zFull').innerHTML=FULL_ON;$('zFull').onclick=()=>setFullMap(!document.body.classList.contains('fullmap'));
   for(const ev of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(ev,()=>{if(!fsEl()&&document.body.classList.contains('fullmap'))setFullMap(false);requestAnimationFrame(resize);});
   /* iPhone and iPad Safari: stop the page itself zooming when two fingers pinch outside the map */
@@ -3871,11 +3906,22 @@ let mkPrevMin=false;
 function openMarkets(){
   if(!G||G.demo)return;const s=$('mkSheet'),e=$('econ');
   if(s.hidden){mkPrevMin=e.classList.contains('min');e.classList.remove('min');$('econMin').textContent='–';$('mkSlot').appendChild(e);s.hidden=false;$('mkBtn').setAttribute('aria-expanded','true');}
-  updateMarkets();drawEcon();updateEconLegend();
+  placeMarkets();updateMarkets();drawEcon();updateEconLegend();
+}
+/* phones: Markets sits over the map area only (not the whole screen), so the Treasury tab stays usable while watching the chart */
+function placeMarkets(){
+  const s=$('mkSheet');if(s.hidden)return;
+  const dock=window.matchMedia(PHONE_MQ).matches;s.classList.toggle('mk-docked',dock);
+  if(dock){if(s.parentNode!==stage)stage.appendChild(s);}
+  else if(s.parentNode!==document.body)document.body.insertBefore(s,$('overlay'));
+  const h=dock?Math.round(s.clientHeight):0,old=s.style.getPropertyValue('--mkH');
+  if(dock&&old!==h+'px'){s.style.setProperty('--mkH',h+'px');drawEcon();}
+  /* messages appear just under the Markets title bar, so they never hide Trade or Close */
+  $('toasts').style.top=dock?Math.round(s.getBoundingClientRect().top+s.querySelector('.mk-head').offsetHeight+6)+'px':'';
 }
 function closeMarkets(){
   const s=$('mkSheet'),e=$('econ');if(s.hidden)return;
-  s.hidden=true;$('stage').insertBefore(e,$('dock'));$('mkBtn').setAttribute('aria-expanded','false');
+  s.hidden=true;$('toasts').style.top='';$('stage').insertBefore(e,$('dock'));$('mkBtn').setAttribute('aria-expanded','false');
   if(mkPrevMin){e.classList.add('min');$('econMin').textContent='+';}
   drawEcon();updateEconLegend();
 }
