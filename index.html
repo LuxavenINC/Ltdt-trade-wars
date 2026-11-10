@@ -766,6 +766,64 @@ body.home .compass{display:none}
 .mk-docked .cd-px{font-size:12px}
 .mk-docked .mk-in>.hint{display:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* World Assembly: the courtroom where every president votes every 4 years */
+#asmOv{position:fixed;inset:0;z-index:24;display:flex;align-items:center;justify-content:center;background:rgba(3,5,8,.62);padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+#asmOv[hidden]{display:none}
+.asm{width:min(1180px,100%);max-width:100%;height:min(760px,100%);display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
+.asm-head{display:flex;align-items:center;gap:14px;padding:12px 14px;border-bottom:1px solid var(--rule)}
+.asm-head .grow{flex:1;min-width:0}
+.asm-head h2{font:400 18px/1.2 var(--f-display);margin:2px 0 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asm-clock{font:500 13px var(--f-num);color:var(--gold-hi);white-space:nowrap}
+.asm-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
+.asm-stage{position:relative;min-height:0;background:#160d08}
+.asm-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.asm-side{display:flex;flex-direction:column;gap:8px;padding:12px;border-left:1px solid var(--rule);min-height:0;overflow:auto;overscroll-behavior:contain}
+.asm-note{margin:0;font-size:13px;line-height:1.45;color:var(--chrome)}
+.asm-sec{font:600 11px var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.asm-list{display:flex;flex-direction:column;gap:6px}
+.asm-row{display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:44px;padding:7px 10px;background:var(--panel-2);border:1px solid var(--rule-hi);border-radius:3px;text-align:left;cursor:pointer}
+.asm-row .sw{width:12px;height:12px;border-radius:2px}
+.asm-row .nm{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.asm-row .nm b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asm-row .nm small{color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asm-row .vc{font:500 18px/1 var(--f-num);text-align:right}
+.asm-row .vc small{display:block;margin-top:2px;font:600 9.5px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.asm-row:hover:not(:disabled){border-color:var(--gold)}
+.asm-row:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.asm-row:disabled{cursor:default}
+.asm-row.mine{opacity:.6}
+.asm-row.lead .vc{color:var(--warn)}
+.asm-row.sel{border-color:var(--gold);background:var(--gold-soft)}
+.asm-row.sanc{border-color:var(--bad);background:rgba(255,107,94,.1)}
+.asm-row.sanc .nm small{color:var(--bad)}
+#asmChip{display:flex;align-items:center;gap:10px;padding:7px 8px 7px 12px;font-weight:600;cursor:pointer;border-color:var(--gold);text-align:left}
+#asmChip[hidden]{display:none}
+#asmChip svg{flex:none;width:18px;height:18px;fill:none;stroke:var(--gold);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#asmChip b{font:600 12px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-ink);background:linear-gradient(180deg,var(--gold-hi),var(--gold));padding:4px 9px;border-radius:2px}
+@media (max-width:760px){
+  #asmOv{padding:0}
+  .asm{width:100%;height:100%;border-radius:0}
+  .asm-head{padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;gap:10px}
+  .asm-head h2{font-size:14px}
+  .asm-clock{font-size:11.5px}
+  .asm-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .asm-head .kicker{display:none}
+  .asm-stage{aspect-ratio:16/10}
+  .asm-side{border-left:0;border-top:1px solid var(--rule);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+}
+@media (orientation:landscape) and (max-height:520px){
+  #asmOv{padding:0}
+  .asm{width:100%;height:100%;border-radius:0}
+  .asm-head{padding:6px max(12px,env(safe-area-inset-right,0px)) 6px max(12px,env(safe-area-inset-left,0px));gap:10px}
+  .asm-head .kicker{display:none}
+  .asm-head h2{font-size:14px}
+  .asm-body{grid-template-columns:minmax(0,1fr) 250px;grid-template-rows:none}
+  .asm-stage{aspect-ratio:auto}
+  .asm-side{border-top:0;border-left:1px solid var(--rule);padding:8px max(10px,env(safe-area-inset-right,0px)) 8px 10px}
+  .asm-row{min-height:40px;padding:5px 8px}
+  .asm-note{font-size:12px}
+}
 </style>
 
 <div id="app">
@@ -844,6 +902,7 @@ body.home .compass{display:none}
       <div class="qb-list" id="qbAir"></div>
     </div>
     <div id="dock">
+      <button type="button" id="asmChip" class="hudbox" hidden><svg><use href="#ic-scales"/></svg><span id="asmChipT">World Assembly in session</span><b>Vote</b></button>
       <div id="modeChip" class="hudbox" hidden><span id="modeText"></span><button type="button" class="btn ghost sm" id="modeCancel">Cancel</button></div>
       <div id="spawnBanner" class="hudbox" hidden>
         <div><b>Choose your capital.</b> <span id="spawnText">Tap open land away from rivals.</span></div>
@@ -896,6 +955,7 @@ body.home .compass{display:none}
         <symbol id="ic-worker" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
         <symbol id="ic-city" viewBox="0 0 24 24"><path d="M3 21h18M5 21V10h5v11M10 21V4h6v17M16 21v-8h4v8M12.5 7.5h1M12.5 10.5h1M12.5 13.5h1"/></symbol>
         <symbol id="ic-car" viewBox="0 0 24 24"><path d="M3 15.5v-2.8l2.2-4.2c.4-.8 1.2-1.3 2.1-1.3h9.4c.9 0 1.7.5 2.1 1.3l2.2 4.2v2.8zM6 12h12"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/></symbol>
+        <symbol id="ic-scales" viewBox="0 0 24 24"><path d="M12 3v17M8 20.5h8M5 6.5h14M5 6.5L2.5 13h5zM19 6.5L16.5 13h5zM2.5 13a2.5 2 0 005 0M16.5 13a2.5 2 0 005 0"/></symbol>
         <symbol id="ic-leader" viewBox="0 0 24 24"><path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.8z"/></symbol>
         <symbol id="ic-box" viewBox="0 0 24 24"><path d="M12 2.8l8.5 4.4v9.6L12 21.2l-8.5-4.4V7.2zM3.5 7.2L12 11.6l8.5-4.4M12 11.6v9.6"/></symbol>
         <symbol id="ic-law" viewBox="0 0 24 24"><path d="M6 3.5h10.5a2 2 0 012 2V18a2.5 2.5 0 01-2.5 2.5H7.5M6 3.5a2 2 0 00-2 2V7h4V5.5a2 2 0 00-2-2zM8 7v11a2.5 2.5 0 002.5 2.5M11 8.5h5M11 11.5h5M11 14.5h3"/></symbol>
@@ -951,6 +1011,11 @@ body.home .compass{display:none}
         <div class="meter vote"><div id="apprFill"></div></div>
         <ul class="parts" id="voteParts"></ul>
         <p class="hint" id="electHint"></p>
+      </div>
+      <div class="block rcard">
+        <div class="rhead"><span class="ric"><svg><use href="#ic-scales"/></svg></span><div><h4>World Assembly</h4><p class="explain">Every 4 years the president of every country meets in the world courtroom and votes on one country to sanction. Every country receives 5,000 gold bars; the sanctioned country receives only 1,000.</p></div></div>
+        <dl class="kv"><dt>Next session</dt><dd id="asmNextV">Year 4</dd><dt>Last verdict</dt><dd id="asmLastV">None yet</dd></dl>
+        <button type="button" class="btn ghost sm" id="asmOpenB">Open the chamber</button>
       </div>
       <div class="block rcard">
         <div class="rhead"><span class="ric"><svg><use href="#ic-box"/></svg></span><div><h4>Supplies</h4><p class="explain">What you have now, and how much you gain (+) or lose (−) every second.</p></div></div>
@@ -1144,6 +1209,23 @@ body.home .compass{display:none}
 </section>
 
 <div id="overlay" hidden></div>
+<div id="asmOv" hidden>
+  <div class="asm hudbox" role="dialog" aria-modal="true" aria-labelledby="asmTitle">
+    <div class="asm-head">
+      <div class="grow"><div class="kicker" id="asmKick">World Assembly</div><h2 id="asmTitle">The world courtroom</h2></div>
+      <span class="asm-clock" id="asmClock"></span>
+      <button type="button" class="btn ghost sm" id="asmClose">Close</button>
+    </div>
+    <div class="asm-body">
+      <div class="asm-stage"><canvas id="asmCv" aria-label="The World Assembly chamber: presidents vote and the judge announces the verdict"></canvas></div>
+      <div class="asm-side">
+        <p class="asm-note" id="asmNote"></p>
+        <div class="asm-sec">Vote to sanction</div>
+        <div class="asm-list" id="asmList"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script id="sim">
@@ -1165,6 +1247,9 @@ const RES_GOLD=50000,RES_OIL=30000,RES_TEMP=1000;
 /* every trade ship that docks brings 12 gold bars and 12 food; a farm makes 25 food a second; tariffs also back the currency */
 const SHIP_FOOD=12,FARM_FOOD=25,TARIFF_BACK=3,FOOD_PX=5;
 const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=16,CITY_MAX=3;
+/* World Assembly: every 4 years the presidents of every country meet and vote on one country to sanction.
+   Every country then receives 5,000 gold bars; the sanctioned country receives only 1,000. Voting stays open 30 seconds. */
+const ASM_EVERY=4,ASM_T=30,ASM_GOLD=5000,ASM_SANC=1000;
 const RATION_MULT=[0.72,1,1.3],RATION_HAPPY=[-14,0,10],RATION_NAME=['Lean','Normal','Generous'];
 const ERAS=[
   {name:'Medieval',num:'I'},
@@ -1186,7 +1271,7 @@ const BLD={
   carplant:{name:'Car Plant',era:2,cost:{stone:220,money:600},desc:'Turns 0.6 oil/s into electric hover-cars: +9 money/s, +2 happiness'},
   silo:{name:'Missile Silo',era:3,cost:{stone:600,money:100000},desc:'Unlocks atom and hydrogen bombs. The first silo costs 100,000, the next 250,000, then 500,000, 1M, 2.5M and so on'},
   goldmine:{name:'Gold Mine',era:1,cost:{stone:300,money:1000000},desc:'Digs 100 gold bars every second. The first mine costs 1M, the next 2.5M, then 5M, 10M, 25M and so on'},
-  gov:{name:'Government',era:1,cost:{stone:400,money:20000},desc:'Your seat of government, built in the style of the land it stands on: the White House in the United States, the European Parliament in Europe, a national parliament anywhere else. One per nation: +10 happiness, +15% taxes, and it shields your currency from 15% of war losses'},
+  gov:{name:'Government',era:1,cost:{stone:400,money:20000},desc:'Your seat of government, built in the style of the land it stands on: the White House in the United States, the European Parliament in Europe, a national parliament anywhere else. One per nation: +150 gold bars every second, +10 happiness, +15% taxes, and it shields your currency from 15% of war losses. Every 4 years the World Assembly meets in its courtroom'},
   irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Missile defence for 22 tiles around it: shoots down 3 in 4 enemy jets, helicopters and atom bombs, and half of hydrogen bombs. Costs 50 million'},
   goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'A shield over your whole country: shoots down 19 in 20 enemy jets, helicopters and nuclear bombs aimed at any of your land. One per nation. Costs 500 million'}
 };
@@ -1364,7 +1449,7 @@ function makeNation(id,name,color,human){
     rate:{money:0,reserve:0,food:0,wood:0,stone:0},inc:{tax:0,market:0,factory:0,mines:0,urban:0,cars:0,oil:0},tradeAcc:0,tradeRate:0,
     aiT:R()*2,asked:20,pers:{aggr:R(),build:R()},sample:-1,coastSample:-1,sx:0,sy:0,lx:0,ly:0,_s:0,_c:0,
     unrest:0,traitor:0,lastHit:-1,conquered:0,peak:0,starving:false,
-    pres:'',approval:60,vW:60,vM:60,vS:60,tilesAvg:0,lastElect:null,crisis:0,mandate:0};
+    pres:'',approval:60,vW:60,vM:60,vS:60,tilesAvg:0,lastElect:null,crisis:0,mandate:0,asmS:0};
 }
 function newGame(opts){
   opts=Object.assign({seed:1,rivals:9,difficulty:'normal',humans:['LTDT Empire'],map:'random'},opts);
@@ -1381,7 +1466,7 @@ function newGame(opts){
     owner:new Int16Array(N).fill(-1),bld:new Int16Array(N).fill(-1),fallout:new Uint8Array(N),fallN:0,road:new Uint8Array(N),roadN:0,raids:[],
     buildings:[],bldDirty:false,nations:[],attacks:[],boats:[],ships:[],nukes:[],air:[],fxQ:[],routes:new Map(),reqs:[],
     NN,rel:new Float32Array(NN*NN),ally:new Uint8Array(NN*NN),sanc:new Uint8Array(NN*NN),adj:new Int32Array(NN*(NN+1)),atkIdx:new Int16Array(NN*(NN+1)),
-    time:0,tick:0,phase:'spawn',spawnLeft:15,peaceT:PEACE,peaceOver:false,top:-1,gpx:GOLD_PX,season:0,year:1,cardYear:3,log:[],dirty:true,over:null,
+    time:0,tick:0,phase:'spawn',spawnLeft:15,peaceT:PEACE,peaceOver:false,top:-1,gpx:GOLD_PX,season:0,year:1,cardYear:3,asm:null,asmN:0,log:[],dirty:true,over:null,
     diff:DIFF[opts.difficulty]||DIFF.normal};
   const ni=shuffled(NAMES.length),ci=shuffled(COLORS.length);
   let ai=0;
@@ -1962,7 +2047,7 @@ function economy(n,dt){
   n.rate.oil=oilP-oilNeed*run;
   n.gp+=(1-n.gp)*Math.min(1,0.004*dt);
   const moneyP=inc.tax+inc.market+inc.factory+inc.urban+inc.cars+inc.oil;
-  const resP=(0.15+B.city*0.6+n.cnt[DESERT]*0.004)*(1+n.era*0.1)*ai+(B.goldmine||0)*100;
+  const resP=(0.15+B.city*0.6+n.cnt[DESERT]*0.004)*(1+n.era*0.1)*ai+(B.goldmine||0)*100+(B.gov?150:0);
   n.gdpBoost=(n.gdpBoost||0)*(1-Math.min(1,0.004*dt));
   n.gdp=(n.workers*0.006+B.market*5+B.factory*8+B.port*3+B.city*4+wr/1e6*2.5+(B.oilrig||0)*3+(B.carplant||0)*6*run)*prod+n.gdpBoost;
   n.food+=(foodP-foodC)*dt;n.wood+=woodP*dt;n.stone+=stoneP*dt;n.money+=moneyP*dt;n.reserve+=resP*dt;
@@ -2242,6 +2327,7 @@ function applyCmd(s,type,a){
     case 'at':r=orderAt(A,a[0]|0);break;
     case 'bd':if(BLD[a[0]]&&G.phase==='play'&&A.alive){const t=a[1]|0,e=build(A,a[0],t);r=e?{msg:e,kind:'warn'}:{msg:`${BLD[a[0]].name} built.`,kind:'good',silent:true,tile:t};}break;
     case 'nk':if(WEAPONS[a[0]]&&G.phase==='play'&&A.alive){const e=launchNuke(A,a[0],a[1]|0);if(e)r={msg:e,kind:'warn'};}break;
+    case 'vote':{const S=G.asm,t=a[0]|0,B=G.nations[t];if(S&&!S.done&&A.alive&&S.members.includes(A.id)&&B&&B.alive&&t!==A.id&&S.members.includes(t)){S.vt[A.id]=t;S.va[A.id]=G.time;mv(A,'vote',`voted in the World Assembly to sanction ${B.name}`,'pol');r={msg:`Your vote: sanction ${B.name}.`,kind:'info',silent:true};}break;}
     case 'air':if(AIR[a[0]]&&G.phase==='play'&&A.alive){const e=launchAir(A,a[0],a[1]|0);r=e?{msg:e,kind:'warn'}:{msg:a[0]==='jet'?'Jet strike on its way.':'Helicopters on their way.',kind:'good'};}break;
     case 'era':if(A.alive){const e=advanceEra(A);if(e)r={msg:e,kind:'warn'};}break;
     case 'tax':{const v=clamp(a[0]|0,0,60)/100;if(v!==A.tax)mv(A,'tax',`set income tax to ${Math.round(v*100)}%`,'pol');A.tax=v;break;}
@@ -2526,6 +2612,41 @@ function secondly(){
     for(const n of ns){if(n.alive&&n.tiles/G.totalLand>=VICTORY){G.over={winner:n.id};HOOK.over(G.over);break;}}
   }
 }
+/* an AI president votes to sanction the country it trusts least, leaning toward big empires and whoever last attacked it; never itself or an ally */
+function asmPick(v,ms){
+  let mx=1;for(const id of ms){const q=G.nations[id];if(q.alive&&q.tiles>mx)mx=q.tiles;}
+  let best=-1,bs=1e9;
+  for(const id of ms){
+    const q=G.nations[id];if(!q.alive||id===v.id)continue;
+    const sc=rel(v.id,id)-30*q.tiles/mx+(isAllied(v.id,id)?200:0)-(v.lastHit===id?25:0)-(sanctioned(v.id,id)?15:0);
+    if(sc<bs){bs=sc;best=id;}
+  }
+  return best;
+}
+function openAssembly(){
+  const ms=G.nations.filter(n=>n.alive).map(n=>n.id);if(ms.length<2)return;
+  const S={n:(G.asmN||0)+1,year:G.year,t0:G.time,end:G.time+ASM_T,members:ms,vt:new Array(G.NN).fill(-1),va:new Array(G.NN).fill(0),done:false,res:null};
+  /* AI votes are decided now and cast one by one through the session, in seat order */
+  ms.forEach((id,i)=>{const n=G.nations[id];if(n.human)return;const t=asmPick(n,ms);if(t>=0){S.vt[id]=t;S.va[id]=G.time+ASM_T*(0.15+0.65*(i+0.5)/ms.length);}});
+  G.asm=S;G.asmN=S.n;
+  log(-1,null,`The World Assembly of Year ${G.year} is in session: every president votes on one country to sanction. Voting closes in ${ASM_T} seconds.`,'warn',true);
+}
+function closeAssembly(){
+  const S=G.asm,cnt=new Array(G.NN).fill(0);let tot=0;
+  for(const id of S.members){const t=S.vt[id];if(t>=0&&G.nations[id].alive&&G.nations[t]&&G.nations[t].alive){cnt[t]++;tot++;}}
+  let w=-1;
+  if(tot>0)for(const id of S.members){const q=G.nations[id];if(!q.alive||cnt[id]<1)continue;if(w<0||cnt[id]>cnt[w]||(cnt[id]===cnt[w]&&q.tiles>G.nations[w].tiles))w=id;}
+  for(const n of G.nations)if(n.alive)n.reserve+=n.id===w?ASM_SANC:ASM_GOLD;
+  S.done=true;S.res={w,cnt,tot};
+  const W0=w>=0?G.nations[w]:null;if(W0)W0.asmS=S.year;
+  for(const n of G.nations){
+    if(!n.alive||!n.human)continue;
+    if(W0&&n.id===w)log(n.id,`The World Assembly sanctioned you with ${cnt[w]} of ${tot} votes. You receive only ${ASM_SANC.toLocaleString('en-US')} gold bars; every other country receives ${ASM_GOLD.toLocaleString('en-US')}.`,null,'bad');
+    else log(n.id,W0?`The World Assembly sanctioned ${W0.name}. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`:`The World Assembly sanctioned no one. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,null,'good');
+  }
+  if(W0)mv(W0,'asmS',`was sanctioned by the World Assembly with ${cnt[w]} votes`,'warn');
+  log(-1,null,W0?`World Assembly, Year ${S.year}: ${W0.name} is sanctioned with ${cnt[w]} of ${tot} votes. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars; ${W0.name} receives ${ASM_SANC.toLocaleString('en-US')}.`:`World Assembly, Year ${S.year}: no votes were cast. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,'warn',true);
+}
 function holdElections(){
   let kept=0,out=0;
   for(const n of G.nations){
@@ -2561,7 +2682,9 @@ function tick(){
     if(s===3)log(-1,null,'Winter sets in. Harvests fall until spring.','warn',true);
     if(s===0&&G.year>=G.cardYear){G.cardYear=G.year+2;for(const n of G.nations)if(n.alive)grantCard(n);}
     if(s===0&&G.year>=5&&(G.year-1)%4===0)holdElections();
+    if(s===0&&G.year>=ASM_EVERY&&G.year%ASM_EVERY===0)openAssembly();
   }
+  if(G.asm&&!G.asm.done&&G.time>=G.asm.end-1e-9)closeAssembly();
   if(G.bldDirty)compactBuildings();
   if(G.fxQ.length>40)G.fxQ.length=0;
 }
@@ -2582,7 +2705,7 @@ function serialize(){
     nations:G.nations.map(n=>{const o=Object.assign({},n);delete o.b;return o;}),
     attacks:G.attacks.map(a=>({a:a.a,t:a.t,troops:a.troops})),boats:G.boats.map(b=>Object.assign({},b)),air:G.air.map(a=>Object.assign({},a)),reqs:G.reqs,
     time:G.time,tick:G.tick,phase:G.phase,spawnLeft:G.spawnLeft,season:G.season,year:G.year,cardYear:G.cardYear,peaceT:G.peaceT,peaceOver:G.peaceOver,top:G.top,topTemp:G.topTemp,gpx:G.gpx,
-    rel:Array.from(G.rel),ally:Array.from(G.ally),sanc:Array.from(G.sanc),log:G.log.slice(-60),over:G.over};
+    rel:Array.from(G.rel),ally:Array.from(G.ally),sanc:Array.from(G.sanc),log:G.log.slice(-60),over:G.over,asm:G.asm?JSON.parse(JSON.stringify(G.asm)):null,asmN:G.asmN||0};
 }
 function restore(s){
   if(!s||s.v!==4)throw new Error('old save');
@@ -2593,7 +2716,7 @@ function restore(s){
   G.attacks=s.attacks.map(a=>({a:a.a,t:a.t,troops:a.troops,idle:0,cands:[],score:[]}));
   G.boats=s.boats||[];G.air=s.air||[];G.ships=[];G.raids=[];G.reqs=s.reqs||[];if(s.road){G.road.set(s.road);G.roadN=s.roadN||1;}
   for(const k of ['time','tick','phase','spawnLeft','season','year','cardYear','peaceT','peaceOver','top','topTemp','gpx','over'])G[k]=s[k];
-  G.rel.set(s.rel);G.ally.set(s.ally);G.sanc.set(s.sanc);G.log=s.log||[];
+  G.rel.set(s.rel);G.ally.set(s.ally);G.sanc.set(s.sanc);G.log=s.log||[];G.asm=s.asm||null;G.asmN=s.asmN||0;
   G.diff=DIFF[s.opts.difficulty]||DIFF.normal;
   countBuildings();scan();G.dirty=true;
   return G;
@@ -3492,7 +3615,7 @@ function placePad(){
   if(pad.hidden===show)pad.hidden=!show;if(!show)return;
   /* sit just above the sliders (or the capital banner) at the bottom left of the map */
   const sr=stage.getBoundingClientRect();let top=sr.bottom-12;
-  for(const id of ['armyBar','modeChip','spawnBanner']){const el=$(id);if(el&&!el.hidden&&el.offsetParent){const r=el.getBoundingClientRect();if(r.left<sr.left+170&&r.top<top)top=r.top;}}
+  for(const id of ['armyBar','asmChip','modeChip','spawnBanner']){const el=$(id);if(el&&!el.hidden&&el.offsetParent){const r=el.getBoundingClientRect();if(r.left<sr.left+170&&r.top<top)top=r.top;}}
   const b=Math.round(sr.bottom-top+8);if(b!==V3.padB){V3.padB=b;pad.style.bottom=b+'px';}
 }
 function setView3D(on){
@@ -4186,6 +4309,311 @@ function syncChNations(){
 }
 
 /* ---------- Commands ---------- */
+/* ---------- World Assembly: the courtroom where every president votes every 4 years ---------- */
+const ASMV={open:false,seen:0,n:-1,rt:{},vrt:-1,ort:-1,key:'',pend:-1,lay:null,layKey:'',land:{}};
+const ASM_SKIN=['#f1d2b6','#e3b896','#c99467','#9e6b45','#6f4a2f'],ASM_HAIR=['#1b1714','#3b2618','#6b4a2c','#8f8f8f','#d9d4c8','#b88a46'],ASM_SUIT=['#1d2633','#26262b','#2c2a3a','#1f2d2a','#33261f'];
+function asmNext(){let y=Math.max(ASM_EVERY,G.year+1);while(y%ASM_EVERY)y++;return {year:y,wait:Math.max(0,(y-1)*YEAR_S-G.time)};}
+function asmMembers(){return G.asm?G.asm.members:G.nations.filter(n=>n.alive).map(n=>n.id);}
+function asmTally(S){
+  const c=new Array(G.NN).fill(0);if(!S)return c;if(S.done&&S.res)return S.res.cnt.slice();
+  for(const m of S.members){const t=S.vt[m];if(t>=0&&S.va[m]<=G.time+1e-9&&G.nations[m].alive)c[t]++;}return c;
+}
+function openAsm(){
+  if(!G||G.demo)return;
+  $('asmOv').hidden=false;ASMV.open=true;ASMV.n=-1;ASMV.key='';$('tip').hidden=true;
+  asmList(true);placePad();const b=$('asmClose');if(b)b.focus({preventScroll:true});
+}
+function closeAsm(){$('asmOv').hidden=true;ASMV.open=false;}
+/* the presidents sit in a horseshoe facing the bench; you take the front seat in the middle */
+function asmLayout(ms){
+  const key=ms.join(',')+'|'+ME;if(ASMV.layKey===key)return ASMV.lay;
+  const m=ms.length,two=m>8,nIn=two?Math.floor(m*0.42):0,nOut=m-nIn;
+  const row=(n,rx,ry,cy)=>{const a=[];for(let k=0;k<n;k++){const th=n===1?Math.PI/2:(14+152*k/(n-1))*Math.PI/180;a.push({x:500-rx*Math.cos(th),y:cy+ry*Math.sin(th)});}return a;};
+  const seats=row(nOut,two?410:380,two?212:205,two?346:350).concat(two?row(nIn,282,118,340):[]);
+  const who=new Array(seats.length).fill(-1),rest=ms.filter(id=>id!==ME);
+  if(ms.includes(ME))who[Math.floor(nOut/2)]=ME;
+  for(let k=0,j=0;k<seats.length;k++)if(who[k]<0)who[k]=rest[j++];
+  ASMV.lay=seats.map((p,k)=>({x:p.x,y:p.y,s:(0.62+0.4*(p.y-330)/230)*(two?1.18:1.3),id:who[k]})).sort((a,b)=>a.y-b.y);ASMV.layKey=key;
+  return ASMV.lay;
+}
+function asmRR(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function asmInk(css){const h=String(css).replace('#','');if(h.length<6)return '#fff';const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return (r*0.3+g*0.59+b*0.11)>150?'#14100a':'#fff';}
+/* a president (or the judge) seen from the front, sitting behind a desk */
+function asmPerson(c,x,y,s,o,now){
+  const L=o.lift||0,hy=y-50*s-L;
+  if(o.chair){
+    const g=c.createLinearGradient(x-22*s,0,x+22*s,0);g.addColorStop(0,o.chair[1]);g.addColorStop(0.5,o.chair[0]);g.addColorStop(1,o.chair[1]);
+    c.fillStyle=g;asmRR(c,x-22*s,y-(o.tall?96:70)*s,44*s,(o.tall?88:62)*s,10*s);c.fill();
+    c.fillStyle='rgba(255,236,190,.12)';asmRR(c,x-18*s,y-(o.tall?92:66)*s,36*s,7*s,3.5*s);c.fill();
+    if(o.tall){c.fillStyle='#d8b25e';for(let k=0;k<5;k++){c.beginPath();c.arc(x-16*s+k*8*s,y-(o.tall?84:60)*s,1.4*s,0,7);c.fill();}}
+  }
+  /* body */
+  c.fillStyle=o.suit;c.beginPath();c.moveTo(x-21*s,y+4*s);c.lineTo(x-21*s,y-26*s-L);c.quadraticCurveTo(x-21*s,y-38*s-L,x-11*s,y-38*s-L);c.lineTo(x+11*s,y-38*s-L);c.quadraticCurveTo(x+21*s,y-38*s-L,x+21*s,y-26*s-L);c.lineTo(x+21*s,y+4*s);c.closePath();c.fill();
+  c.fillStyle='rgba(255,255,255,.07)';c.fillRect(x-21*s,y-30*s-L,4*s,30*s);
+  if(o.robe){
+    c.fillStyle='#f4f1ea';c.beginPath();c.moveTo(x-8*s,y-38*s-L);c.lineTo(x+8*s,y-38*s-L);c.lineTo(x+3*s,y-22*s-L);c.lineTo(x,y-26*s-L);c.lineTo(x-3*s,y-22*s-L);c.closePath();c.fill();
+  }else{
+    c.fillStyle='#f4f1ea';c.beginPath();c.moveTo(x-7*s,y-38*s-L);c.lineTo(x+7*s,y-38*s-L);c.lineTo(x,y-23*s-L);c.closePath();c.fill();
+    c.fillStyle=o.tie;c.beginPath();c.moveTo(x-2.4*s,y-36*s-L);c.lineTo(x+2.4*s,y-36*s-L);c.lineTo(x+3.4*s,y-20*s-L);c.lineTo(x,y-16*s-L);c.lineTo(x-3.4*s,y-20*s-L);c.closePath();c.fill();
+    c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1.2*s;c.beginPath();c.moveTo(x-7*s,y-38*s-L);c.lineTo(x-3*s,y-26*s-L);c.moveTo(x+7*s,y-38*s-L);c.lineTo(x+3*s,y-26*s-L);c.stroke();
+  }
+  /* neck and head */
+  c.fillStyle=o.skin;c.fillRect(x-4*s,y-43*s-L,8*s,6*s);
+  const hg=c.createRadialGradient(x-3*s,hy-4*s,1*s,x,hy,12*s);hg.addColorStop(0,'rgba(255,255,255,.35)');hg.addColorStop(0.35,o.skin);hg.addColorStop(1,o.skin);
+  c.fillStyle=hg;c.beginPath();c.ellipse(x,hy,10.5*s,11.5*s,0,0,7);c.fill();
+  c.fillStyle=o.hair;
+  if(o.wig){for(const [dx,dy,r] of [[-9,-6,5],[-4,-10,5.5],[3,-10,5.5],[9,-6,5],[-11,1,4.5],[11,1,4.5],[-11,7,4],[11,7,4]]){c.beginPath();c.arc(x+dx*s,hy+dy*s,r*s,0,7);c.fill();}}
+  else if(o.hs===1){c.beginPath();c.ellipse(x-9.5*s,hy-1*s,2.6*s,5*s,0,0,7);c.ellipse(x+9.5*s,hy-1*s,2.6*s,5*s,0,0,7);c.fill();}
+  else if(o.hs===2){c.beginPath();c.moveTo(x-11*s,hy+9*s);c.lineTo(x-11.5*s,hy-3*s);c.quadraticCurveTo(x-11*s,hy-13.5*s,x,hy-13*s);c.quadraticCurveTo(x+11*s,hy-13.5*s,x+11.5*s,hy-3*s);c.lineTo(x+11*s,hy+9*s);c.lineTo(x+8*s,hy+9*s);c.lineTo(x+8.5*s,hy-5*s);c.quadraticCurveTo(x,hy-8*s,x-8.5*s,hy-5*s);c.lineTo(x-8*s,hy+9*s);c.closePath();c.fill();}
+  else{c.beginPath();c.moveTo(x-11*s,hy-1*s);c.quadraticCurveTo(x-11.5*s,hy-13.5*s,x,hy-13.2*s);c.quadraticCurveTo(x+11.5*s,hy-13.5*s,x+11*s,hy-1*s);c.quadraticCurveTo(x+6*s,hy-8.5*s,x-2*s,hy-7.5*s);c.quadraticCurveTo(x-8*s,hy-7*s,x-11*s,hy-1*s);c.closePath();c.fill();}
+  /* face */
+  const blink=((now*0.6+o.seed*7.3)%4)<0.11;
+  c.fillStyle='#1d140e';c.strokeStyle='#1d140e';c.lineWidth=1.1*s;
+  if(blink){c.beginPath();c.moveTo(x-5.2*s,hy+0.5*s);c.lineTo(x-2.4*s,hy+0.5*s);c.moveTo(x+2.4*s,hy+0.5*s);c.lineTo(x+5.2*s,hy+0.5*s);c.stroke();}
+  else{c.beginPath();c.arc(x-3.8*s,hy+0.4*s,1.35*s,0,7);c.arc(x+3.8*s,hy+0.4*s,1.35*s,0,7);c.fill();}
+  c.beginPath();c.moveTo(x-5.6*s,hy-3.2*s);c.lineTo(x-2.2*s,hy-3.6*s);c.moveTo(x+2.2*s,hy-3.6*s);c.lineTo(x+5.6*s,hy-3.2*s);c.stroke();
+  c.beginPath();c.arc(x,hy+3.6*s,3*s,0.25*Math.PI,0.75*Math.PI);c.stroke();
+  if(o.glasses){c.strokeStyle='#c9c9c9';c.lineWidth=0.9*s;c.beginPath();c.arc(x-3.8*s,hy+0.4*s,2.8*s,0,7);c.moveTo(x+6.6*s,hy+0.4*s);c.arc(x+3.8*s,hy+0.4*s,2.8*s,0,7);c.moveTo(x-1*s,hy);c.lineTo(x+1*s,hy);c.stroke();}
+  /* raised arm with a ballot */
+  if(o.arm>0){
+    const sx=x+17*s,sy=y-30*s-L,hx=x+25*s,hy2=sy-28*s*o.arm;
+    c.strokeStyle=o.suit;c.lineWidth=7*s;c.lineCap='round';c.beginPath();c.moveTo(sx,sy);c.lineTo(hx,hy2);c.stroke();c.lineCap='butt';
+    c.save();c.translate(hx,hy2-9*s);c.rotate(-0.15);c.fillStyle='#fbf8f0';c.fillRect(-6*s,-8*s,12*s,16*s);c.fillStyle=o.ballot||'#888';c.fillRect(-6*s,-8*s,12*s,4*s);c.restore();
+    c.fillStyle=o.skin;c.beginPath();c.arc(hx,hy2,3.4*s,0,7);c.fill();
+  }
+}
+function asmDesk(c,x,y,s,n,U,now,dead){
+  const w=88*s,top=y-12*s;
+  const g=c.createLinearGradient(0,top,0,y+30*s);g.addColorStop(0,'#7c4b29');g.addColorStop(1,'#3a210f');
+  c.fillStyle=g;asmRR(c,x-w/2,y-8*s,w,38*s,5*s);c.fill();
+  c.strokeStyle='rgba(255,220,160,.16)';c.lineWidth=1*s;asmRR(c,x-w/2+5*s,y+0*s,w-10*s,24*s,3*s);c.stroke();
+  c.fillStyle='#a06a3a';asmRR(c,x-w/2-3*s,top,w+6*s,7*s,3*s);c.fill();c.fillStyle='rgba(255,240,210,.25)';c.fillRect(x-w/2,top+1*s,w,1.4*s);
+  /* name plate with the currency code */
+  const fs=Math.max(11*s,7.5*U),pw=Math.max(40*s,fs*2.4),ph=fs*1.3;
+  c.fillStyle='#120d08';asmRR(c,x-pw/2,y+12*s-ph/2,pw,ph,2*s);c.fill();c.strokeStyle='#c99a45';c.lineWidth=Math.max(0.8*s,0.8*U);c.stroke();
+  c.fillStyle=dead?'#777':n.css;c.font=`600 ${fs}px ${FD}`;c.textAlign='center';c.textBaseline='middle';c.fillText(n.cur,x,y+12.5*s);
+  /* desk flag and microphone */
+  const fx0=x-w/2+8*s,wv=Math.sin(now*2.2+n.id)*1.6*s;
+  c.strokeStyle='#d7dbe2';c.lineWidth=1.3*s;c.beginPath();c.moveTo(fx0,top);c.lineTo(fx0,top-26*s);c.stroke();
+  c.fillStyle=n.css;c.beginPath();c.moveTo(fx0,top-26*s);c.lineTo(fx0+16*s,top-26*s+wv*0.4);c.lineTo(fx0+16*s,top-16*s+wv);c.lineTo(fx0,top-16*s);c.closePath();c.fill();
+  c.fillStyle='rgba(255,255,255,.28)';c.fillRect(fx0,top-21.5*s,16*s,1.6*s);
+  const mx=x+w/2-12*s;c.strokeStyle='#22262c';c.lineWidth=1.5*s;c.beginPath();c.moveTo(mx,top);c.quadraticCurveTo(mx,top-12*s,mx-6*s,top-18*s);c.stroke();
+  c.fillStyle=n.id===ME?'#e2b44f':'#3c434d';c.beginPath();c.arc(mx-6.5*s,top-19*s,2.2*s,0,7);c.fill();
+}
+function asmBar(c,x,y,s){
+  const g=c.createLinearGradient(0,y-4*s,0,y+4*s);g.addColorStop(0,'#fff0b0');g.addColorStop(0.5,'#e2b44f');g.addColorStop(1,'#8c621c');
+  c.fillStyle=g;c.beginPath();c.moveTo(x-9*s,y+4*s);c.lineTo(x-6*s,y-4*s);c.lineTo(x+6*s,y-4*s);c.lineTo(x+9*s,y+4*s);c.closePath();c.fill();
+}
+/* the room: panelled walls, the world seal, tall windows, a marble floor and the red carpet to the bench */
+function asmSeal(c,sx,sy,r,now){
+  let g=c.createRadialGradient(sx-r*0.26,sy-r*0.3,r*0.1,sx,sy,r);g.addColorStop(0,'#fff0b0');g.addColorStop(0.55,'#e2b44f');g.addColorStop(1,'#7d5718');c.fillStyle=g;c.beginPath();c.arc(sx,sy,r,0,7);c.fill();
+  c.fillStyle='#14202e';c.beginPath();c.arc(sx,sy,r*0.81,0,7);c.fill();
+  c.strokeStyle='#e2b44f';c.lineWidth=r*0.04;c.beginPath();c.arc(sx,sy,r*0.72,0,7);c.stroke();
+  const k=r/54,tilt=Math.sin(now*0.8)*0.05;
+  c.save();c.translate(sx,sy);c.scale(k,k);c.strokeStyle='#f1cf7a';c.fillStyle='#f1cf7a';c.lineWidth=3;
+  c.beginPath();c.moveTo(0,-26);c.lineTo(0,22);c.moveTo(-12,24);c.lineTo(12,24);c.stroke();
+  c.rotate(tilt);c.beginPath();c.moveTo(-26,-16);c.lineTo(26,-16);c.stroke();
+  for(const d of [-1,1]){const ex=d*24,ey=-16;c.lineWidth=1.5;c.beginPath();c.moveTo(ex,ey);c.lineTo(ex-8,ey+18);c.moveTo(ex,ey);c.lineTo(ex+8,ey+18);c.stroke();c.beginPath();c.moveTo(ex-10,ey+18);c.quadraticCurveTo(ex,ey+27,ex+10,ey+18);c.closePath();c.fill();}
+  c.restore();
+}
+function asmRoom(c,now,v){
+  const X0=Math.floor(v.x0),X1=Math.ceil(v.x1),Y0=Math.min(0,Math.floor(v.y0)),Y1=Math.max(625,Math.ceil(v.y1)),XW=X1-X0;
+  let g=c.createLinearGradient(0,Y0,0,262);g.addColorStop(0,'#1f120a');g.addColorStop(1,'#4b2d1a');c.fillStyle=g;c.fillRect(X0,Y0,XW,262-Y0);
+  c.strokeStyle='rgba(255,215,160,.09)';c.lineWidth=2;for(let x=14-72*Math.ceil((14-X0)/72);x<X1;x+=72)c.strokeRect(x,176,58,70);
+  c.fillStyle='#6b4326';c.fillRect(X0,164,XW,9);c.fillStyle='rgba(255,220,170,.28)';c.fillRect(X0,164,XW,2);
+  /* windows */
+  for(const cx of [275,725]){
+    c.save();c.beginPath();c.moveTo(cx-52,152);c.lineTo(cx-52,86);c.arc(cx,86,52,Math.PI,0);c.lineTo(cx+52,152);c.closePath();
+    const wg=c.createLinearGradient(0,34,0,152);wg.addColorStop(0,'#a9d6f5');wg.addColorStop(0.7,'#f3ddb0');wg.addColorStop(1,'#f7c98a');c.fillStyle=wg;c.fill();
+    c.clip();c.strokeStyle='rgba(58,36,20,.9)';c.lineWidth=4;c.beginPath();c.moveTo(cx,30);c.lineTo(cx,152);c.moveTo(cx-52,104);c.lineTo(cx+52,104);c.moveTo(cx-26,40);c.lineTo(cx-26,152);c.moveTo(cx+26,40);c.lineTo(cx+26,152);c.stroke();c.restore();
+    c.strokeStyle='#c9a057';c.lineWidth=5;c.beginPath();c.moveTo(cx-52,152);c.lineTo(cx-52,86);c.arc(cx,86,52,Math.PI,0);c.lineTo(cx+52,152);c.stroke();
+    c.fillStyle='#5a3820';c.fillRect(cx-60,150,120,9);
+  }
+  /* columns */
+  for(const px of [150,400,600,850]){
+    const cg=c.createLinearGradient(px-18,0,px+18,0);cg.addColorStop(0,'#bfb29a');cg.addColorStop(0.45,'#f1e9d8');cg.addColorStop(1,'#a99a80');
+    c.fillStyle=cg;c.fillRect(px-17,0,34,250);c.strokeStyle='rgba(90,70,40,.25)';c.lineWidth=1.5;c.beginPath();for(let k=-10;k<=10;k+=5){c.moveTo(px+k,0);c.lineTo(px+k,240);}c.stroke();
+    c.fillStyle='#e8dcc4';c.fillRect(px-24,236,48,14);c.fillRect(px-22,0,44,10);
+  }
+  /* velvet curtain behind the judge */
+  {const g2=c.createLinearGradient(420,0,580,0);for(let k=0;k<=8;k++)g2.addColorStop(k/8,k%2?'#7a1c1c':'#4e0f10');c.fillStyle=g2;c.fillRect(420,34,160,170);
+   c.fillStyle='#c99a45';c.fillRect(414,30,172,12);for(let k=0;k<12;k++){c.beginPath();c.moveTo(418+k*14.5,42);c.lineTo(425+k*14.5,52);c.lineTo(432+k*14.5,42);c.closePath();c.fill();}}
+  /* floor */
+  g=c.createLinearGradient(0,262,0,625);g.addColorStop(0,'#8a7862');g.addColorStop(1,'#d3c2a6');c.fillStyle=g;c.fillRect(X0,262,XW,Y1-262);
+  c.strokeStyle='rgba(60,40,20,.16)';c.lineWidth=1.5;c.beginPath();
+  for(let k=-24;k<=24;k++){const xb=500+k*90,t=(262-110)/(625-110),f=(Y1-110)/(625-110);c.moveTo(500+(xb-500)*t,262);c.lineTo(500+(xb-500)*f,Y1);}
+  for(let k=1;k<14;k++){const y=262+(625-262)*Math.pow(k/10,1.55);if(y>Y1)break;c.moveTo(X0,y);c.lineTo(X1,y);}c.stroke();
+  c.fillStyle='#2a170c';c.fillRect(X0,252,XW,12);
+  /* red carpet */
+  g=c.createLinearGradient(0,262,0,625);g.addColorStop(0,'#5d1414');g.addColorStop(1,'#8f2020');c.fillStyle=g;
+  const cf=(Y1-264)/(625-264);c.beginPath();c.moveTo(452,264);c.lineTo(548,264);c.lineTo(548+70*cf,Y1);c.lineTo(452-70*cf,Y1);c.closePath();c.fill();
+  c.strokeStyle='#c99a45';c.lineWidth=2;c.beginPath();c.moveTo(460,264);c.lineTo(460-68*cf,Y1);c.moveTo(540,264);c.lineTo(540+68*cf,Y1);c.stroke();
+  /* sunlight through the windows */
+  c.save();c.globalAlpha=0.07+0.02*Math.sin(now*0.7);c.fillStyle='#fff3d0';
+  for(const cx of [275,725]){c.beginPath();c.moveTo(cx-50,152);c.lineTo(cx+50,152);c.lineTo(cx+(cx<500?150:-30)*cf,Y1);c.lineTo(cx+(cx<500?-10:-190)*cf,Y1);c.closePath();c.fill();}
+  c.restore();
+}
+/* the presiding judge, the bench and the gavel. strikes: real times the gavel came down */
+function asmBench(c,now,strikes){
+  asmPerson(c,500,212,1.5,{suit:'#0d0d10',skin:'#e7c4a2',hair:'#e9e6df',wig:true,robe:true,chair:['#6d1d1d','#3a0e0e'],tall:true,seed:3,glasses:false},now);
+  /* gavel angle: rest, lift, strike, settle */
+  let ang=0.05,imp=-1;
+  for(const t0 of strikes){const d=now-t0;if(d>=0&&d<0.7){ang=d<0.32?0.05+1.25*(d/0.32):d<0.4?1.3-1.35*((d-0.32)/0.08):-0.05+0.1*((d-0.4)/0.3);if(d>=0.4)imp=d-0.4;}}
+  /* arm to the gavel */
+  c.strokeStyle='#0d0d10';c.lineWidth=10;c.lineCap='round';c.beginPath();c.moveTo(526,160);c.lineTo(566,190);c.stroke();c.lineCap='butt';
+  /* bench */
+  let g=c.createLinearGradient(0,198,0,286);g.addColorStop(0,'#7a4a28');g.addColorStop(1,'#341c0d');c.fillStyle=g;c.fillRect(328,206,344,80);
+  c.fillStyle='#a06a3a';c.fillRect(318,196,364,13);c.fillStyle='rgba(255,240,210,.3)';c.fillRect(318,197,364,2);
+  c.fillStyle='#d2a85a';c.fillRect(328,212,344,3);
+  c.strokeStyle='rgba(255,220,160,.18)';c.lineWidth=2;c.strokeRect(342,224,92,50);c.strokeRect(566,224,92,50);
+  asmSeal(c,500,248,33,now);
+  /* sound block and gavel */
+  c.fillStyle='#2a160a';c.beginPath();c.ellipse(528,198,15,5,0,0,7);c.fill();c.fillStyle='#4b2a15';c.fillRect(513,192,30,6);c.beginPath();c.ellipse(528,192,15,5,0,0,7);c.fill();
+  c.save();c.translate(568,190);c.rotate(ang);
+  c.fillStyle='#5a3218';c.fillRect(-44,-2.5,46,5);
+  const hg=c.createLinearGradient(0,-9,0,9);hg.addColorStop(0,'#9a6034');hg.addColorStop(1,'#4a250f');c.fillStyle=hg;asmRR(c,-54,-9,20,18,3);c.fill();
+  c.fillStyle='#d2a85a';c.fillRect(-50,-9,3,18);c.fillRect(-41,-9,3,18);
+  c.fillStyle='#e7c4a2';c.beginPath();c.arc(0,0,5,0,7);c.fill();
+  c.restore();
+  if(imp>=0&&imp<0.6){const k=imp/0.6;c.strokeStyle=`rgba(255,230,160,${0.8*(1-k)})`;c.lineWidth=3;c.beginPath();c.ellipse(528,192,20+80*k,6+24*k,0,0,7);c.stroke();}
+}
+function drawAsm(){
+  const cv=$('asmCv');if(!cv||!G)return;const bw=cv.clientWidth,bh=cv.clientHeight;if(bw<20||bh<20)return;
+  const d=Math.min(2,window.devicePixelRatio||1),W2=Math.round(bw*d),H2=Math.round(bh*d);if(cv.width!==W2||cv.height!==H2){cv.width=W2;cv.height=H2;}
+  const c=cv.getContext('2d'),sc=Math.min(bw/1000,bh/625),ox=(bw-1000*sc)/2,oy=(bh-625*sc)/2,now=performance.now()/1000,U=1/sc;
+  c.setTransform(d,0,0,d,0,0);c.fillStyle='#160d08';c.fillRect(0,0,bw,bh);
+  c.setTransform(d*sc,0,0,d*sc,d*ox,d*oy);
+  const S=G.asm,ms=asmMembers();
+  /* what happened since we last looked: new votes fly in, the verdict lands */
+  if(S&&S.n!==ASMV.n){
+    ASMV.n=S.n;ASMV.rt={};ASMV.land={};ASMV.vrt=S.done?now-60:-1;ASMV.ort=!S.done&&G.time-S.t0<3?now:now-60;
+    for(const m of S.members)if(S.vt[m]>=0&&S.va[m]<=G.time+1e-9)ASMV.rt[m+':'+S.va[m]]=now-60;
+  }
+  let last=null;
+  if(S){
+    for(const m of S.members){if(S.vt[m]>=0&&S.va[m]<=G.time+1e-9){const k=m+':'+S.va[m];if(!(k in ASMV.rt))ASMV.rt[k]=now;if(!last||ASMV.rt[k]>last.t)last={t:ASMV.rt[k],m,to:S.vt[m]};}}
+    if(S.done&&ASMV.vrt<0)ASMV.vrt=now;
+  }
+  const vis={x0:-ox/sc,y0:-oy/sc,x1:(bw-ox)/sc,y1:(bh-oy)/sc};
+  asmRoom(c,now,vis);
+  asmBench(c,now,[ASMV.ort,ASMV.vrt]);
+  /* ballot box */
+  const lay=asmLayout(ms);let landed=0,flash=0;
+  const flights=[];
+  for(const st of lay){
+    if(!S)break;const m=st.id;if(S.vt[m]<0||S.va[m]>G.time+1e-9)continue;const e=now-ASMV.rt[m+':'+S.va[m]];
+    if(e>=1.05){landed++;flash=Math.max(flash,1-Math.min(1,(e-1.05)/0.35));}
+    else if(e>=0.25)flights.push({st,p:(e-0.25)/0.8,to:S.vt[m]});
+  }
+  c.fillStyle='#3a2212';c.fillRect(472,366,56,22);c.fillStyle='#5a361c';c.fillRect(466,362,68,7);
+  c.fillStyle='rgba(205,232,255,.16)';asmRR(c,468,318,64,46,4);c.fill();
+  c.fillStyle='#fbf8f0';const pile=Math.min(40,landed*2.4);for(let k=0;k<pile/2.4;k++){const jx=(hash(k*17+3)-0.5)*30,jy=(hash(k*29+5)-0.5)*3;c.fillRect(484+jx*0.8+8,360-k*2.4+jy-4,18,3);}
+  c.strokeStyle=`rgba(235,248,255,${0.7+0.3*flash})`;c.lineWidth=2;asmRR(c,468,318,64,46,4);c.stroke();
+  c.fillStyle='#22262c';c.fillRect(470,312,60,8);c.fillStyle='#000';c.fillRect(488,314,24,3);
+  if(flash>0){c.fillStyle=`rgba(255,230,150,${0.35*flash})`;c.beginPath();c.ellipse(500,340,52,36,0,0,7);c.fill();}
+  /* verdict state */
+  const V=S&&S.done&&S.res?S.res:null,dv=ASMV.vrt>=0?now-ASMV.vrt:-1,w=V?V.w:-1;
+  if(V&&w>=0){
+    const st=lay.find(q=>q.id===w);
+    if(st){const a=Math.min(1,Math.max(0,(dv-0.4)/0.5));c.save();c.globalAlpha=0.22*a;c.fillStyle='#ff4a3c';c.beginPath();c.moveTo(st.x-26,0);c.lineTo(st.x+26,0);c.lineTo(st.x+75*st.s,st.y+30*st.s);c.lineTo(st.x-75*st.s,st.y+30*st.s);c.closePath();c.fill();c.restore();}
+  }
+  /* presidents */
+  for(const st of lay){
+    const n=G.nations[st.id];if(!n)continue;const s=st.s,dead=!n.alive;
+    if(st.id===ME){c.fillStyle='rgba(226,180,79,.28)';c.beginPath();c.ellipse(st.x,st.y+30*s,62*s,14*s,0,0,7);c.fill();}
+    let lift=0,arm=0,ball=null;
+    if(S&&S.vt[st.id]>=0&&S.va[st.id]<=G.time+1e-9){const e=now-ASMV.rt[st.id+':'+S.va[st.id]];if(e<1.6){const k=e<0.25?e/0.25:e<1.3?1:1-(e-1.3)/0.3;lift=10*s*k;arm=e<0.3?k:Math.max(0,1-(e-0.25)/0.2);ball=G.nations[S.vt[st.id]].css;}}
+    if(!dead){
+      const h1=hash(n.id*31+7),h2=hash(n.id*53+11),h3=hash(n.id*71+13);
+      asmPerson(c,st.x,st.y,s,{suit:ASM_SUIT[(h3*ASM_SUIT.length)|0],tie:n.css,skin:ASM_SKIN[(h1*ASM_SKIN.length)|0],hair:ASM_HAIR[(h2*ASM_HAIR.length)|0],hs:(h3*7|0)%3,chair:['#5a2a24','#2e1411'],lift,arm,ballot:ball,seed:n.id,glasses:h1>0.7},now);
+    }else{c.fillStyle='#3a1f1a';asmRR(c,st.x-22*s,st.y-70*s,44*s,62*s,10*s);c.fill();}
+    asmDesk(c,st.x,st.y,s,n,U,now,dead);
+    if(V&&!dead){
+      const st0=lay.indexOf(st),t0=1.0+st0*0.05,k=dv<0?1:Math.min(1,Math.max(0,(dv-t0)/0.7));
+      if(k>=1){const fs=Math.max(12*s,8*U),txt='+'+(st.id===w?ASM_SANC:ASM_GOLD).toLocaleString('en-US'),rise=dv<0?0:Math.max(0,1-(dv-t0-0.7))*10*s;
+        for(let b=0;b<(st.id===w?1:3);b++)asmBar(c,st.x+(b-1)*15*s+(st.id===w?15*s:0),st.y-15*s,s*0.9);
+        c.font=`700 ${fs}px ${FN}`;c.textAlign='center';c.textBaseline='bottom';c.lineWidth=Math.max(3*s,2.5*U);c.strokeStyle='rgba(10,6,2,.85)';const ty=st.y-80*s-rise;c.strokeText(txt,st.x,ty);c.fillStyle=st.id===w?'#ff8a5e':'#f7dd8c';c.fillText(txt,st.x,ty);}
+      else if(k>0){const p=k,bx=500+(st.x-500)*p,by=200+(st.y-15*s-200)*p-Math.sin(Math.PI*p)*90;asmBar(c,bx,by,0.6+0.4*s);}
+    }else if(S&&S.vt[st.id]>=0&&S.va[st.id]<=G.time+1e-9&&now-ASMV.rt[st.id+':'+S.va[st.id]]>=1.05&&!dead){
+      const T=G.nations[S.vt[st.id]],fs=Math.max(10.5*s,7.5*U),txt='→ '+T.cur;c.font=`600 ${fs}px ${FD}`;const tw=c.measureText(txt).width+fs*0.9,th=fs*1.45,by=st.y-78*s-th;
+      c.fillStyle=T.css;asmRR(c,st.x-tw/2,by,tw,th,th/2);c.fill();c.fillStyle=asmInk(T.css);c.textAlign='center';c.textBaseline='middle';c.fillText(txt,st.x,by+th/2+0.5);
+    }
+    if(st.id===ME){const fs=Math.max(10*s,8.5*U);c.font=`700 ${fs}px ${FD}`;c.fillStyle='#f7dd8c';c.textAlign='center';c.textBaseline='top';c.fillText('YOU',st.x,st.y+31*s);}
+  }
+  /* ballots in the air */
+  for(const f of flights){const st=f.st,s=st.s,p=f.p,x0=st.x+25*s,y0=st.y-75*s,bx=x0+(500-x0)*p,by=y0+(316-y0)*p-Math.sin(Math.PI*p)*120;
+    c.save();c.translate(bx,by);c.rotate(p*5);c.fillStyle='#fbf8f0';c.fillRect(-7,-9,14,18);c.fillStyle=G.nations[f.to].css;c.fillRect(-7,-9,14,4.5);c.restore();}
+  /* the verdict stamp */
+  if(V&&w>=0){
+    const st=lay.find(q=>q.id===w);
+    if(st&&(dv<0||dv>0.4)){const k=dv<0?1:Math.min(1,(dv-0.4)/0.35),z=2.2-1.2*k,fs=Math.max(15*st.s,11*U);
+      c.font=`700 ${fs}px ${FD}`;const tw=c.measureText('SANCTIONED').width+fs,hx=Math.max(vis.x0+tw*0.6,Math.min(vis.x1-tw*0.6,st.x));c.save();c.translate(hx,st.y-6*st.s);c.rotate(-0.16);c.scale(z,z);c.globalAlpha=k;
+      c.fillStyle='rgba(255,246,240,.94)';c.fillRect(-tw/2,-fs*0.85,tw,fs*1.7);c.strokeStyle='#d8261c';c.lineWidth=Math.max(2.5,fs*0.16);c.strokeRect(-tw/2,-fs*0.85,tw,fs*1.7);
+      c.fillStyle='#d8261c';c.textAlign='center';c.textBaseline='middle';c.fillText('SANCTIONED',0,1);c.restore();}
+  }
+  /* caption strip */
+  let cap='',capC='#f7dd8c';
+  if(!S){const nx=asmNext();cap=`The World Assembly first meets in Year ${nx.year} · in ${mmss(nx.wait)}`;}
+  else if(V){cap=w>=0?`VERDICT: ${G.nations[w].name.toUpperCase()} IS SANCTIONED · ${V.cnt[w]} of ${V.tot} votes`:'VERDICT: NO VOTES WERE CAST';capC=w>=0?'#ff8a7a':capC;}
+  else if(now-ASMV.ort<2.2)cap=`ORDER! The World Assembly of Year ${S.year} is in session`;
+  else if(last&&now-last.t<2.6)cap=`${G.nations[last.m].name} votes to sanction ${G.nations[last.to].name}`;
+  else cap=`Voting closes in ${Math.max(0,Math.ceil(S.end-G.time))}s · every president casts one vote`;
+  const fs=Math.max(18,10.5*U),hh=fs*2;
+  const cy0=Math.min(0,vis.y0),cx0=vis.x0,cxw=vis.x1-vis.x0,maxW=Math.min(cxw,1000)-30;
+  c.fillStyle='rgba(8,5,3,.72)';c.fillRect(cx0,cy0,cxw,hh);c.fillStyle='#c99a45';c.fillRect(cx0,cy0+hh-2,cxw,2);
+  c.font=`600 ${fs}px ${FD}`;c.fillStyle=capC;c.textAlign='center';c.textBaseline='middle';
+  let t=cap;while(c.measureText(t).width>maxW&&t.length>8)t=t.slice(0,-2);if(t!==cap)t=t.slice(0,-1)+'…';c.fillText(t,500,cy0+hh/2+1);
+  /* soft vignette */
+  const vg=c.createRadialGradient(500,330,260,500,330,760);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.42)');c.fillStyle=vg;c.fillRect(vis.x0,vis.y0,cxw,vis.y1-vis.y0);
+}
+/* the list of countries you can vote for, and the header clock */
+function asmList(force){
+  if(!ASMV.open||!G)return;
+  const S=G.asm,ms=asmMembers(),P=me(),cnt=asmTally(S),nx=asmNext();
+  const canVote=!!(S&&!S.done&&P&&P.alive&&S.members.includes(P.id));
+  const my=ASMV.pend>=0?ASMV.pend:S&&P?S.vt[P.id]:-1;
+  const w=S&&S.done&&S.res?S.res.w:-1;
+  let lead=-1;if(!(S&&S.done))for(const m of ms)if(cnt[m]>0&&(lead<0||cnt[m]>cnt[lead]))lead=m;
+  $('asmKick').textContent=`World Assembly · Year ${S?S.year:nx.year}`;
+  $('asmTitle').textContent=S&&!S.done?'Who gets sanctioned?':S?'The verdict':'The world courtroom';
+  $('asmClock').textContent=S&&!S.done?`Voting closes in ${Math.max(0,Math.ceil(S.end-G.time))}s`:`Next session: Year ${nx.year} · ${mmss(nx.wait)}`;
+  const g5=ASM_GOLD.toLocaleString('en-US'),g1=ASM_SANC.toLocaleString('en-US');
+  let note=`Every 4 years the president of every country votes on one country to sanction. Every country receives ${g5} gold bars; the sanctioned country receives only ${g1}.`;
+  if(canVote)note+=my>=0?` Your vote: sanction ${G.nations[my].name}. You can change it until voting closes.`:' Tap a country to cast your vote. You cannot vote for yourself.';
+  else if(S&&S.done)note+=w>=0?` ${G.nations[w].name} was sanctioned with ${S.res.cnt[w]} of ${S.res.tot} votes.`:' No votes were cast.';
+  else if(S&&P&&!P.alive)note+=' Your empire has fallen: you can watch but not vote.';
+  $('asmNote').textContent=note;
+  const key=[S?S.n:0,S&&S.done?1:0,my,canVote?1:0,ms.join(','),ms.map(m=>cnt[m]+(G.nations[m].alive?'':'x')).join(','),lead].join('|');
+  if(!force&&key===ASMV.key)return;ASMV.key=key;
+  $('asmList').innerHTML=ms.map(m=>{
+    const n=G.nations[m],mine=m===ME,sel=m===my&&m>=0,dead=!n.alive;
+    const cls='asm-row'+(mine?' mine':'')+(sel?' sel':'')+(m===lead?' lead':'')+(m===w?' sanc':'');
+    const sub=S&&S.done?(dead?'Fallen':m===w?`Sanctioned · +${g1} gold bars`:`+${g5} gold bars`):`${esc(n.cur)} · ${esc(n.pres)}${mine?' (you)':''}`;
+    return `<button type="button" class="${cls}" data-t="${m}" ${!canVote||mine||dead?'disabled':''} aria-pressed="${sel}"><i class="sw" style="background:${n.css}"></i><span class="nm"><b>${esc(n.name)}${sel?' · your vote':''}</b><small>${sub}</small></span><span class="vc">${cnt[m]}<small>vote${cnt[m]===1?'':'s'}</small></span></button>`;
+  }).join('');
+}
+function updateAsm(){
+  if(!G||G.demo)return;
+  const S=G.asm,P=me();
+  if(S&&!S.done&&S.n!==ASMV.seen){ASMV.seen=S.n;ASMV.pend=-1;if(P&&P.alive&&S.members.includes(P.id)&&!ASMV.open)openAsm();}
+  if(ASMV.pend>=0&&(!S||S.done||(P&&S.vt[P.id]===ASMV.pend)))ASMV.pend=-1;
+  const chip=$('asmChip'),show=!!(S&&!S.done&&!ASMV.open);
+  if(chip.hidden===show){chip.hidden=!show;placePad();}
+  if(show)$('asmChipT').textContent=`World Assembly in session · ${Math.max(0,Math.ceil(S.end-G.time))}s`;
+  if(activeTab==='realm'){
+    const nx=asmNext();
+    $('asmNextV').textContent=S&&!S.done?`In session now · ${Math.max(0,Math.ceil(S.end-G.time))}s left`:G.phase!=='play'?`Year ${ASM_EVERY}`:`Year ${nx.year} · in ${mmss(nx.wait)}`;
+    $('asmLastV').textContent=S&&S.done&&S.res?(S.res.w>=0?`Year ${S.year}: ${G.nations[S.res.w].name} (${S.res.cnt[S.res.w]} of ${S.res.tot} votes)`:`Year ${S.year}: no votes`):'None yet';
+    $('asmOpenB').textContent=S&&!S.done?'Vote now':'Open the chamber';
+  }
+  if(ASMV.open)asmList(false);
+}
+function bindAsm(){
+  $('asmClose').onclick=closeAsm;$('asmChip').onclick=openAsm;$('asmOpenB').onclick=openAsm;
+  $('asmOv').addEventListener('click',e=>{if(e.target===$('asmOv'))closeAsm();});
+  $('asmList').addEventListener('click',e=>{const b=e.target.closest('.asm-row');if(!b||b.disabled)return;const t=+b.dataset.t;ASMV.pend=t;issue('vote',t);asmList(true);});
+}
+
 function issue(type,...args){
   if(!G||G.demo||ME<0)return;
   if(NET.match)return netIssue(type,args);
@@ -4226,7 +4654,7 @@ function buildStaticUI(){
     b.innerHTML=`<canvas width="68" height="68"></canvas><span><span class="nm">${BLD[k].name}<small></small></span><span class="ds">${BLD[k].desc}</span></span><span class="cost"></span>`;b.title=BLD[k].desc;
     b.onclick=()=>{setMode({k:'build',type:k});closeQuickBuild();};ql.appendChild(b);}}
   $('zBuild').onclick=()=>{if($('qBuild').hidden)openQuickBuild();else closeQuickBuild();};
-  $('qbClose').onclick=closeQuickBuild;
+  $('qbClose').onclick=closeQuickBuild;bindAsm();
   paintBuildIcons();
   $('modeCancel').onclick=()=>setMode({k:'attack'});
   $('spawnGo').onclick=()=>issue('go');
@@ -4299,6 +4727,7 @@ function buildStaticUI(){
     if(document.body.classList.contains('home'))return;
     if(V3.walk&&!modalOpen){const k=WALK_KEYS[e.key];if(k){walkK[k]=true;e.preventDefault();return;}if(e.key==='Escape'){stopWalk();return;}}
     if(e.key==='Escape'){
+      if(ASMV.open&&!modalOpen){closeAsm();return;}
       if(!$('mkSheet').hidden){closeMarkets();return;}
       if(!$('qBuild').hidden){closeQuickBuild();return;}
       if(!$('pin').hidden){$('pin').hidden=true;return;}
@@ -4823,6 +5252,7 @@ function updateUI(){
   }else{$('spawnBanner').hidden=true;$('armyBar').hidden=false;}
   if(hover>=0&&hoverXY)placeTip();
   renderChron(false);
+  updateAsm();
 }
 
 /* ---------- Modals ---------- */
@@ -4905,6 +5335,7 @@ function enterGame(){
   document.body.classList.remove('home');
   requestAnimationFrame(()=>{resize();const P=me();if(P&&P.capital>=0)focusTile(P.capital,Math.max(fitZ()*2,8.5));});
   resize();fx=[];walkers=[];selNation=-1;fallenShown=false;cardWait=-1;follow=null;resetHist();V3.yaw=V3.yawT=0;
+  closeAsm();ASMV.seen=G.asm&&!G.asm.done?0:G.asmN||0;ASMV.n=-1;ASMV.pend=-1;ASMV.layKey='';
   {const e=$('econ'),m=window.matchMedia(PHONE_MQ).matches;e.classList.toggle('min',m);$('econMin').textContent=m?'+':'–';}
   buildNationRows();rebuildLog();renderInspector();setMode({k:'attack'});
   paused=false;if(!NET.match)speed=1;setPauseIcon();syncSpeed();openTab('realm');
@@ -4987,7 +5418,7 @@ function startDemo(){
 }
 function goHome(where){
   closeMarkets();if(document.body.classList.contains('fullmap'))setFullMap(false);
-  document.body.classList.add('home');closeModal();setMode({k:'attack'});
+  document.body.classList.add('home');closeModal();closeAsm();setMode({k:'attack'});
   requestAnimationFrame(resize);
   startDemo();refreshHome();
   if(where==='servers')requestAnimationFrame(()=>$('srvPanel').scrollIntoView({behavior:'smooth',block:'start'}));
@@ -5311,6 +5742,7 @@ function frame(now){
     if(G.dirty){paintMap();G.dirty=false;}
     updateWalkers(gdt);
     if(V3.on)render3D(gdt>0?rdt:0,rdt);else draw(gdt>0?rdt:0);
+    if(ASMV.open)drawAsm();
     sampleHist();sampleCandles();
     econAcc+=rdt;if(econAcc>=0.5){econAcc=0;drawEcon();updateEconLegend();updateMarkets();}
     uiAcc+=rdt;if(uiAcc>=0.25){uiAcc=0;updateUI();}
