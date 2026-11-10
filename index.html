@@ -1923,6 +1923,9 @@ function buyCurrency(A){
   if(A.locked)return `Sanctions lock the ${A.cur} out of the gold market.`;
   const bars=Math.floor(A.reserve*0.25);if(bars<1)return 'You have no gold to spend.';
   const price=goldPrice(A),worth=bars*price*FX0,share=bars/Math.max(1,A.reserve);A.reserve-=bars;
+  /* the currency bought back is retired: printed money those bars were backing leaves circulation with them,
+     so selling backing gold this way never turns your printed money unbacked (that only happens when you sell gold for cash) */
+  if(A.issuedB>0)A.issuedB=Math.max(0,A.issuedB-bars);
   /* a short-lived pump: it lifts the currency right away and fades over a minute or two, and with less gold behind it the currency ends up weaker than before */
   A.pump=(A.pump||0)+worth*1.5;
   A.gp=Math.max(0.5,(A.gp||1)*(1-0.25*share));
