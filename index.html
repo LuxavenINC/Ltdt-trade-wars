@@ -401,7 +401,7 @@ body.home #stage{grid-column:1;grid-row:1}
 .ph .cap{font:600 11.5px var(--f-ui);letter-spacing:.14em;color:var(--gold)}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .flabel{font:600 11.5px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-input[type=text]{background:var(--panel-2);border:1px solid var(--rule-hi);border-radius:2px;padding:9px 10px;color:var(--paper);font:600 16px var(--f-ui);width:100%}
+input[type=text],input[type=password]{background:var(--panel-2);border:1px solid var(--rule-hi);border-radius:2px;padding:9px 10px;color:var(--paper);font:600 16px var(--f-ui);width:100%}
 input[type=text]:focus{border-color:var(--gold);outline:none}
 select{appearance:none;-webkit-appearance:none;background:var(--panel-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23e2b44f' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 11px center/12px 8px;border:1px solid var(--rule-hi);border-radius:2px;padding:9px 32px 9px 10px;color:var(--paper);font:600 15px var(--f-ui);width:100%;cursor:pointer}
 select:focus{border-color:var(--gold);outline:none}
@@ -776,7 +776,10 @@ body.home .compass{display:none}
 .asm-head h2{font:400 18px/1.2 var(--f-display);margin:2px 0 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asm-clock{font:500 13px var(--f-num);color:var(--gold-hi);white-space:nowrap}
 .asm-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
-.asm-stage{position:relative;min-height:0;background:#160d08}
+.asm-main{display:flex;flex-direction:column;min-height:0;min-width:0}
+.asm-cap{flex:none;padding:7px 12px;font:600 13.5px var(--f-ui);letter-spacing:.04em;text-align:center;color:var(--gold-hi);background:#0c0805;border-bottom:1px solid var(--gold-lo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:32px}
+.asm-cap.bad{color:#ff8a7a}
+.asm-stage{position:relative;min-height:0;flex:1;background:#160d08}
 .asm-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .asm-side{display:flex;flex-direction:column;gap:8px;padding:12px;border-left:1px solid var(--rule);min-height:0;overflow:auto;overscroll-behavior:contain}
 .asm-note{margin:0;font-size:13px;line-height:1.45;color:var(--chrome)}
@@ -797,6 +800,7 @@ body.home .compass{display:none}
 .asm-row.sel{border-color:var(--gold);background:var(--gold-soft)}
 .asm-row.sanc{border-color:var(--bad);background:rgba(255,107,94,.1)}
 .asm-row.sanc .nm small{color:var(--bad)}
+em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{color:var(--warn)}em.hos.h2{color:var(--bad)}
 #asmChip{display:flex;align-items:center;gap:10px;padding:7px 8px 7px 12px;font-weight:600;cursor:pointer;border-color:var(--gold);text-align:left}
 #asmChip[hidden]{display:none}
 #asmChip svg{flex:none;width:18px;height:18px;fill:none;stroke:var(--gold);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
@@ -809,7 +813,8 @@ body.home .compass{display:none}
   .asm-clock{font-size:11.5px}
   .asm-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
   .asm-head .kicker{display:none}
-  .asm-stage{aspect-ratio:16/10}
+  .asm-stage{aspect-ratio:16/10;flex:none}
+  .asm-cap{font-size:12px;padding:5px 10px;min-height:26px}
   .asm-side{border-left:0;border-top:1px solid var(--rule);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 }
 @media (orientation:landscape) and (max-height:520px){
@@ -819,11 +824,33 @@ body.home .compass{display:none}
   .asm-head .kicker{display:none}
   .asm-head h2{font-size:14px}
   .asm-body{grid-template-columns:minmax(0,1fr) 250px;grid-template-rows:none}
-  .asm-stage{aspect-ratio:auto}
+  .asm-stage{aspect-ratio:auto;flex:1}
+  .asm-cap{font-size:11.5px;padding:4px 10px;min-height:24px}
   .asm-side{border-top:0;border-left:1px solid var(--rule);padding:8px max(10px,env(safe-area-inset-right,0px)) 8px 10px}
   .asm-row{min-height:40px;padding:5px 8px}
   .asm-note{font-size:12px}
 }
+
+/* accounts, rejoin codes */
+.acc-bar{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--chrome)}
+.acc-bar span{flex:1 1 260px;min-width:0}
+.acc-info{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px 18px}
+.acc-sec{display:flex;flex-direction:column;gap:4px;min-width:0}
+.acc-sec>b{font-weight:600;font-size:14px}
+.acc-hs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.acc-hs li{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;font-size:13px;color:var(--chrome)}
+.acc-hs li span{flex:1 1 220px;min-width:0}
+.acc-hs code{font:500 12.5px var(--f-num);color:var(--gold-hi);background:var(--gold-soft);padding:2px 6px;border-radius:2px}
+@media (max-width:560px){.acc-info{grid-template-columns:1fr}}
+.mcode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--gold-soft);border:1px solid var(--gold-lo);border-radius:2px}
+.mcode b{display:block;font:500 22px var(--f-num);letter-spacing:.12em;color:var(--gold-hi);user-select:all;-webkit-user-select:all}
+.rj-row{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--rule)}
+.rj-in{display:flex;gap:8px}
+.rj-in input{flex:1;min-width:0;font-family:var(--f-num);letter-spacing:.1em;text-transform:uppercase}
+.rj-bar{height:8px;background:var(--panel-2);border:1px solid var(--rule-hi);border-radius:4px;overflow:hidden}
+.rj-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi));transition:width .25s}
+.rj-seats{display:flex;flex-wrap:wrap;gap:8px}
+#rjBody{display:flex;flex-direction:column;gap:12px}
 </style>
 
 <div id="app">
@@ -1013,8 +1040,8 @@ body.home .compass{display:none}
         <p class="hint" id="electHint"></p>
       </div>
       <div class="block rcard">
-        <div class="rhead"><span class="ric"><svg><use href="#ic-scales"/></svg></span><div><h4>World Assembly</h4><p class="explain">Every 4 years the president of every country meets in the world courtroom and votes on one country to sanction. Every country receives 5,000 gold bars; the sanctioned country receives only 1,000.</p></div></div>
-        <dl class="kv"><dt>Next session</dt><dd id="asmNextV">Year 4</dd><dt>Last verdict</dt><dd id="asmLastV">None yet</dd></dl>
+        <div class="rhead"><span class="ric"><svg><use href="#ic-scales"/></svg></span><div><h4>World Assembly</h4><p class="explain">Every 4 years the presidents vote to sanction a hostile country, one that attacks others. Peaceful countries building their economy are left alone. The sanctioned country earns half its income, cannot buy gold and must not attack anyone until the next session, or every country goes to war with it. Every country receives 5,000 gold bars; the sanctioned one only 1,000.</p></div></div>
+        <dl class="kv"><dt>Next session</dt><dd id="asmNextV">Year 4</dd><dt>Sanctioned now</dt><dd id="asmNowV">Nobody</dd><dt>Your hostility</dt><dd id="asmHosV">Peaceful</dd><dt>Last verdict</dt><dd id="asmLastV">None yet</dd></dl>
         <button type="button" class="btn ghost sm" id="asmOpenB">Open the chamber</button>
       </div>
       <div class="block rcard">
@@ -1193,6 +1220,11 @@ body.home .compass{display:none}
       <section class="hudbox" id="srvPanel" aria-labelledby="srvH">
         <div class="ph" id="srvH">Online servers <span class="cap">Live · 15 commanders per server</span></div>
         <div id="srvBody"></div>
+        <div class="rj-row">
+          <label class="flabel" for="rjCode">Rejoin a match</label>
+          <div class="rj-in"><input id="rjCode" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Code, e.g. 2-X7KQ9P"><button type="button" class="btn sm" id="rjGo">Rejoin</button></div>
+          <p class="hint">Left a match by accident? Any commander in it can read you the code from their menu.</p>
+        </div>
       </section>
     </div>
     <footer class="home-foot"><span>Thirty minutes of peace to build your economy</span><span>Expand · Govern · Advance through four eras</span><span>Up to 15 nations per world</span><span>The world behind this screen is a live AI battle</span></footer>
@@ -1217,7 +1249,7 @@ body.home .compass{display:none}
       <button type="button" class="btn ghost sm" id="asmClose">Close</button>
     </div>
     <div class="asm-body">
-      <div class="asm-stage"><canvas id="asmCv" aria-label="The World Assembly chamber: presidents vote and the judge announces the verdict"></canvas></div>
+      <div class="asm-main"><div class="asm-cap" id="asmCap" aria-live="polite"></div><div class="asm-stage"><canvas id="asmCv" aria-label="The World Assembly chamber: presidents vote and the judge announces the verdict"></canvas></div></div>
       <div class="asm-side">
         <p class="asm-note" id="asmNote"></p>
         <div class="asm-sec">Vote to sanction</div>
@@ -1249,7 +1281,9 @@ const SHIP_FOOD=12,FARM_FOOD=25,TARIFF_BACK=3,FOOD_PX=5;
 const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=16,CITY_MAX=3;
 /* World Assembly: every 4 years the presidents of every country meet and vote on one country to sanction.
    Every country then receives 5,000 gold bars; the sanctioned country receives only 1,000. Voting stays open 30 seconds. */
-const ASM_EVERY=4,ASM_T=30,ASM_GOLD=5000,ASM_SANC=1000;
+const ASM_EVERY=4,ASM_T=30,ASM_GOLD=5000,ASM_SANC=1000,ASM_HOS=3;
+/* a sanction needs the votes of at least a third of the presidents (2 at the least) */
+function asmNeed(m){return Math.max(2,Math.ceil(m/3));}
 const RATION_MULT=[0.72,1,1.3],RATION_HAPPY=[-14,0,10],RATION_NAME=['Lean','Normal','Generous'];
 const ERAS=[
   {name:'Medieval',num:'I'},
@@ -1449,7 +1483,7 @@ function makeNation(id,name,color,human){
     rate:{money:0,reserve:0,food:0,wood:0,stone:0},inc:{tax:0,market:0,factory:0,mines:0,urban:0,cars:0,oil:0},tradeAcc:0,tradeRate:0,
     aiT:R()*2,asked:20,pers:{aggr:R(),build:R()},sample:-1,coastSample:-1,sx:0,sy:0,lx:0,ly:0,_s:0,_c:0,
     unrest:0,traitor:0,lastHit:-1,conquered:0,peak:0,starving:false,
-    pres:'',approval:60,vW:60,vM:60,vS:60,tilesAvg:0,lastElect:null,crisis:0,mandate:0,asmS:0};
+    pres:'',approval:60,vW:60,vM:60,vS:60,tilesAvg:0,lastElect:null,crisis:0,mandate:0,asmS:0,hos:0,asmSan:false,asmWar:false};
 }
 function newGame(opts){
   opts=Object.assign({seed:1,rivals:9,difficulty:'normal',humans:['LTDT Empire'],map:'random'},opts);
@@ -1659,7 +1693,7 @@ function launchAttack(A,t,troops,fromBoat){
     G.attacks.push({a:A.id,t,troops,idle:0,cands:[],score:[]});
     if(t>=0&&!fromBoat&&G.nations[t].human)log(t,`${A.name} is attacking you with ${fmt(troops)} troops!`,null,'bad');
   }
-  if(t>=0){relAdd(A.id,t,-20);warFx(A,G.nations[t],troops);reserveWarHit(A,G.nations[t]);}
+  if(t>=0){relAdd(A.id,t,-20);warFx(A,G.nations[t],troops);reserveWarHit(A,G.nations[t]);asmHostile(A,4,G.nations[t]);}
   if(fromBoat)mv(A,'ld'+t,`landed {q} troops ${t>=0?'in '+G.nations[t].name:'on open land'}`,t>=0?'bad':'mv',troops);
   else if(t>=0)mv(A,'at'+t,`attacked ${G.nations[t].name} with {q} troops`,'bad',troops);
   else mv(A,'aw','sent {q} troops to claim open land','mv',troops);
@@ -1749,7 +1783,7 @@ function sendBoat(A,t){
   const path=bfsWater(waterNb(L),c=>touchesOwner(c,A.id));if(!path)return 'No sea route reaches that coast.';
   const troops=Math.floor(A.troops*A.attackRatio);if(troops<20)return 'Not enough troops to fill a boat.';
   A.troops-=troops;G.boats.push({o:A.id,t:tg,land:L,troops,path,pos:0});
-  if(tg>=0)relAdd(A.id,tg,-15);
+  if(tg>=0){relAdd(A.id,tg,-15);asmHostile(A,3,G.nations[tg]);}
   mv(A,'bt'+tg,`set sail with {q} troops${tg>=0?' for '+G.nations[tg].name:' for open land'}`,tg>=0?'bad':'mv',troops);
   return null;
 }
@@ -1762,7 +1796,7 @@ function processBoats(dt){
     G.boats.splice(k,1);
     const L=b.land,cur=G.owner[L];
     if(cur===A.id||(cur>=0&&isAllied(A.id,cur))){A.troops+=b.troops;continue;}
-    if(cur>=0&&inPeace()){A.troops+=b.troops;continue;}
+    if(cur>=0&&(inPeace()||(A.asmSan&&!A.asmWar))){A.troops+=b.troops;continue;}
     const c=tileCost(A,cur,L)*1.5;
     if(b.troops<=c){
       if(A.human)log(A.id,'Your landing party was thrown back into the sea.',null,'bad');
@@ -1830,6 +1864,7 @@ function launchRaider(A,tg){
   const cost=raidCost(A);if(A.money<cost)return `A raider warship costs ${fmt(cost)} ${A.cur}.`;
   A.money-=cost;A.buys=(A.buys||0)+1;A.raidN=(A.raidN||0)+1;
   G.raids.push({o:A.id,tg,path:[waterNb(port.tile)[0]],pos:0,life:RAID_LIFE,hunt:null,re:0,got:0,val:0});
+  asmHostile(A,3,tg>=0?G.nations[tg]:null);
   mv(A,'rs',`bought raider warship no. ${A.raidN} for ${fmt(cost)} ${A.cur}${tg>=0?` to hunt ${G.nations[tg].name}'s trade ships`:''}`,'warn');
   return null;
 }
@@ -1902,7 +1937,7 @@ function launchAir(A,kind,t){
   A.money-=cost;if(kind==='jet')A.jetN=(A.jetN||0)+1;else A.heliN=(A.heliN||0)+1;
   const dist=Math.max(1,Math.hypot(t%W-from%W,((t/W)|0)-((from/W)|0)));
   G.air.push({o:A.id,kind,from,to:t,d:0,dist,troops,ic:0});
-  if(T>=0)relAdd(A.id,T,-15);
+  if(T>=0){relAdd(A.id,T,-15);asmHostile(A,kind==='jet'?6:5,G.nations[T]);}
   const tn=T>=0?G.nations[T].name:'open land';
   mv(A,'ai'+kind,kind==='jet'?`sent a jet strike at ${tn}`:`flew {q} troops by helicopter toward ${tn}`,T>=0?'bad':'mv',troops);
   if(T>=0&&G.nations[T].human)log(T,kind==='jet'?`${A.name} sent a jet strike at your land!`:`${A.name} is flying ${fmt(troops)} troops by helicopter into your land!`,null,'bad');
@@ -1947,7 +1982,7 @@ function jetStrike(A,t){
 }
 function heliLand(A,a){
   const L=a.to,cur=G.owner[L];
-  if(cur===A.id||(cur>=0&&isAllied(A.id,cur))||(cur>=0&&inPeace())){A.troops+=a.troops;return;}
+  if(cur===A.id||(cur>=0&&isAllied(A.id,cur))||(cur>=0&&(inPeace()||(A.asmSan&&!A.asmWar)))){A.troops+=a.troops;return;}
   const c=tileCost(A,cur,L)*1.2;
   if(a.troops<=c){
     if(A.human)log(A.id,'Your helicopter troops were driven off.',null,'bad');
@@ -1993,6 +2028,7 @@ function launchNuke(A,kind,t){
   G.nukes.push(nk);
   for(const n of G.nations)if(n.id!==A.id&&n.alive)relAdd(A.id,n.id,-12);
   if(T>=0)relAdd(A.id,T,-40);
+  asmHostile(A,30,T>=0?G.nations[T]:null);
   const tn=T>=0?' at '+G.nations[T].name:'';
   log(A.id,`You launch ${article(w.name)} ${w.name}${tn}!`,`${A.name} launches ${article(w.name)} ${w.name}${tn}!`,'bad',false,A.id);
   if(T>=0&&G.nations[T].human)log(T,`Incoming ${w.name} from ${A.name}!`,null,'bad');
@@ -2046,7 +2082,7 @@ function economy(n,dt){
   n.oil+=(oilP-oilNeed*run)*dt;inc.oil=0;if(n.oil>RES_OIL){inc.oil=(n.oil-RES_OIL)/dt*1.5*nom;n.oil=RES_OIL;}
   n.rate.oil=oilP-oilNeed*run;
   n.gp+=(1-n.gp)*Math.min(1,0.004*dt);
-  const moneyP=inc.tax+inc.market+inc.factory+inc.urban+inc.cars+inc.oil;
+  const moneyP=(inc.tax+inc.market+inc.factory+inc.urban+inc.cars+inc.oil)*(n.asmSan?0.5:1);
   const resP=(0.15+B.city*0.6+n.cnt[DESERT]*0.004)*(1+n.era*0.1)*ai+(B.goldmine||0)*100+(B.gov?150:0);
   n.gdpBoost=(n.gdpBoost||0)*(1-Math.min(1,0.004*dt));
   n.gdp=(n.workers*0.006+B.market*5+B.factory*8+B.port*3+B.city*4+wr/1e6*2.5+(B.oilrig||0)*3+(B.carplant||0)*6*run)*prod+n.gdpBoost;
@@ -2193,6 +2229,7 @@ function printMoney(A,pct){
   return null;
 }
 function buyGold(A){
+  if(A.asmSan)return 'World Assembly sanctions: you cannot buy gold until the next session.';
   if(A.locked)return `Sanctions lock the ${A.cur} out of the gold market.`;
   const price=goldPrice(A)*1.02,spend=Math.floor(A.money*0.25);
   if(spend<price)return 'Not enough money to buy a bar of gold.';
@@ -2302,7 +2339,7 @@ function manipulate(A,X,dir){
   if(!X||X===A||!X.alive)return 'Pick another nation\'s currency.';
   if(A.manipCd>0)return `Your market desk is ready again in ${Math.ceil(A.manipCd)}s.`;
   const k=dir<0?0.12*(1-(X.shield||0)):0.12;
-  if(dir<0){const cX=Math.max(300,X.gdp*60)+X.printed+X.imported;X.imported+=cX*k/(1-k);relAdd(A.id,X.id,-12);if(X.human)log(X.id,`${A.name}, holder of the world reserve currency, is shorting the ${X.cur}. It fell ${Math.round(k*100)}%.`,null,'bad');}
+  if(dir<0){const cX=Math.max(300,X.gdp*60)+X.printed+X.imported;X.imported+=cX*k/(1-k);relAdd(A.id,X.id,-12);asmHostile(A,2);if(X.human)log(X.id,`${A.name}, holder of the world reserve currency, is shorting the ${X.cur}. It fell ${Math.round(k*100)}%.`,null,'bad');}
   else{X.support+=(X.reserve*GOLD_WC+X.support+X.gdp*60)*k;relAdd(A.id,X.id,8);if(X.human)log(X.id,`${A.name}, holder of the world reserve currency, is propping up the ${X.cur}. It rose ${Math.round(k*100)}%.`,null,'good');}
   X.fx*=dir<0?1-k:1+k;X.rfx*=dir<0?1-k:1+k;A.manipCd=30;
   mv(A,'mm'+X.id,`${dir<0?'shorted':'propped up'} the ${X.cur} by ${Math.round(k*100)}%`,dir<0?'bad':'good');
@@ -2310,7 +2347,7 @@ function manipulate(A,X,dir){
 }
 function toggleSanction(A,B){
   const k=A.id*G.NN+B.id;G.sanc[k]=G.sanc[k]?0:1;
-  if(G.sanc[k]){relAdd(A.id,B.id,-20);if(B.human)log(B.id,`${A.name} imposed sanctions on you. No trade or payments between you.`,null,'bad');}
+  if(G.sanc[k]){relAdd(A.id,B.id,-20);asmHostile(A,2);if(B.human)log(B.id,`${A.name} imposed sanctions on you. No trade or payments between you.`,null,'bad');}
   else mv(A,'sn'+B.id,`lifted its sanctions on ${B.name}`,'good');
   return !!G.sanc[k];
 }
@@ -2382,6 +2419,12 @@ function applyDrop(s){
   const n=G.nations[s];if(!n||!n.human)return;
   n.human=false;n.offers=[];
   log(-1,null,`${n.name} lost connection. The AI takes over that nation.`,'warn',true);
+}
+/* a commander who left came back with the match code: the nation is theirs again */
+function applyRejoin(s){
+  const n=G.nations[s];if(!n||n.human)return;
+  n.human=true;
+  log(-1,null,`${n.name}'s commander rejoined the match and takes the nation back from the AI.`,'good',true);
 }
 
 /* ---------- AI ---------- */
@@ -2463,7 +2506,8 @@ function aiThink(n,iv){
     }
   }
   /* military */
-  if(!peace&&n.era>=1&&n.b.port>0&&raidsOf(n.id)<raidCap(n)&&n.money>raidCost(n)*2&&R()<0.05*D.aggr*(0.5+n.pers.aggr)){
+  const held=n.asmSan&&!n.asmWar;
+  if(!peace&&!held&&n.era>=1&&n.b.port>0&&raidsOf(n.id)<raidCap(n)&&n.money>raidCost(n)*2&&R()<0.05*D.aggr*(0.5+n.pers.aggr)){
     let tg=-1,lo=-15;for(const sh of G.ships){if(sh.o===n.id||isAllied(n.id,sh.o))continue;const r=rel(n.id,sh.o);if(r<lo){lo=r;tg=sh.o;}}
     if(tg>=0)launchRaider(n,tg);
   }
@@ -2472,12 +2516,12 @@ function aiThink(n,iv){
   if(mine>=3)return;
   const wild=G.adj[n.id*(NN+1)+NN];
   if(wild>0&&!hasAttack(n.id,-1)&&(full>0.5||n.troops>350)){launchAttack(n,-1,n.troops*(0.35+n.pers.aggr*0.2));return;}
-  if(!peace){
+  if(!peace&&!held){
     let best=-1,bs=0;
     for(let q=0;q<NN;q++){
       if(q===n.id||G.adj[n.id*(NN+1)+q]===0||isAllied(n.id,q))continue;
       const Q=G.nations[q];if(!Q.alive)continue;
-      let sc=n.troops/(Q.troops+50)/defMult(Q);if(Q.human)sc*=D.bias;sc*=1-rel(n.id,q)/200;
+      let sc=n.troops/(Q.troops+50)/defMult(Q);if(Q.human)sc*=D.bias;sc*=1-rel(n.id,q)/200;if(Q.asmWar)sc*=3;
       if(sc>bs){bs=sc;best=q;}
     }
     const thr=D.thresh*(1.25-n.pers.aggr*0.5);
@@ -2487,11 +2531,11 @@ function aiThink(n,iv){
     for(let k=0;k<25;k++){
       const t=G.coastList[(R()*G.coastList.length)|0],o=G.owner[t];
       if(o===n.id)continue;
-      if(o>=0&&(peace||isAllied(n.id,o)||G.nations[o].troops>n.troops*0.8))continue;
+      if(o>=0&&(peace||held||isAllied(n.id,o)||G.nations[o].troops>n.troops*0.8))continue;
       if(sendBoat(n,t)===null)break;
     }
   }
-  if(!peace&&n.era>=3&&n.b.silo>0&&R()<D.nuke&&n.money>wpnCost(n,'atom')*1.1){
+  if(!peace&&!held&&n.era>=3&&n.b.silo>0&&R()<D.nuke&&n.money>wpnCost(n,'atom')*1.1){
     let tg=-1,tt=0;
     for(const Q of G.nations){if(!Q.alive||Q.id===n.id||isAllied(n.id,Q.id)||rel(n.id,Q.id)>-30)continue;if(Q.tiles>tt&&Q.tiles>n.tiles*0.5){tt=Q.tiles;tg=Q.id;}}
     if(tg>=0){const Q=G.nations[tg];launchNuke(n,'atom',Q.sample>=0?Q.sample:Q.capital);}
@@ -2501,7 +2545,8 @@ function aiThink(n,iv){
 /* ---------- Clock ---------- */
 function secondly(){
   const NN=G.NN,ns=G.nations;
-  for(let a=0;a<NN;a++)for(let b=a+1;b<NN;b++){const k=a*NN+b,tg=G.ally[k]?40:0,v=G.rel[k]+(tg-G.rel[k])*0.02;G.rel[k]=v;G.rel[b*NN+a]=v;}
+  for(let a=0;a<NN;a++)for(let b=a+1;b<NN;b++){const k=a*NN+b,tg=G.ally[k]?40:(ns[a].asmWar||ns[b].asmWar)?-100:0,v=G.rel[k]+(tg-G.rel[k])*0.02;G.rel[k]=v;G.rel[b*NN+a]=v;}
+  for(const n of ns)if(n.hos)n.hos=n.hos>0.05?n.hos*0.996:0;
   if(G.reqs.length)G.reqs=G.reqs.filter(r=>r.exp>=G.tick);
   for(const n of ns){
     if(!n.alive)continue;
@@ -2613,13 +2658,24 @@ function secondly(){
   }
 }
 /* an AI president votes to sanction the country it trusts least, leaning toward big empires and whoever last attacked it; never itself or an ally */
+/* hostility: attacks, air strikes, missiles, raids, sanctions and currency attacks on other countries.
+   It fades by about half every year and a half of peace. */
+function asmHostile(A,v,T){
+  if(!A||!A.alive)return;A.hos=Math.min(100,(A.hos||0)+v);
+  if(T&&A.asmSan&&!A.asmWar&&T!==A)asmBreach(A,T);
+}
+function asmBreach(A,T){
+  A.asmWar=true;const NN=G.NN;
+  for(const q of G.nations){if(q===A||!q.alive)continue;if(isAllied(A.id,q.id))setAlly(A.id,q.id,false);G.rel[A.id*NN+q.id]=-100;G.rel[q.id*NN+A.id]=-100;}
+  if(A.human)log(A.id,`You broke the World Assembly sanctions by attacking ${T.name}. Every country is now at war with you.`,null,'bad');
+  log(-1,null,`Sanctions broken: ${A.name} attacked ${T.name} while under World Assembly sanctions. Every country is now at war with ${A.name}.`,'bad',true,A.id);
+}
 function asmPick(v,ms){
-  let mx=1;for(const id of ms){const q=G.nations[id];if(q.alive&&q.tiles>mx)mx=q.tiles;}
-  let best=-1,bs=1e9;
+  let best=-1,bs=0;
   for(const id of ms){
-    const q=G.nations[id];if(!q.alive||id===v.id)continue;
-    const sc=rel(v.id,id)-30*q.tiles/mx+(isAllied(v.id,id)?200:0)-(v.lastHit===id?25:0)-(sanctioned(v.id,id)?15:0);
-    if(sc<bs){bs=sc;best=id;}
+    const q=G.nations[id];if(!q.alive||id===v.id||isAllied(v.id,id)||(q.hos||0)<ASM_HOS)continue;
+    const sc=q.hos*(v.lastHit===id?1.5:1)+(q.asmWar?40:0)+(rel(v.id,id)<-30?4:0);
+    if(sc>bs){bs=sc;best=id;}
   }
   return best;
 }
@@ -2634,18 +2690,23 @@ function openAssembly(){
 function closeAssembly(){
   const S=G.asm,cnt=new Array(G.NN).fill(0);let tot=0;
   for(const id of S.members){const t=S.vt[id];if(t>=0&&G.nations[id].alive&&G.nations[t]&&G.nations[t].alive){cnt[t]++;tot++;}}
-  let w=-1;
-  if(tot>0)for(const id of S.members){const q=G.nations[id];if(!q.alive||cnt[id]<1)continue;if(w<0||cnt[id]>cnt[w]||(cnt[id]===cnt[w]&&q.tiles>G.nations[w].tiles))w=id;}
+  let w=-1;const need=asmNeed(S.members.length);
+  if(tot>0)for(const id of S.members){const q=G.nations[id];if(!q.alive||cnt[id]<need)continue;if(w<0||cnt[id]>cnt[w]||(cnt[id]===cnt[w]&&(q.hos||0)>(G.nations[w].hos||0))||(cnt[id]===cnt[w]&&(q.hos||0)===(G.nations[w].hos||0)&&q.tiles>G.nations[w].tiles))w=id;}
+  for(const n of G.nations){n.asmSan=false;n.asmWar=false;}
   for(const n of G.nations)if(n.alive)n.reserve+=n.id===w?ASM_SANC:ASM_GOLD;
-  S.done=true;S.res={w,cnt,tot};
-  const W0=w>=0?G.nations[w]:null;if(W0)W0.asmS=S.year;
+  S.done=true;S.res={w,cnt,tot,need};
+  const W0=w>=0?G.nations[w]:null;if(W0){W0.asmS=S.year;W0.asmSan=true;
+    /* the sanction is a ceasefire: its offensives, fleets and helicopters on other countries stand down and the troops come home */
+    for(let k=G.attacks.length-1;k>=0;k--){const a=G.attacks[k];if(a.a===w&&a.t>=0){W0.troops+=a.troops;G.attacks.splice(k,1);}}
+    for(let k=G.boats.length-1;k>=0;k--){const b=G.boats[k];if(b.o===w&&b.t>=0){W0.troops+=b.troops;G.boats.splice(k,1);}}
+    for(let k=G.air.length-1;k>=0;k--){const a=G.air[k];if(a.o===w){W0.troops+=a.troops||0;G.air.splice(k,1);}}}
   for(const n of G.nations){
     if(!n.alive||!n.human)continue;
-    if(W0&&n.id===w)log(n.id,`The World Assembly sanctioned you with ${cnt[w]} of ${tot} votes. You receive only ${ASM_SANC.toLocaleString('en-US')} gold bars; every other country receives ${ASM_GOLD.toLocaleString('en-US')}.`,null,'bad');
-    else log(n.id,W0?`The World Assembly sanctioned ${W0.name}. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`:`The World Assembly sanctioned no one. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,null,'good');
+    if(W0&&n.id===w)log(n.id,`The World Assembly sanctioned you with ${cnt[w]} of ${tot} votes. Your attacks stand down and you receive only ${ASM_SANC.toLocaleString('en-US')} gold bars. Until the next session your income is halved, you cannot buy gold, and if you attack any country, every country goes to war with you.`,null,'bad');
+    else log(n.id,W0?`The World Assembly sanctioned ${W0.name}. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`:`No country drew the ${need} votes a sanction needs. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,null,'good');
   }
   if(W0)mv(W0,'asmS',`was sanctioned by the World Assembly with ${cnt[w]} votes`,'warn');
-  log(-1,null,W0?`World Assembly, Year ${S.year}: ${W0.name} is sanctioned with ${cnt[w]} of ${tot} votes. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars; ${W0.name} receives ${ASM_SANC.toLocaleString('en-US')}.`:`World Assembly, Year ${S.year}: no votes were cast. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,'warn',true);
+  log(-1,null,W0?`World Assembly, Year ${S.year}: ${W0.name} is sanctioned with ${cnt[w]} of ${tot} votes. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars; ${W0.name} receives ${ASM_SANC.toLocaleString('en-US')}, earns half its income, cannot buy gold and must not attack anyone until the next session.`:`World Assembly, Year ${S.year}: no country drew the ${need} votes a sanction needs, so no one is sanctioned. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,'warn',true);
 }
 function holdElections(){
   let kept=0,out=0;
@@ -4243,23 +4304,24 @@ function toast(text,kind,actions,ttl){
 /* ---------- Hooks from the simulation ---------- */
 function logText(e){return e.who===ME&&e.me?e.me:e.all;}
 HOOK.log=e=>{
-  if(!G||G.demo)return;
+  if(!G||G.demo||G.replay)return;
   if(logText(e))addLogEntry(e);
+  if(ASMV.open&&/World Assembly/.test(e.who===ME&&e.me?e.me:(e.all||'')))return;
   if(e.who===ME&&e.me)toast(e.me,e.kind);else if(e.ta&&e.all)toast(e.all,e.kind);
 };
 HOOK.cmd=(s,type,r)=>{
-  if(!G||G.demo||s!==ME||!r)return;
+  if(!G||G.demo||G.replay||s!==ME||!r)return;
   if(r.tile!=null)fx.push({kind:'ring',x:r.tile%W+0.5,y:((r.tile/W)|0)+0.5,t:0});
   if(!r.silent&&r.msg)toast(r.msg,r.kind);
   if(type==='bd'&&mode.k==='build'&&me()&&!canAfford(me(),bldCost(me(),mode.type)))setMode({k:'attack'});
 };
 HOOK.request=(from,toId)=>{
-  if(!G||G.demo||toId!==ME)return;
+  if(!G||G.demo||G.replay||toId!==ME)return;
   toast(`${from.name} proposes an alliance. Allies trade more and cannot attack each other.`,'good',[{label:'Accept',primary:true,fn:()=>issue('ac',from.id)},{label:'Decline',fn:()=>issue('dc',from.id)}],18000);
 };
-HOOK.over=res=>{if(!G||G.demo)return;setTimeout(()=>openOver(res),400);};
+HOOK.over=res=>{if(!G||G.demo||G.replay)return;setTimeout(()=>openOver(res),400);};
 HOOK.nuke=nk=>{
-  if(!G||G.demo)return;
+  if(!G||G.demo||G.replay)return;
   const A=G.nations[nk.o],T=G.owner[nk.to],tn=T>=0?G.nations[T].name:'open land';
   toast(`Nuclear launch detected: ${A.name} → ${tn}. Impact in ${Math.ceil(nk.dur)}s.`,'bad',[{label:'Track missile',primary:true,fn:()=>{follow=nk;}}],Math.min(9000,nk.dur*1000));
 };
@@ -4271,7 +4333,7 @@ function addLogEntry(e){const text=logText(e);if(!text)return;chPush({ev:true,n:
 function rebuildLog(){CH=[];chKey=new Map();chNation=-1;chRe=null;if(G&&!G.demo)for(const e of G.log)addLogEntry(e);syncChNations();renderChron(true);}
 /* repeated moves (the same nation doing the same thing within a few seconds) merge into one line */
 HOOK.mv=e=>{
-  if(!G||G.demo)return;
+  if(!G||G.demo||G.replay)return;
   /* only builds, troop movements, ship seizures and policy changes merge; money and currency moves always get their own line */
   const kk=e.n+'|'+e.key,win=e.kind==='pol'?30:8,o=(e.q||e.kind==='pol'||/^(bd|rz)/.test(e.key))?chKey.get(kk):null;
   if(o&&e.t-o.t<=win){
@@ -4310,9 +4372,11 @@ function syncChNations(){
 
 /* ---------- Commands ---------- */
 /* ---------- World Assembly: the courtroom where every president votes every 4 years ---------- */
-const ASMV={open:false,seen:0,n:-1,rt:{},vrt:-1,ort:-1,key:'',pend:-1,lay:null,layKey:'',land:{}};
+const ASMV={open:false,seen:0,n:-1,rt:{},vrt:-1,ort:-1,key:'',pend:-1,lay:null,layKey:'',land:{},landT:-9,landN:0};
+const ASM_LOGO=new Image();ASM_LOGO.src='ltdt-logo.jpg';
 const ASM_SKIN=['#f1d2b6','#e3b896','#c99467','#9e6b45','#6f4a2f'],ASM_HAIR=['#1b1714','#3b2618','#6b4a2c','#8f8f8f','#d9d4c8','#b88a46'],ASM_SUIT=['#1d2633','#26262b','#2c2a3a','#1f2d2a','#33261f'];
 function asmNext(){let y=Math.max(ASM_EVERY,G.year+1);while(y%ASM_EVERY)y++;return {year:y,wait:Math.max(0,(y-1)*YEAR_S-G.time)};}
+function asmHos(n){const h=n.hos||0;return n.asmWar?{t:'At war with the world',c:'h2'}:h>=ASM_HOS*4?{t:'Hostile',c:'h2'}:h>=ASM_HOS?{t:'Tense',c:'h1'}:{t:'Peaceful',c:'h0'};}
 function asmMembers(){return G.asm?G.asm.members:G.nations.filter(n=>n.alive).map(n=>n.id);}
 function asmTally(S){
   const c=new Array(G.NN).fill(0);if(!S)return c;if(S.done&&S.res)return S.res.cnt.slice();
@@ -4350,15 +4414,19 @@ function asmPerson(c,x,y,s,o,now){
   /* body */
   c.fillStyle=o.suit;c.beginPath();c.moveTo(x-21*s,y+4*s);c.lineTo(x-21*s,y-26*s-L);c.quadraticCurveTo(x-21*s,y-38*s-L,x-11*s,y-38*s-L);c.lineTo(x+11*s,y-38*s-L);c.quadraticCurveTo(x+21*s,y-38*s-L,x+21*s,y-26*s-L);c.lineTo(x+21*s,y+4*s);c.closePath();c.fill();
   c.fillStyle='rgba(255,255,255,.07)';c.fillRect(x-21*s,y-30*s-L,4*s,30*s);
+  c.fillStyle='rgba(0,0,0,.18)';c.fillRect(x+15*s,y-30*s-L,6*s,34*s);
   if(o.robe){
     c.fillStyle='#f4f1ea';c.beginPath();c.moveTo(x-8*s,y-38*s-L);c.lineTo(x+8*s,y-38*s-L);c.lineTo(x+3*s,y-22*s-L);c.lineTo(x,y-26*s-L);c.lineTo(x-3*s,y-22*s-L);c.closePath();c.fill();
   }else{
     c.fillStyle='#f4f1ea';c.beginPath();c.moveTo(x-7*s,y-38*s-L);c.lineTo(x+7*s,y-38*s-L);c.lineTo(x,y-23*s-L);c.closePath();c.fill();
     c.fillStyle=o.tie;c.beginPath();c.moveTo(x-2.4*s,y-36*s-L);c.lineTo(x+2.4*s,y-36*s-L);c.lineTo(x+3.4*s,y-20*s-L);c.lineTo(x,y-16*s-L);c.lineTo(x-3.4*s,y-20*s-L);c.closePath();c.fill();
-    c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1.2*s;c.beginPath();c.moveTo(x-7*s,y-38*s-L);c.lineTo(x-3*s,y-26*s-L);c.moveTo(x+7*s,y-38*s-L);c.lineTo(x+3*s,y-26*s-L);c.stroke();
+    c.fillStyle='rgba(0,0,0,.28)';c.beginPath();c.moveTo(x-7*s,y-38*s-L);c.lineTo(x-12.5*s,y-35*s-L);c.lineTo(x-5.5*s,y-19*s-L);c.lineTo(x-3*s,y-26*s-L);c.closePath();c.moveTo(x+7*s,y-38*s-L);c.lineTo(x+12.5*s,y-35*s-L);c.lineTo(x+5.5*s,y-19*s-L);c.lineTo(x+3*s,y-26*s-L);c.closePath();c.fill();
+    c.fillStyle='rgba(255,255,255,.75)';c.beginPath();c.moveTo(x-10*s,y-31*s-L);c.lineTo(x-7.5*s,y-31.5*s-L);c.lineTo(x-8.5*s,y-29*s-L);c.closePath();c.fill();
   }
   /* neck and head */
   c.fillStyle=o.skin;c.fillRect(x-4*s,y-43*s-L,8*s,6*s);
+  c.fillStyle='rgba(0,0,0,.18)';c.fillRect(x-4*s,y-40*s-L,8*s,2.4*s);
+  c.fillStyle=o.skin;c.beginPath();c.ellipse(x-10.6*s,hy+1*s,2.3*s,3.3*s,0,0,7);c.ellipse(x+10.6*s,hy+1*s,2.3*s,3.3*s,0,0,7);c.fill();
   const hg=c.createRadialGradient(x-3*s,hy-4*s,1*s,x,hy,12*s);hg.addColorStop(0,'rgba(255,255,255,.35)');hg.addColorStop(0.35,o.skin);hg.addColorStop(1,o.skin);
   c.fillStyle=hg;c.beginPath();c.ellipse(x,hy,10.5*s,11.5*s,0,0,7);c.fill();
   c.fillStyle=o.hair;
@@ -4366,6 +4434,7 @@ function asmPerson(c,x,y,s,o,now){
   else if(o.hs===1){c.beginPath();c.ellipse(x-9.5*s,hy-1*s,2.6*s,5*s,0,0,7);c.ellipse(x+9.5*s,hy-1*s,2.6*s,5*s,0,0,7);c.fill();}
   else if(o.hs===2){c.beginPath();c.moveTo(x-11*s,hy+9*s);c.lineTo(x-11.5*s,hy-3*s);c.quadraticCurveTo(x-11*s,hy-13.5*s,x,hy-13*s);c.quadraticCurveTo(x+11*s,hy-13.5*s,x+11.5*s,hy-3*s);c.lineTo(x+11*s,hy+9*s);c.lineTo(x+8*s,hy+9*s);c.lineTo(x+8.5*s,hy-5*s);c.quadraticCurveTo(x,hy-8*s,x-8.5*s,hy-5*s);c.lineTo(x-8*s,hy+9*s);c.closePath();c.fill();}
   else{c.beginPath();c.moveTo(x-11*s,hy-1*s);c.quadraticCurveTo(x-11.5*s,hy-13.5*s,x,hy-13.2*s);c.quadraticCurveTo(x+11.5*s,hy-13.5*s,x+11*s,hy-1*s);c.quadraticCurveTo(x+6*s,hy-8.5*s,x-2*s,hy-7.5*s);c.quadraticCurveTo(x-8*s,hy-7*s,x-11*s,hy-1*s);c.closePath();c.fill();}
+  if(!o.wig&&o.hs!==1){c.strokeStyle='rgba(255,255,255,.18)';c.lineWidth=1.3*s;c.beginPath();c.arc(x-1*s,hy-3*s,8.5*s,Math.PI*1.18,Math.PI*1.5);c.stroke();}
   /* face */
   const blink=((now*0.6+o.seed*7.3)%4)<0.11;
   c.fillStyle='#1d140e';c.strokeStyle='#1d140e';c.lineWidth=1.1*s;
@@ -4373,6 +4442,9 @@ function asmPerson(c,x,y,s,o,now){
   else{c.beginPath();c.arc(x-3.8*s,hy+0.4*s,1.35*s,0,7);c.arc(x+3.8*s,hy+0.4*s,1.35*s,0,7);c.fill();}
   c.beginPath();c.moveTo(x-5.6*s,hy-3.2*s);c.lineTo(x-2.2*s,hy-3.6*s);c.moveTo(x+2.2*s,hy-3.6*s);c.lineTo(x+5.6*s,hy-3.2*s);c.stroke();
   c.beginPath();c.arc(x,hy+3.6*s,3*s,0.25*Math.PI,0.75*Math.PI);c.stroke();
+  c.strokeStyle='rgba(0,0,0,.22)';c.lineWidth=0.9*s;c.beginPath();c.moveTo(x+0.3*s,hy+0.6*s);c.lineTo(x+1.3*s,hy+3*s);c.lineTo(x-0.6*s,hy+3.2*s);c.stroke();
+  if(o.clap){const k=Math.abs(Math.sin(now*15+o.seed)),hx0=(2.2+3.5*k)*s,cy=y-31*s-L;c.strokeStyle=o.suit;c.lineWidth=6*s;c.lineCap='round';c.beginPath();c.moveTo(x-16*s,y-27*s-L);c.lineTo(x-hx0,cy);c.moveTo(x+16*s,y-27*s-L);c.lineTo(x+hx0,cy);c.stroke();c.lineCap='butt';
+    c.fillStyle=o.skin;c.beginPath();c.arc(x-hx0+0.6*s,cy-1*s,2.8*s,0,7);c.arc(x+hx0-0.6*s,cy-1*s,2.8*s,0,7);c.fill();}
   if(o.glasses){c.strokeStyle='#c9c9c9';c.lineWidth=0.9*s;c.beginPath();c.arc(x-3.8*s,hy+0.4*s,2.8*s,0,7);c.moveTo(x+6.6*s,hy+0.4*s);c.arc(x+3.8*s,hy+0.4*s,2.8*s,0,7);c.moveTo(x-1*s,hy);c.lineTo(x+1*s,hy);c.stroke();}
   /* raised arm with a ballot */
   if(o.arm>0){
@@ -4388,6 +4460,8 @@ function asmDesk(c,x,y,s,n,U,now,dead){
   c.fillStyle=g;asmRR(c,x-w/2,y-8*s,w,38*s,5*s);c.fill();
   c.strokeStyle='rgba(255,220,160,.16)';c.lineWidth=1*s;asmRR(c,x-w/2+5*s,y+0*s,w-10*s,24*s,3*s);c.stroke();
   c.fillStyle='#a06a3a';asmRR(c,x-w/2-3*s,top,w+6*s,7*s,3*s);c.fill();c.fillStyle='rgba(255,240,210,.25)';c.fillRect(x-w/2,top+1*s,w,1.4*s);
+  c.fillStyle='#f3efe4';c.fillRect(x-14*s,top-1.2*s,18*s,2.4*s);c.fillStyle='rgba(0,0,0,.15)';c.fillRect(x-14*s,top+1*s,18*s,0.8*s);
+  c.fillStyle='rgba(205,232,255,.6)';c.fillRect(x+13*s,top-8*s,4.6*s,8*s);c.fillStyle='rgba(255,255,255,.7)';c.fillRect(x+13.6*s,top-7*s,1*s,6*s);
   /* name plate with the currency code */
   const fs=Math.max(11*s,7.5*U),pw=Math.max(40*s,fs*2.4),ph=fs*1.3;
   c.fillStyle='#120d08';asmRR(c,x-pw/2,y+12*s-ph/2,pw,ph,2*s);c.fill();c.strokeStyle='#c99a45';c.lineWidth=Math.max(0.8*s,0.8*U);c.stroke();
@@ -4416,6 +4490,7 @@ function asmSeal(c,sx,sy,r,now){
   for(const d of [-1,1]){const ex=d*24,ey=-16;c.lineWidth=1.5;c.beginPath();c.moveTo(ex,ey);c.lineTo(ex-8,ey+18);c.moveTo(ex,ey);c.lineTo(ex+8,ey+18);c.stroke();c.beginPath();c.moveTo(ex-10,ey+18);c.quadraticCurveTo(ex,ey+27,ex+10,ey+18);c.closePath();c.fill();}
   c.restore();
 }
+function asmStar(c,x,y,r){c.beginPath();for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,q=k%2?r*0.42:r;c.lineTo(x+Math.cos(a)*q,y+Math.sin(a)*q);}c.closePath();c.fill();}
 function asmRoom(c,now,v){
   const X0=Math.floor(v.x0),X1=Math.ceil(v.x1),Y0=Math.min(0,Math.floor(v.y0)),Y1=Math.max(625,Math.ceil(v.y1)),XW=X1-X0;
   let g=c.createLinearGradient(0,Y0,0,262);g.addColorStop(0,'#1f120a');g.addColorStop(1,'#4b2d1a');c.fillStyle=g;c.fillRect(X0,Y0,XW,262-Y0);
@@ -4435,9 +4510,26 @@ function asmRoom(c,now,v){
     c.fillStyle=cg;c.fillRect(px-17,0,34,250);c.strokeStyle='rgba(90,70,40,.25)';c.lineWidth=1.5;c.beginPath();for(let k=-10;k<=10;k+=5){c.moveTo(px+k,0);c.lineTo(px+k,240);}c.stroke();
     c.fillStyle='#e8dcc4';c.fillRect(px-24,236,48,14);c.fillRect(px-22,0,44,10);
   }
-  /* velvet curtain behind the judge */
-  {const g2=c.createLinearGradient(420,0,580,0);for(let k=0;k<=8;k++)g2.addColorStop(k/8,k%2?'#7a1c1c':'#4e0f10');c.fillStyle=g2;c.fillRect(420,34,160,170);
-   c.fillStyle='#c99a45';c.fillRect(414,30,172,12);for(let k=0;k<12;k++){c.beginPath();c.moveTo(418+k*14.5,42);c.lineTo(425+k*14.5,52);c.lineTo(432+k*14.5,42);c.closePath();c.fill();}}
+  /* the banner behind the judge: the LTDT crest ringed with twelve gold stars */
+  {const fh=v.fh,bg=c.createLinearGradient(430,0,570,0);bg.addColorStop(0,'#0a2a66');bg.addColorStop(0.5,'#1446a8');bg.addColorStop(1,'#0a2a66');
+   c.fillStyle=bg;c.fillRect(430,fh,140,205-fh);c.fillStyle='rgba(255,255,255,.06)';for(let k=0;k<5;k++)c.fillRect(440+k*28,fh,6,205-fh);
+   c.strokeStyle='#d8b25e';c.lineWidth=3;c.strokeRect(431.5,fh+1.5,137,203-fh);
+   const lx=500,ly=96;
+   c.fillStyle='#f4cf63';for(let k=0;k<12;k++){const a=k/12*Math.PI*2-Math.PI/2;asmStar(c,lx+Math.cos(a)*55,ly+Math.sin(a)*55,6.2);}
+   c.fillStyle='#07090d';c.beginPath();c.arc(lx,ly,41,0,7);c.fill();
+   c.save();c.beginPath();c.arc(lx,ly,40,0,7);c.clip();
+   if(ASM_LOGO.complete&&ASM_LOGO.naturalWidth)c.drawImage(ASM_LOGO,lx-46,ly-46,92,92);
+   else{c.fillStyle='#e2b44f';c.font=`700 18px ${FD}`;c.textAlign='center';c.textBaseline='middle';c.fillText('LTDT',lx,ly+1);}
+   c.restore();
+   const rg=c.createLinearGradient(lx-42,ly-42,lx+42,ly+42);rg.addColorStop(0,'#fff0b0');rg.addColorStop(0.5,'#c99a45');rg.addColorStop(1,'#7d5718');c.strokeStyle=rg;c.lineWidth=4;c.beginPath();c.arc(lx,ly,42,0,7);c.stroke();}
+  /* the name over the chamber */
+  {const fh=v.fh,fs=v.ffs,fg=c.createLinearGradient(0,0,0,fh);fg.addColorStop(0,'#160c06');fg.addColorStop(1,'#2e1a0d');c.fillStyle=fg;c.fillRect(X0,Y0,XW,fh-Y0);
+   if(Y0<-8){c.fillStyle='#0f0804';c.fillRect(X0,Y0,XW,-Y0);c.strokeStyle='rgba(210,168,90,.22)';c.lineWidth=2;for(let yy=-14;yy>Y0;yy-=46)for(let xx=500-46*Math.ceil((500-X0)/46);xx<X1;xx+=46)c.strokeRect(xx+4,yy-36,38,32);c.fillStyle='#c99a45';c.fillRect(X0,-3,XW,3);}
+   c.fillStyle='#c99a45';c.fillRect(X0,fh-3,XW,3);c.fillStyle='rgba(255,230,170,.35)';c.fillRect(X0,fh-3,XW,1);
+   c.font=`400 ${fs}px "Michroma", ${FD}`;c.textAlign='center';c.textBaseline='middle';const tx='EUROPEAN UNION WORLD LEADERS';
+   let w=c.measureText(tx).width,sc2=Math.min(1,(Math.min(XW,1000)-40)/w);c.save();c.translate(500,fh/2+1);c.scale(sc2,1);
+   const tg=c.createLinearGradient(0,-fs/2,0,fs/2);tg.addColorStop(0,'#fff0b0');tg.addColorStop(0.55,'#e2b44f');tg.addColorStop(1,'#a87a2a');
+   c.fillStyle='rgba(0,0,0,.6)';c.fillText(tx,1.5,2);c.fillStyle=tg;c.fillText(tx,0,0);c.restore();}
   /* floor */
   g=c.createLinearGradient(0,262,0,625);g.addColorStop(0,'#8a7862');g.addColorStop(1,'#d3c2a6');c.fillStyle=g;c.fillRect(X0,262,XW,Y1-262);
   c.strokeStyle='rgba(60,40,20,.16)';c.lineWidth=1.5;c.beginPath();
@@ -4455,12 +4547,12 @@ function asmRoom(c,now,v){
 }
 /* the presiding judge, the bench and the gavel. strikes: real times the gavel came down */
 function asmBench(c,now,strikes){
-  asmPerson(c,500,212,1.5,{suit:'#0d0d10',skin:'#e7c4a2',hair:'#e9e6df',wig:true,robe:true,chair:['#6d1d1d','#3a0e0e'],tall:true,seed:3,glasses:false},now);
+  asmPerson(c,500,212,1.22,{suit:'#0d0d10',skin:'#e7c4a2',hair:'#e9e6df',wig:true,robe:true,chair:['#6d1d1d','#3a0e0e'],seed:3,glasses:false},now);
   /* gavel angle: rest, lift, strike, settle */
   let ang=0.05,imp=-1;
   for(const t0 of strikes){const d=now-t0;if(d>=0&&d<0.7){ang=d<0.32?0.05+1.25*(d/0.32):d<0.4?1.3-1.35*((d-0.32)/0.08):-0.05+0.1*((d-0.4)/0.3);if(d>=0.4)imp=d-0.4;}}
   /* arm to the gavel */
-  c.strokeStyle='#0d0d10';c.lineWidth=10;c.lineCap='round';c.beginPath();c.moveTo(526,160);c.lineTo(566,190);c.stroke();c.lineCap='butt';
+  c.strokeStyle='#0d0d10';c.lineWidth=8.5;c.lineCap='round';c.beginPath();c.moveTo(520,176);c.lineTo(566,190);c.stroke();c.lineCap='butt';
   /* bench */
   let g=c.createLinearGradient(0,198,0,286);g.addColorStop(0,'#7a4a28');g.addColorStop(1,'#341c0d');c.fillStyle=g;c.fillRect(328,206,344,80);
   c.fillStyle='#a06a3a';c.fillRect(318,196,364,13);c.fillStyle='rgba(255,240,210,.3)';c.fillRect(318,197,364,2);
@@ -4476,6 +4568,30 @@ function asmBench(c,now,strikes){
   c.fillStyle='#e7c4a2';c.beginPath();c.arc(0,0,5,0,7);c.fill();
   c.restore();
   if(imp>=0&&imp<0.6){const k=imp/0.6;c.strokeStyle=`rgba(255,230,160,${0.8*(1-k)})`;c.lineWidth=3;c.beginPath();c.ellipse(528,192,20+80*k,6+24*k,0,0,7);c.stroke();}
+}
+function asmGallery(c,now,U,ev){
+  const tiers=[{y:196,s:0.56,n:8},{y:232,s:0.62,n:7},{y:268,s:0.68,n:6}];
+  for(const side of [0,1]){
+    const X0=side?688:8,X1=side?992:312;
+    const bg=c.createLinearGradient(0,170,0,290);bg.addColorStop(0,'#2a170c');bg.addColorStop(1,'#3f2614');c.fillStyle=bg;c.fillRect(X0,172,X1-X0,114);
+    tiers.forEach((t,j)=>{
+      const s=t.s;
+      c.fillStyle='#5a2a24';c.fillRect(X0+4,t.y-46*s,X1-X0-8,32*s);c.fillStyle='rgba(255,236,190,.1)';c.fillRect(X0+4,t.y-46*s,X1-X0-8,3*s);
+      for(let i=0;i<t.n;i++){
+        const x=X0+22+(X1-X0-44)*(t.n===1?0.5:i/(t.n-1))+(j%2?8:0)*(side?-1:1),id=side*100+j*10+i,h1=hash(id*31+5),h2=hash(id*47+9),h3=hash(id*59+3);
+        let lift=Math.sin(now*1.3+h1*9)*0.5*s,clap=false;
+        if(ev.dv>=0.6&&ev.dv<4.6){lift=8*s*Math.min(1,(ev.dv-0.6)/0.3);clap=true;}
+        else if(now-ev.landT<1.1&&h2>0.55)lift+=3*s*Math.sin(Math.PI*(now-ev.landT)/1.1);
+        const ties=['#1446a8','#b3261e','#e2b44f','#2f6d4f','#6b3fa0','#d0d4da'];
+        asmPerson(c,x,t.y+4,s,{suit:ASM_SUIT[(h3*ASM_SUIT.length)|0],tie:ties[(h2*ties.length)|0],skin:ASM_SKIN[(h1*ASM_SKIN.length)|0],hair:ASM_HAIR[(h2*ASM_HAIR.length)|0],hs:(side&&h1>0.5)?2:(h3*7|0)%3,lift,clap,seed:id,glasses:h3>0.78},now);
+      }
+      const rg=c.createLinearGradient(0,t.y,0,t.y+17);rg.addColorStop(0,'#8a5a32');rg.addColorStop(1,'#4a2a14');c.fillStyle=rg;c.fillRect(X0,t.y,X1-X0,17);
+      c.fillStyle='#d2a85a';c.fillRect(X0,t.y,X1-X0,2.2);c.fillStyle='rgba(0,0,0,.25)';for(let k=X0+30;k<X1-10;k+=46)c.fillRect(k,t.y+5,2,10);
+    });
+    const label=side?'CONGRESS':'SENATE',fs=Math.max(11,7*U);c.font=`700 ${fs}px ${FD}`;const tw=c.measureText(label).width+fs*1.2,cx=(X0+X1)/2,py=268+8.5-fs*0.75;
+    c.fillStyle='#120d08';c.fillRect(cx-tw/2,py,tw,fs*1.5);c.strokeStyle='#d2a85a';c.lineWidth=1.5;c.strokeRect(cx-tw/2,py,tw,fs*1.5);
+    c.fillStyle='#f1cf7a';c.textAlign='center';c.textBaseline='middle';c.fillText(label,cx,py+fs*0.78);
+  }
 }
 function drawAsm(){
   const cv=$('asmCv');if(!cv||!G)return;const bw=cv.clientWidth,bh=cv.clientHeight;if(bw<20||bh<20)return;
@@ -4494,8 +4610,9 @@ function drawAsm(){
     for(const m of S.members){if(S.vt[m]>=0&&S.va[m]<=G.time+1e-9){const k=m+':'+S.va[m];if(!(k in ASMV.rt))ASMV.rt[k]=now;if(!last||ASMV.rt[k]>last.t)last={t:ASMV.rt[k],m,to:S.vt[m]};}}
     if(S.done&&ASMV.vrt<0)ASMV.vrt=now;
   }
-  const vis={x0:-ox/sc,y0:-oy/sc,x1:(bw-ox)/sc,y1:(bh-oy)/sc};
+  const ffs=Math.max(21,8*U),vis={x0:-ox/sc,y0:-oy/sc,x1:(bw-ox)/sc,y1:(bh-oy)/sc,ffs,fh:Math.max(36,ffs*1.7)};
   asmRoom(c,now,vis);
+  {const dv0=ASMV.vrt>=0&&S&&S.done?now-ASMV.vrt:-1;asmGallery(c,now,U,{dv:dv0,landT:ASMV.landT});}
   asmBench(c,now,[ASMV.ort,ASMV.vrt]);
   /* ballot box */
   const lay=asmLayout(ms);let landed=0,flash=0;
@@ -4505,6 +4622,7 @@ function drawAsm(){
     if(e>=1.05){landed++;flash=Math.max(flash,1-Math.min(1,(e-1.05)/0.35));}
     else if(e>=0.25)flights.push({st,p:(e-0.25)/0.8,to:S.vt[m]});
   }
+  if(landed>ASMV.landN){ASMV.landT=now;}ASMV.landN=landed;
   c.fillStyle='#3a2212';c.fillRect(472,366,56,22);c.fillStyle='#5a361c';c.fillRect(466,362,68,7);
   c.fillStyle='rgba(205,232,255,.16)';asmRR(c,468,318,64,46,4);c.fill();
   c.fillStyle='#fbf8f0';const pile=Math.min(40,landed*2.4);for(let k=0;k<pile/2.4;k++){const jx=(hash(k*17+3)-0.5)*30,jy=(hash(k*29+5)-0.5)*3;c.fillRect(484+jx*0.8+8,360-k*2.4+jy-4,18,3);}
@@ -4520,6 +4638,8 @@ function drawAsm(){
   /* presidents */
   for(const st of lay){
     const n=G.nations[st.id];if(!n)continue;const s=st.s,dead=!n.alive;
+    c.fillStyle='rgba(30,18,8,.26)';c.beginPath();c.ellipse(st.x+5*s,st.y+31*s,56*s,9*s,0,0,7);c.fill();
+    if(!dead&&asmHos(n).c==='h2'){const rg=c.createRadialGradient(st.x,st.y-40*s,4*s,st.x,st.y-40*s,60*s);rg.addColorStop(0,'rgba(255,60,40,.32)');rg.addColorStop(1,'rgba(255,60,40,0)');c.fillStyle=rg;c.fillRect(st.x-60*s,st.y-100*s,120*s,120*s);}
     if(st.id===ME){c.fillStyle='rgba(226,180,79,.28)';c.beginPath();c.ellipse(st.x,st.y+30*s,62*s,14*s,0,0,7);c.fill();}
     let lift=0,arm=0,ball=null;
     if(S&&S.vt[st.id]>=0&&S.va[st.id]<=G.time+1e-9){const e=now-ASMV.rt[st.id+':'+S.va[st.id]];if(e<1.6){const k=e<0.25?e/0.25:e<1.3?1:1-(e-1.3)/0.3;lift=10*s*k;arm=e<0.3?k:Math.max(0,1-(e-0.25)/0.2);ball=G.nations[S.vt[st.id]].css;}}
@@ -4554,15 +4674,12 @@ function drawAsm(){
   /* caption strip */
   let cap='',capC='#f7dd8c';
   if(!S){const nx=asmNext();cap=`The World Assembly first meets in Year ${nx.year} · in ${mmss(nx.wait)}`;}
-  else if(V){cap=w>=0?`VERDICT: ${G.nations[w].name.toUpperCase()} IS SANCTIONED · ${V.cnt[w]} of ${V.tot} votes`:'VERDICT: NO VOTES WERE CAST';capC=w>=0?'#ff8a7a':capC;}
-  else if(now-ASMV.ort<2.2)cap=`ORDER! The World Assembly of Year ${S.year} is in session`;
+  else if(V){cap=w>=0?`VERDICT: ${G.nations[w].name.toUpperCase()} IS SANCTIONED · ${V.cnt[w]} of ${V.tot} votes`:`VERDICT: NO SANCTION · no country drew ${V.need||asmNeed(S.members.length)} votes`;capC=w>=0?'#ff8a7a':capC;}
+  else if(now-ASMV.ort<2.2)cap=`ORDER! Presidents, senators and congress: the Year ${S.year} session is open`;
   else if(last&&now-last.t<2.6)cap=`${G.nations[last.m].name} votes to sanction ${G.nations[last.to].name}`;
   else cap=`Voting closes in ${Math.max(0,Math.ceil(S.end-G.time))}s · every president casts one vote`;
-  const fs=Math.max(18,10.5*U),hh=fs*2;
-  const cy0=Math.min(0,vis.y0),cx0=vis.x0,cxw=vis.x1-vis.x0,maxW=Math.min(cxw,1000)-30;
-  c.fillStyle='rgba(8,5,3,.72)';c.fillRect(cx0,cy0,cxw,hh);c.fillStyle='#c99a45';c.fillRect(cx0,cy0+hh-2,cxw,2);
-  c.font=`600 ${fs}px ${FD}`;c.fillStyle=capC;c.textAlign='center';c.textBaseline='middle';
-  let t=cap;while(c.measureText(t).width>maxW&&t.length>8)t=t.slice(0,-2);if(t!==cap)t=t.slice(0,-1)+'…';c.fillText(t,500,cy0+hh/2+1);
+  {const el=$('asmCap'),k=cap+'|'+capC;if(el&&el.dataset.k!==k){el.dataset.k=k;el.textContent=cap;el.classList.toggle('bad',capC!=='#f7dd8c');}}
+  const cxw=vis.x1-vis.x0;
   /* soft vignette */
   const vg=c.createRadialGradient(500,330,260,500,330,760);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.42)');c.fillStyle=vg;c.fillRect(vis.x0,vis.y0,cxw,vis.y1-vis.y0);
 }
@@ -4578,18 +4695,20 @@ function asmList(force){
   $('asmTitle').textContent=S&&!S.done?'Who gets sanctioned?':S?'The verdict':'The world courtroom';
   $('asmClock').textContent=S&&!S.done?`Voting closes in ${Math.max(0,Math.ceil(S.end-G.time))}s`:`Next session: Year ${nx.year} · ${mmss(nx.wait)}`;
   const g5=ASM_GOLD.toLocaleString('en-US'),g1=ASM_SANC.toLocaleString('en-US');
-  let note=`Every 4 years the president of every country votes on one country to sanction. Every country receives ${g5} gold bars; the sanctioned country receives only ${g1}.`;
+  const need=asmNeed(ms.length);
+  let note=`Vote to sanction a hostile country, one that attacks others; leave peaceful countries building their economy alone. A sanction needs ${need} votes. Sanctioned: half income, no gold buying and no attacks until the next session, or every country goes to war with it. Every country gets ${g5} gold bars, the sanctioned one ${g1}.`;
   if(canVote)note+=my>=0?` Your vote: sanction ${G.nations[my].name}. You can change it until voting closes.`:' Tap a country to cast your vote. You cannot vote for yourself.';
-  else if(S&&S.done)note+=w>=0?` ${G.nations[w].name} was sanctioned with ${S.res.cnt[w]} of ${S.res.tot} votes.`:' No votes were cast.';
+  else if(S&&S.done)note+=w>=0?` ${G.nations[w].name} was sanctioned with ${S.res.cnt[w]} of ${S.res.tot} votes.`:` No country drew ${S.res.need||need} votes, so no one is sanctioned.`;
   else if(S&&P&&!P.alive)note+=' Your empire has fallen: you can watch but not vote.';
   $('asmNote').textContent=note;
-  const key=[S?S.n:0,S&&S.done?1:0,my,canVote?1:0,ms.join(','),ms.map(m=>cnt[m]+(G.nations[m].alive?'':'x')).join(','),lead].join('|');
+  const key=[S?S.n:0,S&&S.done?1:0,my,canVote?1:0,ms.join(','),ms.map(m=>cnt[m]+(G.nations[m].alive?'':'x')+asmHos(G.nations[m]).c).join(','),lead].join('|');
   if(!force&&key===ASMV.key)return;ASMV.key=key;
   $('asmList').innerHTML=ms.map(m=>{
     const n=G.nations[m],mine=m===ME,sel=m===my&&m>=0,dead=!n.alive;
     const cls='asm-row'+(mine?' mine':'')+(sel?' sel':'')+(m===lead?' lead':'')+(m===w?' sanc':'');
     const sub=S&&S.done?(dead?'Fallen':m===w?`Sanctioned · +${g1} gold bars`:`+${g5} gold bars`):`${esc(n.cur)} · ${esc(n.pres)}${mine?' (you)':''}`;
-    return `<button type="button" class="${cls}" data-t="${m}" ${!canVote||mine||dead?'disabled':''} aria-pressed="${sel}"><i class="sw" style="background:${n.css}"></i><span class="nm"><b>${esc(n.name)}${sel?' · your vote':''}</b><small>${sub}</small></span><span class="vc">${cnt[m]}<small>vote${cnt[m]===1?'':'s'}</small></span></button>`;
+    const hz=asmHos(n);
+    return `<button type="button" class="${cls}" data-t="${m}" ${!canVote||mine||dead?'disabled':''} aria-pressed="${sel}"><i class="sw" style="background:${n.css}"></i><span class="nm"><b>${esc(n.name)}${sel?' · your vote':''}</b><small>${dead?'':`<em class="hos ${hz.c}">${hz.t}</em> · `}${sub}</small></span><span class="vc">${cnt[m]}<small>vote${cnt[m]===1?'':'s'}</small></span></button>`;
   }).join('');
 }
 function updateAsm(){
@@ -4605,6 +4724,10 @@ function updateAsm(){
     $('asmNextV').textContent=S&&!S.done?`In session now · ${Math.max(0,Math.ceil(S.end-G.time))}s left`:G.phase!=='play'?`Year ${ASM_EVERY}`:`Year ${nx.year} · in ${mmss(nx.wait)}`;
     $('asmLastV').textContent=S&&S.done&&S.res?(S.res.w>=0?`Year ${S.year}: ${G.nations[S.res.w].name} (${S.res.cnt[S.res.w]} of ${S.res.tot} votes)`:`Year ${S.year}: no votes`):'None yet';
     $('asmOpenB').textContent=S&&!S.done?'Vote now':'Open the chamber';
+    const sn=G.nations.find(n=>n.alive&&n.asmSan),el=$('asmNowV');
+    el.textContent=sn?(sn.id===ME?(sn.asmWar?'You · at war with every country':'You · half income, no gold buying, no attacks'):`${sn.name}${sn.asmWar?' · at war with every country':''}`)+` until Year ${asmNext().year}`:'Nobody';
+    el.style.color=sn&&sn.id===ME?'var(--bad)':'';
+    if(P){const h=asmHos(P);$('asmHosV').textContent=h.t+(P.hos>=0.5?` · ${Math.round(P.hos)}`:'');$('asmHosV').style.color=h.c==='h2'?'var(--bad)':h.c==='h1'?'var(--warn)':'var(--good)';}
   }
   if(ASMV.open)asmList(false);
 }
@@ -4888,14 +5011,21 @@ function placeTip(){
   if(x+w>cw-8)x=hoverXY.x-w-12;if(y+h>ch-8)y=hoverXY.y-h-12;
   tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,y)+'px';
 }
+function asmGuard(t){
+  const P=me();if(!P||!P.asmSan||P.asmWar||inPeace())return true;
+  const o=G.owner[t];if(o<0||o===ME||isAllied(ME,o))return true;
+  const now=performance.now();if(ASMV.warnT&&now-ASMV.warnT<6000){ASMV.warnT=0;return true;}
+  ASMV.warnT=now;toast(`You are under World Assembly sanctions. Attacking ${G.nations[o].name} starts a war with every country. Tap again to attack anyway.`,'bad',null,6000);return false;
+}
 function clickTile(t){
   const P=me();if(!G||G.demo||t<0||!P)return;
   if(G.phase==='spawn'){issue('sp',t);return;}
   if(G.phase!=='play'||!P.alive)return;
   if(mode.k==='build'){issue('bd',mode.type,t);return;}
-  if(mode.k==='nuke'){issue('nk',mode.kind,t);setMode({k:'attack'});return;}
-  if(mode.k==='air'){issue('air',mode.kind,t);setMode({k:'attack'});return;}
+  if(mode.k==='nuke'){if(!asmGuard(t))return;issue('nk',mode.kind,t);setMode({k:'attack'});return;}
+  if(mode.k==='air'){if(!asmGuard(t))return;issue('air',mode.kind,t);setMode({k:'attack'});return;}
   if(G.terr[t]===WATER||G.owner[t]===ME)return;
+  if(!asmGuard(t))return;
   issue('at',t);
 }
 function inspectTile(t,xy){
@@ -4939,6 +5069,7 @@ function updateInspector(){
   if(n.id===G.top)chips.push('<span class="chip holo">Reserve currency</span>');
   if(n.human&&n.id!==ME)chips.push('<span class="chip gold">Player</span>');
   if(n.id!==ME&&isAllied(ME,n.id))chips.push('<span class="chip good">Ally</span>');
+  if(n.asmSan)chips.push(`<span class="chip bad">${n.asmWar?'At war with every country':'World Assembly sanctions'}</span>`);
   if(n.id!==ME&&G.sanc[ME*NN+n.id])chips.push('<span class="chip bad">Sanctioned by you</span>');
   if(n.id!==ME&&G.sanc[n.id*NN+ME])chips.push('<span class="chip bad">Sanctions you</span>');
   if(n.locked)chips.push('<span class="chip bad">Market lockout</span>');
@@ -5271,6 +5402,8 @@ function openMenu(){
     <div class="kicker">${online?'Match continues while this is open':'Game paused'}</div>
     <h2 class="mtitle" id="mnTitle">LTDT Trade Wars</h2>
     <p class="menu-meta">${esc(meta)}</p>
+    ${online&&NET.match?`<div class="mcode"><div><span class="flabel">Match code</span><b id="mnCode">${esc(matchCode(NET.srv,NET.match.id))}</b></div><button type="button" class="btn sm ghost" id="mnCopy">Copy</button></div>
+    <p class="hint">Left by accident? Enter this code on the title screen under Online servers to get your seat back. Give it to any commander who drops out.</p>`:''}
     <div class="menu-list">
       <button type="button" class="mitem primary" id="mnResume" data-autofocus><span class="mi-t">Resume</span><span class="mi-s">Back to the war</span><kbd>Esc</kbd></button>
       ${wideScreen()?`<button type="button" class="mitem" id="mnPanel"><span class="mi-t">${panelOff()?'Show side panel':'Hide side panel'}</span><span class="mi-s">${panelOff()?'Bring back Realm, Treasury, Build, Nations and Chronicle':'See the whole map. Bring it back any time from here or the top bar'}</span><kbd>P</kbd></button>`:''}
@@ -5279,6 +5412,8 @@ function openMenu(){
     </div>
   </div>`,ov=>{
     ov.querySelector('#mnResume').onclick=closeModal;
+    {const cp=ov.querySelector('#mnCopy');if(cp)cp.onclick=()=>{const code=$('mnCode').textContent;const done=()=>toast(`Match code ${code} copied.`,'good');
+      try{navigator.clipboard.writeText(code).then(done,()=>{const r=document.createRange();r.selectNodeContents($('mnCode'));const sl=getSelection();sl.removeAllRanges();sl.addRange(r);toast('Select and copy the code.','info');});}catch(e){toast('Select and copy the code.','info');}};}
     {const mp=ov.querySelector('#mnPanel');if(mp)mp.onclick=()=>{closeModal();setPanelOff(!panelOff());};}
     ov.querySelector('#mnServer').onclick=()=>{closeModal();leaveGame('servers');};
     ov.querySelector('#mnExit').onclick=()=>{closeModal();leaveGame('top');};
@@ -5301,7 +5436,7 @@ function openOver(res){
   if(modalOpen)closeModal();
   const P=me();if(!P)return;
   const win=res.winner===ME,W0=G.nations[res.winner];
-  if(!G._profDone){G._profDone=true;if(win)bumpProfile('wins');bumpProfile('best',P.peak||0);}
+  if(!G._profDone){G._profDone=true;if(win)bumpProfile('wins');bumpProfile('best',P.peak||0);if(NET.match&&G.netId)accServerResult(G.netId,win?'Victory':'Defeat',G.year);}
   openModal(`<div class="modal hudbox" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
     <div class="kicker">${win?'The map is yours':'The war is lost'}</div>
     <h2 class="mtitle" id="ovTitle" style="font-size:40px">${win?'Victory':'Defeat'}</h2>
@@ -5341,6 +5476,162 @@ function enterGame(){
   paused=false;if(!NET.match)speed=1;setPauseIcon();syncSpeed();openTab('realm');
   paintMap();G.dirty=false;
 }
+/* ---------- Accounts: log in on any device to get your profile, your saved war and the servers you played ----------
+   On the public website accounts live online (Firebase, under ltdt/v1/acct); inside Claude the page cannot reach that
+   server, so accounts there are kept on this device. Passwords are never stored: only a salted PBKDF2 hash. */
+const ACC={cur:null,db:null,view:null,busy:false,col:null,upT:0,syncT:0,f:{}},ACC_IT=120000;
+function accCloud(){return !window.claude;}
+function withTO(p,ms){return Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);}
+async function accDb(){
+  if(!accCloud())return null;if(ACC.db)return ACC.db;
+  await fbLoad();const fb=window.firebase;if(!fb||!fb.database)throw new Error('offline');
+  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp({databaseURL:FB_URL});ACC.db=app.database();return ACC.db;
+}
+const accRef=k=>ACC.db.ref('ltdt/v1/acct/'+k),accSaveRef=k=>ACC.db.ref('ltdt/v1/accsave/'+k);
+function accLocal(){try{return JSON.parse(localStorage.getItem('ltdt-accounts')||'{}')||{};}catch(e){return {};}}
+function accLocalPut(k,rec){const a=accLocal();if(rec)a[k]=rec;else delete a[k];try{localStorage.setItem('ltdt-accounts',JSON.stringify(a));}catch(e){}}
+async function accGet(k){if(accCloud()){await accDb();const sn=await withTO(accRef(k).once('value'),10000);return sn.val();}return accLocal()[k]||null;}
+async function accCreate(k,rec){
+  if(accCloud()){await accDb();const r=await withTO(accRef(k).transaction(cur=>cur===null?rec:undefined),10000);return !!(r&&r.committed);}
+  if(accLocal()[k])return false;accLocalPut(k,rec);return true;
+}
+async function accPatch(k,patch){
+  if(accCloud()){await accDb();await withTO(accRef(k).update(patch),10000);return;}
+  const a=accLocal();if(a[k]){Object.assign(a[k],patch);accLocalPut(k,a[k]);}
+}
+function b64e(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);}
+function b64d(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+async function pwHash(pw,salt,it){
+  const sb=salt?b64d(salt):crypto.getRandomValues(new Uint8Array(16)),key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:sb,iterations:it||ACC_IT},key,256);
+  return {s:b64e(sb),h:b64e(new Uint8Array(bits)),it:it||ACC_IT};
+}
+async function gz(str){
+  if(!window.CompressionStream)return 'J'+str;
+  const st=new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'));return 'Z'+b64e(new Uint8Array(await new Response(st).arrayBuffer()));
+}
+async function gunz(s){
+  if(s[0]==='J')return s.slice(1);
+  const st=new Blob([b64d(s.slice(1))]).stream().pipeThrough(new DecompressionStream('gzip'));return await new Response(st).text();
+}
+function saveKey(){return ACC.cur?SAVE_KEY+':'+ACC.cur.key:SAVE_KEY;}
+function saveMeta(){try{return JSON.parse(localStorage.getItem(saveKey()+':meta')||'null');}catch(e){return null;}}
+function ago(t){const d=Math.max(0,Date.now()-t)/1000;return d<60?'just now':d<3600?Math.round(d/60)+' min ago':d<86400?Math.round(d/3600)+' h ago':Math.round(d/86400)+' d ago';}
+function accName(u){return String(u||'').trim();}
+function accKey(u){const k=accName(u).toLowerCase();return /^[a-z0-9_.-]{3,20}$/.test(k)?k.replace(/\./g,'_'):null;}
+/* the profile kept for a signed-in account */
+function accProfile(key,rec){
+  let q=PROF.list.find(x=>x.acct===key);
+  if(!q){q={id:'a-'+key,acct:key,made:rec.made||Date.now()};PROF.list.push(q);}
+  const p=rec.p||{};Object.assign(q,{u:rec.u,cmd:p.cmd||rec.u,emp:p.emp||'LTDT Empire',motto:p.motto||'',col:p.col||PROF_COLS[0],played:p.played||0,wins:p.wins||0,best:p.best||0,hs:Array.isArray(rec.hs)?rec.hs.slice(0,8):[]});
+  return q;
+}
+async function accSignIn(key,rec){
+  ACC.cur={key,u:rec.u};ACC.f={};try{localStorage.setItem('ltdt-acct',JSON.stringify(ACC.cur));}catch(e){}
+  const q=accProfile(key,rec);useProfile(q);ACC.view=null;renderProfile();refreshHome();
+  /* bring the online saved war to this device, unless this device has a newer one */
+  if(accCloud())try{
+    const sn=await withTO(accSaveRef(key).once('value'),20000),v=sn.val(),m=saveMeta();
+    if(v&&v.z&&(!m||!(m.at>=v.at))){const json=await gunz(v.z);localStorage.setItem(SAVE_KEY+':'+key,json);localStorage.setItem(SAVE_KEY+':'+key+':meta',JSON.stringify({at:v.at,year:v.y||1,emp:v.e||''}));}
+    else if(m&&(!v||m.at>v.at))accUploadSave();
+  }catch(e){}
+  renderProfile();refreshHome();
+}
+function accSignOut(){
+  const key=ACC.cur&&ACC.cur.key;ACC.cur=null;ACC.view=null;try{localStorage.removeItem('ltdt-acct');}catch(e){}
+  PROF.list=PROF.list.filter(x=>x.acct!==key);const g=PROF.list[0]||null;PROF.cur=g?g.id:null;saveProfiles();if(g)useProfile(g);
+  renderProfile();refreshHome();toast('Logged out. Your account keeps your profile, saved war and servers.','info');
+}
+/* keep the account in step with the profile (stats, server history) */
+function accSync(){
+  const p=curProfile();if(!ACC.cur||!p||p.acct!==ACC.cur.key)return;
+  clearTimeout(ACC.syncT);ACC.syncT=setTimeout(()=>{accPatch(ACC.cur.key,{p:{cmd:p.cmd,emp:p.emp,motto:p.motto||'',col:p.col,played:p.played||0,wins:p.wins||0,best:p.best||0},hs:(p.hs||[]).slice(0,8)}).catch(()=>{});},1200);
+}
+function accSaveSoon(){if(!ACC.cur||!accCloud())return;clearTimeout(ACC.upT);ACC.upT=setTimeout(accUploadSave,1500);}
+async function accUploadSave(){
+  const a=ACC.cur;if(!a||!accCloud())return;
+  try{const raw=localStorage.getItem(SAVE_KEY+':'+a.key);if(!raw)return;const m=saveMeta()||{};const z=await gz(raw);await accDb();await withTO(accSaveRef(a.key).set({at:m.at||Date.now(),y:m.year||1,e:m.emp||'',z}),30000);}catch(e){}
+}
+/* servers played, newest first */
+function accServer(h){
+  const p=curProfile();if(!p)return;
+  p.hs=(p.hs||[]).filter(x=>x.mid!==h.mid);p.hs.unshift(h);p.hs=p.hs.slice(0,8);saveProfiles();renderProfile();accSync();
+}
+function accServerResult(mid,res,year){const p=curProfile();if(!p||!p.hs)return;const h=p.hs.find(x=>x.mid===mid);if(!h)return;h.res=res;h.y=year;saveProfiles();renderProfile();accSync();}
+function accInfoHTML(p){
+  const m=saveMeta(),hs=(p.hs||[]).slice(0,5),MAPN={world:'World',canada:'Canada',usa:'United States',australia:'Australia',random:'Random'};
+  const sv=m?`Year ${m.year||1}${m.emp?` · ${esc(m.emp)}`:''} · saved ${ago(m.at)}`:'None yet';
+  const rows=hs.map(h=>{const live=!h.res&&Date.now()-h.at<6*3600e3;return `<li><span><b>${esc(h.sn||h.srv)}</b> · ${h.n||1} commander${(h.n||1)>1?'s':''} · ${MAPN[h.map]||'Random'}${h.res?` · ${esc(h.res)}${h.y?' in Year '+h.y:''}`:''} · ${ago(h.at)}</span><code>${esc(h.code||'')}</code>${live&&h.code?`<button type="button" class="btn sm ghost" data-rj="${esc(h.code)}">Rejoin</button>`:''}</li>`;}).join('');
+  return `<div class="acc-info"><div class="acc-sec"><span class="flabel">Saved war${ACC.cur&&accCloud()?' · online':''}</span><b>${sv}</b></div><div class="acc-sec"><span class="flabel">Servers played</span>${rows?`<ul class="acc-hs">${rows}</ul>`:'<b>None yet</b>'}</div></div>`;
+}
+function accBarHTML(){
+  if(ACC.cur)return `<div class="acc-bar"><span>Signed in as <b>${esc(ACC.cur.u)}</b> · ${accCloud()?'profile, saved war and servers kept online':'kept on this device (inside Claude accounts stay on the device; on the website they work on every device)'}</span><button type="button" class="btn sm ghost" data-acc="logout">Log out</button></div>`;
+  return `<div class="acc-bar"><span>${accCloud()?'Log in to keep your profile, saved war and servers on every device.':'Make an account to keep your profile, saved war and servers under a username.'}</span><button type="button" class="btn sm" data-acc="login">Log in</button><button type="button" class="btn sm ghost" data-acc="create">Create account</button></div>`;
+}
+function renderAccForm(body){
+  const cr=ACC.view==='create',p=curProfile(),col=ACC.col||(p&&p.col)||PROF_COLS[0];
+  $('profCap').textContent=cr?'Create an account':'Log in';
+  body.innerHTML=`<div class="prof-form acc-form">
+      <div class="field"><label class="flabel" for="acU">Username</label><input id="acU" type="text" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="3 to 20 letters or digits" value="${esc(ACC.f.acU||'')}"></div>
+      <div class="field"><label class="flabel" for="acP">Password</label><input id="acP" type="password" maxlength="64" autocomplete="${cr?'new-password':'current-password'}" placeholder="${cr?'At least 6 characters':''}"></div>
+      ${cr?`<div class="field"><label class="flabel" for="acC">Commander name</label><input id="acC" type="text" maxlength="20" autocomplete="off" value="${esc(ACC.f.acC!=null?ACC.f.acC:p&&!p.acct?p.cmd:'')}" placeholder="Your name"></div>
+      <div class="field"><label class="flabel" for="acE">Empire name</label><input id="acE" type="text" maxlength="18" autocomplete="off" value="${esc(ACC.f.acE!=null?ACC.f.acE:p&&!p.acct?p.emp:'')}" placeholder="e.g. LTDT Empire"></div>
+      <div class="field"><span class="flabel">Badge colour</span><div class="prof-sw" role="group" aria-label="Badge colour">${PROF_COLS.map(c=>`<button type="button" data-acol="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${c===col}"></button>`).join('')}</div></div>`:''}
+    </div>
+    <div class="prof-acts"><button type="button" class="btn" data-acc="${cr?'docreate':'dologin'}" ${ACC.busy?'disabled':''}>${ACC.busy?'One moment…':cr?'Create account':'Log in'}</button><button type="button" class="btn ghost" data-acc="cancel">Cancel</button><button type="button" class="btn sm ghost" data-acc="${cr?'login':'create'}">${cr?'I have an account':'Create an account instead'}</button></div>
+    <p class="hint">${cr?`Your account keeps your profile, your saved solo war and the servers you played${accCloud()?', on any device you log in from':''}. Use a password only for this game.${p&&!p.acct?' Your current profile\'s wars and wins carry over.':''}`:'Log in to load your profile, your saved war and the servers you played.'}</p>`;
+  ACC.col=col;
+}
+async function accSubmit(create){
+  if(ACC.busy)return;
+  const u=accName($('acU').value),pw=$('acP').value||'',key=accKey(u);
+  if(!key){toast('Usernames are 3 to 20 letters, digits, dots, dashes or underscores.','warn');$('acU').focus();return;}
+  if(pw.length<(create?6:1)){toast(create?'Use a password of at least 6 characters.':'Enter your password.','warn');$('acP').focus();return;}
+  let cmd='',emp='';
+  if(create){cmd=($('acC').value||'').replace(/\s+/g,' ').trim().slice(0,20);emp=cleanName($('acE').value||'');
+    if(!cmd){toast('Give your commander a name.','warn');$('acC').focus();return;}if(!($('acE').value||'').trim()){toast('Name your empire.','warn');$('acE').focus();return;}}
+  if(!window.crypto||!crypto.subtle){toast('This browser cannot create secure logins. Try an up-to-date browser.','warn');return;}
+  ACC.busy=true;renderProfile();
+  try{
+    if(create){
+      const g=curProfile()&&!curProfile().acct?curProfile():null,ph=await pwHash(pw);
+      const rec={u,s:ph.s,h:ph.h,it:ph.it,made:Date.now(),p:{cmd,emp,motto:g?g.motto||'':'',col:ACC.col||PROF_COLS[0],played:g?g.played||0:0,wins:g?g.wins||0:0,best:g?g.best||0:0},hs:g&&g.hs?g.hs.slice(0,8):[]};
+      if(!await accCreate(key,rec)){ACC.busy=false;renderProfile();toast('That username is taken. Try another.','warn');return;}
+      /* a war saved as a guest on this device moves into the new account */
+      try{const raw=localStorage.getItem(SAVE_KEY);if(raw&&!localStorage.getItem(SAVE_KEY+':'+key)){localStorage.setItem(SAVE_KEY+':'+key,raw);const mt=localStorage.getItem(SAVE_KEY+':meta');if(mt)localStorage.setItem(SAVE_KEY+':'+key+':meta',mt);}}catch(e){}
+      ACC.busy=false;await accSignIn(key,rec);accUploadSave();toast(`Account created. Welcome, ${cmd}.`,'good');
+    }else{
+      const rec=await accGet(key);let ok=false;
+      if(rec&&rec.s&&rec.h){const ph=await pwHash(pw,rec.s,rec.it);ok=ph.h===rec.h;}
+      ACC.busy=false;
+      if(!ok){renderProfile();toast('That username or password is not right.','warn');return;}
+      await accSignIn(key,rec);toast(`Welcome back, ${(rec.p&&rec.p.cmd)||rec.u}.`,'good');
+    }
+  }catch(e){ACC.busy=false;renderProfile();toast(accCloud()?'Could not reach the account server. Check your connection and try again.':'Could not save the account on this device.','warn');}
+}
+function bindAccounts(){
+  try{const a=JSON.parse(localStorage.getItem('ltdt-acct')||'null');if(a&&a.key&&PROF.list.some(x=>x.acct===a.key))ACC.cur=a;}catch(e){}
+  if(ACC.cur){const q=PROF.list.find(x=>x.acct===ACC.cur.key);if(q&&PROF.cur!==q.id){PROF.cur=q.id;saveProfiles();}}
+  else{const n=PROF.list.length;PROF.list=PROF.list.filter(x=>!x.acct);if(PROF.list.length!==n){if(!curProfile())PROF.cur=PROF.list[0]?PROF.list[0].id:null;saveProfiles();}}
+  const body=$('profBody');
+  body.addEventListener('click',e=>{
+    const sw=e.target.closest('[data-acol]');if(sw){ACC.col=sw.dataset.acol;body.querySelectorAll('[data-acol]').forEach(b=>b.setAttribute('aria-pressed',String(b===sw)));return;}
+    const rj=e.target.closest('[data-rj]');if(rj){rejoinMatch(rj.dataset.rj);return;}
+    const b=e.target.closest('[data-acc]');if(!b)return;
+    const act=b.dataset.acc;
+    if(act==='login'||act==='create'){ACC.view=act;profEdit=null;renderProfile();setTimeout(()=>{const i=$('acU');if(i)i.focus();},50);}
+    else if(act==='cancel'){ACC.view=null;ACC.f={};renderProfile();}
+    else if(act==='dologin')accSubmit(false);
+    else if(act==='docreate')accSubmit(true);
+    else if(act==='logout')accSignOut();
+  });
+  body.addEventListener('keydown',e=>{if(e.key==='Enter'&&ACC.view&&e.target.matches('input')){e.preventDefault();accSubmit(ACC.view==='create');}});
+  body.addEventListener('input',e=>{if(ACC.view&&/^ac[UCE]$/.test(e.target.id))ACC.f[e.target.id]=e.target.value;});
+  /* signed-in players' solo wars save themselves every two minutes, and when the tab closes */
+  setInterval(()=>{if(ACC.cur&&G&&!G.demo&&!NET.match&&!G.over&&ME>=0&&me()&&!document.body.classList.contains('home'))saveQuiet();},120000);
+  window.addEventListener('pagehide',()=>{if(ACC.cur&&G&&!G.demo&&!NET.match&&!G.over&&ME>=0&&me()&&!document.body.classList.contains('home'))saveQuiet();});
+}
+
 /* ---------- Profiles: every player makes one before playing; kept on this device ---------- */
 const PROF_COLS=['#e2b44f','#5ee3f2','#ff6b5e','#7ed37a','#b38cff','#ff9f43','#f2f5f8','#4f8df5'];
 let PROF={list:[],cur:null},profEdit=null,profDel=false;
@@ -5351,13 +5642,14 @@ function useProfile(p){
   PROF.cur=p.id;saveProfiles();$('cmdName').value=cleanName(p.emp);try{localStorage.setItem('ltdt-name',cleanName(p.emp));}catch(e){}
   const nm=cleanName(p.emp);if(ROOM)ROOM.presence({nm}).catch(()=>{});if(NET.r&&!NET.match)NET.r.presence({nm}).catch(()=>{});
 }
-function bumpProfile(k,v){const p=curProfile();if(!p)return;if(k==='best')p.best=Math.max(p.best||0,v||0);else p[k]=(p[k]||0)+1;saveProfiles();renderProfile();}
+function bumpProfile(k,v){const p=curProfile();if(!p)return;if(k==='best')p.best=Math.max(p.best||0,v||0);else p[k]=(p[k]||0)+1;saveProfiles();renderProfile();accSync();}
 function needProfile(){
   profEdit=profEdit||{};renderProfile();$('profPanel').scrollIntoView({behavior:'smooth',block:'start'});
   toast('Create your profile first: a commander name and an empire name.','warn');setTimeout(()=>{const i=$('pfCmd');if(i)i.focus({preventScroll:true});},350);
 }
 function renderProfile(){
   const body=$('profBody');if(!body)return;const p=curProfile();
+  if(ACC.view){renderAccForm(body);return;}
   $('profCap').textContent=p?'Playing as '+p.cmd:'Required to play';
   if(profEdit||!p){
     const e=profEdit&&profEdit.id?PROF.list.find(q=>q.id===profEdit.id)||{}:{},col=(profEdit&&profEdit.col)||e.col||PROF_COLS[PROF.list.length%PROF_COLS.length];
@@ -5370,7 +5662,7 @@ function renderProfile(){
         <div class="field"><span class="flabel">Badge colour</span><div class="prof-sw" role="group" aria-label="Badge colour">${PROF_COLS.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${c===col}"></button>`).join('')}</div></div>
       </div>
       <div class="prof-acts"><button type="button" class="btn" data-pf="save">${e.id?'Save changes':'Create profile'}</button>${p?'<button type="button" class="btn ghost" data-pf="cancel">Cancel</button>':''}</div>
-      <p class="hint">${p?'Profiles stay on this device.':'Make a profile to play: solo or online. It stays on this device, and your empire name is what other commanders see.'}</p>`;
+      <p class="hint">${p?(p.acct?'Changes are saved to your account.':'Profiles stay on this device.'):'Make a profile to play: solo or online. It stays on this device, and your empire name is what other commanders see.'}</p>${p&&p.acct?'':accBarHTML()}`;
     profEdit=Object.assign({col},profEdit||{});
     return;
   }
@@ -5379,12 +5671,12 @@ function renderProfile(){
       <div class="prof-av" style="background:${p.col||PROF_COLS[0]}">${esc(ini)}</div>
       <div class="prof-main"><b>${esc(p.cmd)}</b><span>${esc(p.emp)}${p.motto?` · “${esc(p.motto)}”`:''}</span></div>
       <div class="prof-stats"><div><i>Wars</i>${p.played||0}</div><div><i>Wins</i>${p.wins||0}</div><div><i>Best land</i>${Math.round((p.best||0)*100)}%</div></div>
-      <div class="prof-acts">${PROF.list.length>1?`<select data-pf="switch" aria-label="Switch profile">${PROF.list.map(q=>`<option value="${q.id}" ${q.id===p.id?'selected':''}>${esc(q.cmd)} · ${esc(q.emp)}</option>`).join('')}</select>`:''}
-        <button type="button" class="btn sm ghost" data-pf="edit">Edit</button><button type="button" class="btn sm ghost" data-pf="new">New profile</button><button type="button" class="btn sm ghost" data-pf="del">${profDel?'Tap again to delete':'Delete'}</button></div>
-    </div>`;
+      <div class="prof-acts">${PROF.list.length>1&&!p.acct?`<select data-pf="switch" aria-label="Switch profile">${PROF.list.map(q=>`<option value="${q.id}" ${q.id===p.id?'selected':''}>${esc(q.cmd)} · ${esc(q.emp)}</option>`).join('')}</select>`:''}
+        <button type="button" class="btn sm ghost" data-pf="edit">Edit</button>${p.acct?'':`<button type="button" class="btn sm ghost" data-pf="new">New profile</button><button type="button" class="btn sm ghost" data-pf="del">${profDel?'Tap again to delete':'Delete'}</button>`}</div>
+    </div>${accInfoHTML(p)}${accBarHTML()}`;
 }
 function bindProfiles(){
-  loadProfiles();if(curProfile())useProfile(curProfile());renderProfile();
+  loadProfiles();bindAccounts();if(curProfile())useProfile(curProfile());renderProfile();
   const body=$('profBody');
   body.addEventListener('input',e=>{if(!profEdit)return;const id=e.target.id;if(id==='pfCmd')profEdit.cmd=e.target.value;else if(id==='pfEmp')profEdit.emp=e.target.value;else if(id==='pfMotto')profEdit.motto=e.target.value;});
   body.addEventListener('change',e=>{const sel=e.target.closest('select[data-pf="switch"]');if(!sel)return;const q=PROF.list.find(x=>x.id===sel.value);if(q){useProfile(q);profDel=false;renderProfile();toast(`Playing as ${q.cmd}.`,'good');}});
@@ -5398,7 +5690,7 @@ function bindProfiles(){
       if(!($('pfEmp').value||'').trim()){toast('Name your empire.','warn');$('pfEmp').focus();return;}
       let q=profEdit&&profEdit.id?PROF.list.find(x=>x.id===profEdit.id):null;
       if(!q){q={id:'p'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),made:Date.now(),played:0,wins:0,best:0};PROF.list.push(q);}
-      Object.assign(q,{cmd,emp,motto,col:profEdit&&profEdit.col||q.col||PROF_COLS[0]});profEdit=null;useProfile(q);renderProfile();toast(`Profile saved. Welcome, ${cmd}.`,'good');
+      Object.assign(q,{cmd,emp,motto,col:profEdit&&profEdit.col||q.col||PROF_COLS[0]});profEdit=null;useProfile(q);renderProfile();accSync();toast(`Profile saved. Welcome, ${cmd}.`,'good');
     }else if(act==='cancel'){profEdit=null;renderProfile();}
     else if(act==='edit'){const p=curProfile();profEdit={id:p.id,col:p.col};renderProfile();}
     else if(act==='new'){profEdit={};renderProfile();setTimeout(()=>{const i=$('pfCmd');if(i)i.focus();},50);}
@@ -5431,9 +5723,9 @@ function leaveGame(where){
 }
 
 /* ---------- Save ---------- */
-function saveQuiet(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(serialize()));return true;}catch(e){return false;}}
-function loadSaved(){try{const s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
-function hasSave(){try{return localStorage.getItem(SAVE_KEY)!==null;}catch(e){return false;}}
+function saveQuiet(){try{const sv=serialize();localStorage.setItem(saveKey(),JSON.stringify(sv));try{localStorage.setItem(saveKey()+':meta',JSON.stringify({at:Date.now(),year:sv.year,emp:G.nations[ME]?G.nations[ME].name:''}));}catch(e){}accSaveSoon();return true;}catch(e){return false;}}
+function loadSaved(){try{const s=localStorage.getItem(saveKey());return s?JSON.parse(s):null;}catch(e){return null;}}
+function hasSave(){try{return localStorage.getItem(saveKey())!==null;}catch(e){return false;}}
 
 /* =================== Online play: rooms, 15-seat servers, lockstep =================== */
 let ROOM=null,roomState='connecting';
@@ -5445,8 +5737,10 @@ const NET={r:null,srv:null,srvName:'',match:null,slot:-1,host:false,hostPeer:nul
    as JSON text under ltdt/v1/lobby/<peer> (or ltdt/v1/rooms/<server>/<peer>) and removed when the tab closes. */
 const FB_URL='https://ltdt-trade-wars-default-rtdb.firebaseio.com',FB_SDK='https://www.gstatic.com/firebasejs/10.12.2/';
 function loadScript(src){return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;sc.async=false;sc.onload=()=>ok();sc.onerror=()=>no(new Error('load '+src));document.head.appendChild(sc);});}
+let FB_LOAD=null;
+function fbLoad(){return FB_LOAD||(FB_LOAD=(async()=>{if(!window.firebase){await loadScript(FB_SDK+'firebase-app-compat.js');await loadScript(FB_SDK+'firebase-database-compat.js');}})().catch(e=>{FB_LOAD=null;throw e;}));}
 async function fbRoom(){
-  if(!window.firebase){await loadScript(FB_SDK+'firebase-app-compat.js');await loadScript(FB_SDK+'firebase-database-compat.js');}
+  await fbLoad();
   const fb=window.firebase;if(!fb||!fb.database)throw new Error('no firebase');
   const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp({databaseURL:FB_URL});
   const db=app.database(),base=db.ref('ltdt/v1'),TS=fb.database.ServerValue.TIMESTAMP;
@@ -5571,9 +5865,10 @@ function hostStart(){
 }
 function startMatch(m,slot){
   const now=performance.now();
-  Object.assign(NET,{match:m,slot,host:slot===0,hostPeer:m.roster[0],F:0,L:[],ak:new Array(m.roster.length).fill(0),seq:0,myc:[],applied:new Set(),active:m.roster.map(()=>true),lastT:m.roster.map(()=>0),hbVal:m.roster.map(()=>-1),hbAt:m.roster.map(()=>now),acc:0,lastNow:now,hb:0,myHbAt:now,pubDirty:true,hostGone:0,lastMid:m.id});
+  Object.assign(NET,{match:m,slot,host:slot===0,hostPeer:m.roster[0],F:0,L:[],ak:new Array(m.roster.length).fill(0),seq:0,myc:[],applied:new Set(),active:m.roster.map(()=>true),lastT:m.roster.map(()=>0),hbVal:m.roster.map(()=>-1),hbAt:m.roster.map(()=>now),acc:0,lastNow:now,hb:0,myHbAt:now,pubDirty:true,hostGone:0,lastMid:m.id,peers:m.roster.slice(),H:[],rjT:0,rjRt:[],rjSrv:null,hxOn:false,hxKey:''});
   G=newGame({seed:m.seed,rivals:m.ai,difficulty:m.diff,humans:m.names.map(cleanName),map:m.map||'random'});G.spawnLeft=20;G.netId=m.id;ME=slot;
   enterGame();bumpProfile('played');
+  accServer({at:Date.now(),srv:NET.srv,sn:NET.srvName,mid:m.id,code:matchCode(NET.srv,m.id),slot,emp:m.names[slot],n:m.roster.length,map:m.map||'random'});
   NET.r.presence({mid:m.id,t:0,c:[],hb:0}).catch(()=>{});
   if(ROOM)ROOM.presence({st:'play'}).catch(()=>{});
   toast(`Match on ${NET.srvName} with ${m.roster.length} commander${m.roster.length>1?'s':''}. Choose your capital.`,'good');
@@ -5585,13 +5880,186 @@ function hostEndMatch(leaving){
   if(!leaving){if(ROOM)ROOM.presence({st:'wait'}).catch(()=>{});goHome('servers');}
 }
 function goOffline(msg){
+  NET.lastSrv=NET.srv;if(NET.host)NET.lastSrv=null;
   NET.match=null;
   if(G)for(const n of G.nations)if(n.id!==ME&&n.human){n.human=false;n.offers=[];}
   if(NET.r){const r=NET.r;NET.r=null;NET.srv=null;r.leave().catch(()=>{});}
   if(ROOM)ROOM.presence({srv:null,st:null}).catch(()=>{});
   speed=1;paused=false;setPauseIcon();syncSpeed();
-  toast(msg,'warn',null,7000);updateUI();
+  if(msg&&NET.lastMid&&NET.lastSrv&&!/host left/i.test(msg))msg+=` To get your seat back, open the menu, exit, and rejoin with code ${matchCode(NET.lastSrv,NET.lastMid)}.`;
+  toast(msg,'warn',null,9000);updateUI();
 }
+/* ---------- Rejoin: a commander who left a running match comes back to their seat with the match code ----------
+   Online play is lockstep: every device runs the same war from the same orders, so nothing but the orders is sent.
+   The host keeps every order the match has applied (NET.H). Someone coming back with the code asks the host for
+   them, replays the war from the start on their own device (quietly, in slices), and once caught up the host gives
+   their seat back to them with a 'rejoin' order that every device applies at the same tick. */
+let RJ={on:false};
+function entCmp(a,b){return ((a[1]|0)-(b[1]|0))||((a[2]|0)-(b[2]|0))||(String(a[3])<String(b[3])?-1:String(a[3])>String(b[3])?1:0);}
+function entKey(e){const s=e[1]|0,t=e[3];return s+':'+(t==='drop'?'d'+(e[0]|0):t==='rejoin'?'r'+(e[0]|0):(e[2]|0));}
+function applyEnt(e){if(e[3]==='drop')applyDrop(e[1]|0);else if(e[3]==='rejoin')applyRejoin(e[1]|0);else applyCmd(e[1]|0,String(e[3]),e.slice(4));}
+function matchCode(srv,mid){const i=SERVERS.findIndex(s=>s.id===srv);return i<0||!mid?'':(i+1)+'-'+String(mid).slice(1,7).toUpperCase();}
+function parseCode(c){c=String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(c.length!==7)return null;const i=(+c[0])-1;if(!(i>=0&&i<SERVERS.length))return null;return {srv:SERVERS[i].id,name:SERVERS[i].name,mid:c.slice(1).toLowerCase(),code:c[0]+'-'+c.slice(1)};}
+function utf8len(s){let n=0;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);n+=c<128?1:c<2048?2:(c>=0xd800&&c<0xdc00)?(i++,4):3;}return n;}
+/* host side: serve the orders to whoever is rejoining, then hand the seat back */
+function setHx(o){
+  const key=JSON.stringify([o.to,o.s,o.i,o.n,o.T,o.ok,o.err,o.h?o.h.length:0]);if(key===NET.hxKey)return;NET.hxKey=key;
+  NET.hxOn=true;NET.r.presence({hx:o}).catch(()=>{NET.hxOn=false;NET.hxKey='';});
+}
+function clearHx(){if(NET.hxOn&&NET.r){NET.hxOn=false;NET.hxKey='';NET.r.presence({hx:null}).catch(()=>{});}}
+function hostRejoin(ps,now){
+  const m=NET.match;let P=null;
+  const ok=p=>{const rj=p&&p.presence&&p.presence.rj;return !!(rj&&typeof rj==='object'&&!p.sameTab&&rj.mid===m.id&&(rj.s|0)>=1&&(rj.s|0)<m.roster.length);};
+  if(NET.rjSrv&&ok(ps.get(NET.rjSrv)))P=ps.get(NET.rjSrv);
+  else{NET.rjSrv=null;for(const p of ps.values())if(ok(p)&&(!P||p.peer<P.peer))P=p;if(P)NET.rjSrv=P.peer;}
+  if(!P){clearHx();return;}
+  const rj=P.presence.rj,s=rj.s|0;
+  if(NET.active[s]&&NET.peers[s]===P.peer){setHx({to:P.peer,s,ok:1,ak:NET.ak[s]|0,rt:NET.rjRt[s]|0});return;}
+  if(NET.active[s]){
+    if(ps.get(NET.peers[s])){setHx({to:P.peer,s,err:'taken'});return;}
+    /* the seat's old device is gone: free the seat now instead of waiting for its heartbeat to time out */
+    NET.active[s]=false;NET.L.push([NET.F+1,s,0,'drop']);NET.pubDirty=true;
+  }
+  if(rj.rd===1){
+    const t=Math.max(0,P.presence.t|0);
+    NET.peers[s]=P.peer;NET.active[s]=true;NET.lastT[s]=t;NET.hbVal[s]=P.presence.hb;NET.hbAt[s]=now;
+    /* orders applied since the newcomer's last tick go back in the queue; every device skips the ones it already applied */
+    for(const e of NET.H)if((e[0]|0)>t)NET.L.push(e);
+    const rt=NET.F+1;NET.rjRt[s]=rt;NET.L.push([rt,s,0,'rejoin']);NET.pubDirty=true;
+    setHx({to:P.peer,s,ok:1,ak:NET.ak[s]|0,rt});return;
+  }
+  const k=Math.max(0,rj.k|0),n=NET.H.length;
+  /* Claude's rooms hold 4 KB of state per player, so the orders go across in small pieces */
+  const mine=[...ps.values()].find(p=>p.sameTab),o=Object.assign({},mine&&mine.presence);delete o.hx;
+  const budget=3500-utf8len(JSON.stringify(o))-JSON.stringify(NET.L).length;
+  if(budget<240){clearHx();return;}
+  const h=[];let used=2;
+  for(let i=k;i<n&&h.length<400;i++){const sz=JSON.stringify(NET.H[i]).length+1;if(used+sz>budget)break;h.push(NET.H[i]);used+=sz;}
+  setHx({to:P.peer,s,i:k,n,T:k+h.length>=n?G.tick:0,h});
+}
+/* the one coming back */
+async function rejoinMatch(code){
+  if(!curProfile()){needProfile();return;}
+  const c=parseCode(code);
+  if(!c){toast('That code does not look right. It is a number and six letters or digits, like 2-X7KQ9P.','warn');return;}
+  if(!ROOM){toast(window.claude?'Online play is not available here right now.':'The online servers could not be reached. Check your connection and try again.','warn');return;}
+  if(NET.match||RJ.on)return;
+  if(NET.r)leaveServer();
+  RJ={on:true,phase:'find',c,t0:performance.now(),r:null,me:null,k:0,n:-1,hostT:0,safe:0,rd:0,hb:0,lastHx:0};
+  rjModal();
+  let r=null;try{r=await ROOM.join('ltdt-'+c.srv);}catch(e){r=null;}
+  if(!RJ.on||RJ.c!==c){if(r)r.leave().catch(()=>{});return;}
+  if(!r){rejoinFail('Could not reach that server. Try again in a moment.');return;}
+  RJ.r=r;
+  r.presence({seat:0,nm:cleanName($('cmdName').value),rj:{c:c.mid}}).catch(()=>{});
+  r.onPeers(()=>{if(RJ.on&&RJ.r===r)rjTick();else if(NET.r===r)onServerPeers();},()=>{if(RJ.on&&RJ.r===r)rejoinFail('The connection to the server dropped.');else if(NET.r===r){toast('The connection to the server dropped.','warn');serverLost();}});
+  if(ROOM)ROOM.presence({srv:c.srv,st:'play'}).catch(()=>{});
+  RJ.iv=setInterval(()=>{if(RJ.on)rjTick();},120);
+}
+function rejoinFail(msg,quiet){
+  const r=RJ.r;clearInterval(RJ.iv);clearTimeout(RJ.timer);RJ={on:false};
+  if(r)r.leave().catch(()=>{});
+  if(ROOM&&!NET.r)ROOM.presence({srv:null,st:null}).catch(()=>{});
+  if(modalOpen&&$('overlay').querySelector('.rjm'))closeModal();
+  if(msg&&!quiet)toast(msg,'warn',null,7000);
+  refreshHome();
+}
+function rjTick(){
+  if(!RJ.on||!RJ.r)return;
+  const now=performance.now(),ps=RJ.r.peers(),mine=ps.find(p=>p.sameTab);if(mine)RJ.me=mine.peer;
+  if(RJ.phase==='find'){
+    const h=ps.find(p=>p.presence&&validMatch(p.presence.m)&&p.presence.m.id.slice(1,7)===RJ.c.mid&&p.presence.mid===p.presence.m.id);
+    if(!h){if(now-RJ.t0>10000)rejoinFail(`No match with code ${RJ.c.code} is running on ${RJ.c.name}. It may have ended, or its host left.`);else rjModal();return;}
+    RJ.m=h.presence.m;RJ.hostPeer=h.peer;
+    const act=Array.isArray(h.presence.act)?h.presence.act:[],names=RJ.m.names.map(cleanName),nm=cleanName($('cmdName').value).toLowerCase();
+    let s=names.findIndex((x,i)=>i>0&&x.toLowerCase()===nm);
+    if(s<0){const free=names.map((x,i)=>i).filter(i=>i>0&&act[i]===0);if(free.length===1)s=free[0];else{RJ.phase='pick';rjModal();return;}}
+    rjBegin(s);return;
+  }
+  if(RJ.phase==='pick')return;
+  const h=ps.find(p=>p.peer===RJ.hostPeer);
+  if(!h){if(!RJ.hostGone)RJ.hostGone=now;else if(now-RJ.hostGone>6000)rejoinFail('The host left, so that match has ended.');return;}
+  RJ.hostGone=0;const pr=h.presence||{};
+  if(!pr.m||pr.m.id!==RJ.m.id){rejoinFail('That match has ended.');return;}
+  const hx=pr.hx;
+  if(hx&&typeof hx==='object'&&hx.to===RJ.me&&(hx.s|0)===RJ.s){
+    RJ.lastHx=now;
+    if(hx.err==='taken'){rejoinFail(`${RJ.m.names[RJ.s]} is still being played from another device. If that was you, wait about 10 seconds and try again.`);return;}
+    if(hx.ok){rjFinish(pr,hx);return;}
+    if(Array.isArray(hx.h)&&(hx.i|0)===RJ.k){
+      for(const e of hx.h)if(Array.isArray(e)){const t=e[0]|0;let a=RJ.byT.get(t);if(!a)RJ.byT.set(t,a=[]);a.push(e);RJ.lastTk=Math.max(RJ.lastTk,t);}
+      RJ.k+=hx.h.length;RJ.n=hx.n|0;
+      if(RJ.k>=RJ.n){RJ.hostT=hx.T|0;RJ.safe=Math.max(RJ.safe,RJ.hostT);}else RJ.safe=Math.max(RJ.safe,RJ.lastTk-1);
+      rjPublish();
+    }
+  }else if(now-Math.max(RJ.lastHx,RJ.syncAt)>15000){rejoinFail('The host is not answering. Try again in a moment.');return;}
+  if(!RJ.rd&&RJ.n>=0&&RJ.k>=RJ.n&&RJ.G.tick>=RJ.hostT){RJ.rd=1;rjPublish();}
+  rjModal();
+}
+function rjPublish(){
+  if(!RJ.r)return;const p={rj:{c:RJ.c.mid,mid:RJ.m.id,s:RJ.s,k:RJ.k,rd:RJ.rd}};
+  if(RJ.rd){p.mid=RJ.m.id;p.t=RJ.G.tick;p.hb=++RJ.hb;p.c=[];}
+  RJ.r.presence(p).catch(()=>{});
+}
+function rjBegin(s){
+  const m=RJ.m;Object.assign(RJ,{s,phase:'sync',k:0,n:-1,hostT:0,safe:0,rd:0,byT:new Map(),applied:new Set(),lastTk:0,syncAt:performance.now(),lastHx:0});
+  /* build the match exactly as every other device did, without touching the title-screen battle */
+  const kG=G,kR=R;
+  try{newGame({seed:m.seed,rivals:m.ai,difficulty:m.diff,humans:m.names.map(cleanName),map:m.map||'random'});G.spawnLeft=20;G.netId=m.id;G.replay=true;RJ.G=G;RJ.R=R;}
+  finally{G=kG;R=kR;}
+  rjPublish();rjModal();rjRun();
+}
+function rjRun(){
+  if(!RJ.on||!RJ.G)return;
+  const kG=G,kR=R;G=RJ.G;R=RJ.R;const t0=performance.now();
+  try{
+    while(G.tick<RJ.safe&&performance.now()-t0<30){
+      const T=G.tick+1,es=RJ.byT.get(T);
+      if(es){es.sort(entCmp);for(const e of es){const key=entKey(e);if(RJ.applied.has(key))continue;RJ.applied.add(key);applyEnt(e);}RJ.byT.delete(T);}
+      tick();
+    }
+  }catch(e){console.error(e);}
+  finally{RJ.R=R;G=kG;R=kR;}
+  if(RJ.on&&RJ.G)RJ.timer=setTimeout(rjRun,RJ.G.tick<RJ.safe?0:60);
+}
+function rjFinish(hp,hx){
+  clearInterval(RJ.iv);clearTimeout(RJ.timer);
+  const m=RJ.m,s=RJ.s,now=performance.now(),r=RJ.r;
+  G=RJ.G;R=RJ.R;delete G.replay;ME=s;
+  Object.assign(NET,{r,srv:RJ.c.srv,srvName:RJ.c.name,match:m,slot:s,host:false,hostPeer:RJ.hostPeer,F:G.tick,L:Array.isArray(hp.L)?hp.L:[],ak:[],seq:hx.ak|0,myc:[],applied:RJ.applied,
+    active:m.roster.map(()=>true),lastT:m.roster.map(()=>0),hbVal:m.roster.map(()=>-1),hbAt:m.roster.map(()=>now),acc:0,lastNow:now,hb:RJ.hb,myHbAt:now,pubDirty:true,hostGone:0,lastMid:m.id,
+    peers:m.roster.slice(),H:[],rjT:hx.rt|0,rjRt:[],rjSrv:null,hxOn:false,hxKey:'',joining:false});
+  RJ={on:false};
+  r.presence({rj:null,seat:0,mid:m.id,t:G.tick,c:[],hb:NET.hb}).catch(()=>{});
+  if(ROOM)ROOM.presence({srv:NET.srv,st:'play'}).catch(()=>{});
+  if(modalOpen)closeModal();
+  enterGame();
+  accServer({at:Date.now(),srv:NET.srv,sn:NET.srvName,mid:m.id,code:matchCode(NET.srv,m.id),slot:s,emp:m.names[s],n:m.roster.length,map:m.map||'random'});
+  toast(`Welcome back to ${NET.srvName}. You command ${G.nations[s].name} again.`,'good',null,6000);
+}
+/* the progress window on the title screen */
+function rjModal(){
+  if(!RJ.on)return;
+  const c=RJ.c,ph=RJ.phase;
+  let body='';
+  if(ph==='find')body=`<p class="lede">Looking for match <b>${esc(c.code)}</b> on ${esc(c.name)}…</p><div class="rj-bar"><i style="width:8%"></i></div>`;
+  else if(ph==='pick'){
+    const names=RJ.m.names.map(cleanName);
+    body=`<p class="lede">Which seat is yours? Pick the empire you were commanding.</p><div class="rj-seats">${names.map((x,i)=>i>0?`<button type="button" class="btn ghost" data-seat="${i}">${esc(x)}</button>`:'').join('')}</div>`;
+  }else{
+    const tot=Math.max(1,RJ.hostT||RJ.safe||1),p=RJ.rd?100:Math.min(99,Math.round(100*(RJ.G?RJ.G.tick:0)/Math.max(tot,RJ.safe||1)));
+    const yr=RJ.G?Math.floor(RJ.G.time/YEAR_S)+1:1;
+    body=`<p class="lede">Catching up on the war as <b>${esc(RJ.m.names[RJ.s])}</b>: Year ${yr}${RJ.rd?' · taking your seat back':''}…</p><div class="rj-bar"><i style="width:${Math.max(4,p)}%"></i></div><p class="hint">${RJ.n<0?'Asking the host for the match…':`${p}% · ${fmt(RJ.k)} orders received`}. Keep this tab open.</p>`;
+  }
+  const html=`<div class="modal hudbox rjm" role="dialog" aria-modal="true" aria-labelledby="rjTitle"><div class="kicker">Rejoining ${esc(c.name)}</div><h2 class="mtitle" id="rjTitle">Match ${esc(c.code)}</h2><div id="rjBody">${body}</div><div class="row"><button type="button" class="btn ghost" id="rjCancel">Cancel</button></div></div>`;
+  const ov=$('overlay');
+  if(modalOpen&&ov.querySelector('.rjm')){const b=$('rjBody');if(b.innerHTML!==body)b.innerHTML=body;return;}
+  openModal(html,o=>{
+    o.querySelector('#rjCancel').onclick=()=>rejoinFail('',true);
+    o.addEventListener('click',e=>{const b=e.target.closest('[data-seat]');if(b&&RJ.on&&RJ.phase==='pick')rjBegin(+b.dataset.seat);});
+  });
+}
+
 function netIssue(type,args){
   if(NET.host)NET.L.push([Math.max(G.tick+DELAY,NET.F+1),NET.slot,++NET.seq,type,...args]);
   else{if(NET.myc.length>=40){toast('Too many orders at once. Give it a second.','warn');return;}NET.myc.push([++NET.seq,G.tick+DELAY,type,...args]);}
@@ -5599,10 +6067,10 @@ function netIssue(type,args){
 }
 function stepNetTick(){
   const T=G.tick+1;
-  const es=NET.L.filter(e=>Array.isArray(e)&&(e[0]|0)===T).sort((a,b)=>((a[1]|0)-(b[1]|0))||((a[2]|0)-(b[2]|0)));
+  const es=NET.L.filter(e=>Array.isArray(e)&&(e[0]|0)===T).sort(entCmp);
   for(const e of es){
-    const key=(e[1]|0)+':'+(e[3]==='drop'?'d':(e[2]|0));if(NET.applied.has(key))continue;NET.applied.add(key);
-    if(e[3]==='drop')applyDrop(e[1]|0);else applyCmd(e[1]|0,String(e[3]),e.slice(4));
+    const key=entKey(e);if(NET.applied.has(key))continue;NET.applied.add(key);
+    applyEnt(e);if(NET.host&&NET.H)NET.H.push(e);
   }
   tick();NET.pubDirty=true;
 }
@@ -5613,7 +6081,7 @@ function netTick(){
   if(NET.host){
     for(let s=1;s<m.roster.length;s++){
       if(!NET.active[s])continue;
-      const p=ps.get(m.roster[s]),pr=p&&p.presence;
+      const p=ps.get(NET.peers?NET.peers[s]:m.roster[s]),pr=p&&p.presence;
       if(pr&&pr.mid===m.id){
         NET.lastT[s]=Math.max(NET.lastT[s],pr.t|0);
         if(pr.hb!==NET.hbVal[s]){NET.hbVal[s]=pr.hb;NET.hbAt[s]=now;}
@@ -5625,6 +6093,7 @@ function netTick(){
     if(f>NET.F)NET.F=f;
     let mt=G.tick;for(let s=1;s<m.roster.length;s++)if(NET.active[s])mt=Math.min(mt,NET.lastT[s]);
     if(NET.L.length&&NET.L[0][0]<=mt)NET.L=NET.L.filter(e=>e[0]>mt);
+    hostRejoin(ps,now);
   }else{
     const hp=ps.get(NET.hostPeer),pr=hp&&hp.presence;
     if(!hp){if(!NET.hostGone)NET.hostGone=now;if(now-NET.hostGone>6000){goOffline('The host left the match. Your war continues offline against the AI.');return;}}
@@ -5634,7 +6103,7 @@ function netTick(){
       if(pr.mid===m.id){
         NET.F=pr.F|0;NET.L=Array.isArray(pr.L)?pr.L:[];
         const ak=Array.isArray(pr.ak)?(pr.ak[NET.slot]|0):0;if(NET.myc.length&&NET.myc[0][0]<=ak)NET.myc=NET.myc.filter(c=>c[0]>ak);
-        if(NET.L.some(e=>Array.isArray(e)&&(e[1]|0)===NET.slot&&e[3]==='drop')){goOffline('You lost connection to the match and the AI took your seat. Your war continues offline.');return;}
+        if(NET.L.some(e=>Array.isArray(e)&&(e[1]|0)===NET.slot&&e[3]==='drop'&&(e[0]|0)>(NET.rjT|0))){goOffline('You lost connection to the match and the AI took your seat. Your war continues offline.');return;}
       }
     }
   }
@@ -5645,8 +6114,8 @@ function netTick(){
   if(NET.pubDirty){
     NET.pubDirty=false;
     const p={mid:m.id,t:G.tick,hb:NET.hb,c:NET.host?[]:NET.myc};
-    if(NET.host){p.F=NET.F;p.L=NET.L;p.ak=NET.ak;}
-    NET.r.presence(p).catch(()=>{});
+    if(NET.host){p.F=NET.F;p.L=NET.L;p.ak=NET.ak;p.act=NET.active.map(a=>a?1:0);}
+    NET.r.presence(p).catch(()=>{if(NET.hxOn&&NET.r){NET.hxOn=false;NET.hxKey='';NET.r.presence({hx:null}).catch(()=>{});NET.pubDirty=true;}});
   }
 }
 setInterval(netTick,50);
@@ -5690,6 +6159,8 @@ function refreshHome(){
   if(html!==lastSrvHTML){lastSrvHTML=html;$('srvBody').innerHTML=html;}
 }
 function bindHome(){
+  $('rjGo').onclick=()=>rejoinMatch($('rjCode').value);
+  $('rjCode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rejoinMatch($('rjCode').value);}});
   $('srvBody').addEventListener('change',e=>{const sel=e.target.closest('select[data-act="map"]');if(sel){NET.hostMap=sel.value;refreshHome();}});
   $('srvBody').addEventListener('click',e=>{
     const b=e.target.closest('[data-act]');if(!b)return;
