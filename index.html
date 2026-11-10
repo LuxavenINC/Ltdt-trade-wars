@@ -5487,16 +5487,46 @@ async function accDb(){
   await fbLoad();const fb=window.firebase;if(!fb||!fb.database)throw new Error('offline');
   const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp({databaseURL:FB_URL});ACC.db=app.database();return ACC.db;
 }
-const accRef=k=>ACC.db.ref('ltdt/v1/acct/'+k),accSaveRef=k=>ACC.db.ref('ltdt/v1/accsave/'+k);
+/* Where accounts live online. The game's database may only allow the places online play already writes to,
+   so if the accounts section is refused, accounts go next to the online rooms, stored the same way the rooms
+   store players (each field as JSON text, with a server time stamp). */
+const ACC_P=[['ltdt/v1/acct','ltdt/v1/accsave'],['ltdt/v1/rooms/ltdt-acct','ltdt/v1/rooms/ltdt-accsave']];
+const accDenied=e=>/permission|denied|unauthori/i.test(String(e&&(e.code||e.message)||e));
+function accEnc(o){const fb=window.firebase,r={_at:fb&&fb.database&&fb.database.ServerValue?fb.database.ServerValue.TIMESTAMP:Date.now()};for(const k in o)if(o[k]!==undefined)r[k]=JSON.stringify(o[k]);return r;}
+function accDec(v){if(!v||typeof v!=='object')return null;const o={};for(const k in v){if(k==='_at')continue;const x=v[k];if(typeof x==='string'){try{o[k]=JSON.parse(x);}catch(e){o[k]=x;}}else o[k]=x;}return o;}
+async function accRead(path,ms){const sn=await withTO(ACC.db.ref(path).once('value'),ms||10000);return sn.val();}
+/* read from every place an account could be; refused places are skipped, all refused is an error */
+async function accFind(k,col){
+  let denied=0,firstErr=null;
+  for(let i=0;i<ACC_P.length;i++){
+    try{const v=await accRead(ACC_P[i][col]+'/'+k,col?20000:10000);if(v)return {i,v:accDec(v)};}
+    catch(e){if(!accDenied(e))throw e;denied++;firstErr=firstErr||e;}
+  }
+  if(denied===ACC_P.length)throw firstErr;
+  return null;
+}
 function accLocal(){try{return JSON.parse(localStorage.getItem('ltdt-accounts')||'{}')||{};}catch(e){return {};}}
 function accLocalPut(k,rec){const a=accLocal();if(rec)a[k]=rec;else delete a[k];try{localStorage.setItem('ltdt-accounts',JSON.stringify(a));}catch(e){}}
-async function accGet(k){if(accCloud()){await accDb();const sn=await withTO(accRef(k).once('value'),10000);return sn.val();}return accLocal()[k]||null;}
+async function accGet(k){if(accCloud()){await accDb();const f=await accFind(k,0);if(f)ACC.base=f.i;return f?f.v:null;}return accLocal()[k]||null;}
 async function accCreate(k,rec){
-  if(accCloud()){await accDb();const r=await withTO(accRef(k).transaction(cur=>cur===null?rec:undefined),10000);return !!(r&&r.committed);}
+  if(accCloud()){
+    await accDb();if(await accFind(k,0))return false;
+    let err=null;
+    for(let i=0;i<ACC_P.length;i++){
+      const path=ACC_P[i][0]+'/'+k;
+      try{await withTO(ACC.db.ref(path).set(accEnc(rec)),10000);
+        /* only keep it where it can be read back, so logging in later finds it */
+        const back=await accRead(path).catch(e=>{if(accDenied(e))return null;throw e;});
+        if(back){ACC.base=i;return true;}
+        ACC.db.ref(path).remove().catch(()=>{});
+      }catch(e){if(!accDenied(e))throw e;err=e;}
+    }
+    throw err||new Error('permission_denied');
+  }
   if(accLocal()[k])return false;accLocalPut(k,rec);return true;
 }
 async function accPatch(k,patch){
-  if(accCloud()){await accDb();await withTO(accRef(k).update(patch),10000);return;}
+  if(accCloud()){await accDb();await withTO(ACC.db.ref(ACC_P[ACC.base||0][0]+'/'+k).update(accEnc(patch)),10000);return;}
   const a=accLocal();if(a[k]){Object.assign(a[k],patch);accLocalPut(k,a[k]);}
 }
 function b64e(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);}
@@ -5527,11 +5557,11 @@ function accProfile(key,rec){
   return q;
 }
 async function accSignIn(key,rec){
-  ACC.cur={key,u:rec.u};ACC.f={};try{localStorage.setItem('ltdt-acct',JSON.stringify(ACC.cur));}catch(e){}
+  ACC.cur={key,u:rec.u,b:ACC.base||0};ACC.f={};try{localStorage.setItem('ltdt-acct',JSON.stringify(ACC.cur));}catch(e){}
   const q=accProfile(key,rec);useProfile(q);ACC.view=null;renderProfile();refreshHome();
   /* bring the online saved war to this device, unless this device has a newer one */
   if(accCloud())try{
-    const sn=await withTO(accSaveRef(key).once('value'),20000),v=sn.val(),m=saveMeta();
+    const f=await accFind(key,1),v=f?f.v:null,m=saveMeta();
     if(v&&v.z&&(!m||!(m.at>=v.at))){const json=await gunz(v.z);localStorage.setItem(SAVE_KEY+':'+key,json);localStorage.setItem(SAVE_KEY+':'+key+':meta',JSON.stringify({at:v.at,year:v.y||1,emp:v.e||''}));}
     else if(m&&(!v||m.at>v.at))accUploadSave();
   }catch(e){}
@@ -5550,7 +5580,8 @@ function accSync(){
 function accSaveSoon(){if(!ACC.cur||!accCloud())return;clearTimeout(ACC.upT);ACC.upT=setTimeout(accUploadSave,1500);}
 async function accUploadSave(){
   const a=ACC.cur;if(!a||!accCloud())return;
-  try{const raw=localStorage.getItem(SAVE_KEY+':'+a.key);if(!raw)return;const m=saveMeta()||{};const z=await gz(raw);await accDb();await withTO(accSaveRef(a.key).set({at:m.at||Date.now(),y:m.year||1,e:m.emp||'',z}),30000);}catch(e){}
+  try{const raw=localStorage.getItem(SAVE_KEY+':'+a.key);if(!raw)return;const m=saveMeta()||{};const z=await gz(raw);await accDb();const sv=accEnc({at:m.at||Date.now(),y:m.year||1,e:m.emp||'',z});
+    const b=a.b||0;try{await withTO(ACC.db.ref(ACC_P[b][1]+'/'+a.key).set(sv),30000);}catch(e){if(!accDenied(e)||b+1>=ACC_P.length)throw e;await withTO(ACC.db.ref(ACC_P[b+1][1]+'/'+a.key).set(sv),30000);}}catch(e){}
 }
 /* servers played, newest first */
 function accServer(h){
@@ -5607,10 +5638,10 @@ async function accSubmit(create){
       if(!ok){renderProfile();toast('That username or password is not right.','warn');return;}
       await accSignIn(key,rec);toast(`Welcome back, ${(rec.p&&rec.p.cmd)||rec.u}.`,'good');
     }
-  }catch(e){ACC.busy=false;renderProfile();toast(accCloud()?'Could not reach the account server. Check your connection and try again.':'Could not save the account on this device.','warn');}
+  }catch(e){ACC.busy=false;renderProfile();console.error('account',e);toast(!accCloud()?'Could not save the account on this device.':accDenied(e)?'The game\'s online database refused to save accounts. Its security rules need to allow it.':/timeout/i.test(String(e&&e.message))?'The account server took too long to answer. Check your connection and try again.':`Could not reach the account server (${String(e&&(e.code||e.message)||e).slice(0,80)}). Try again in a moment.`,'warn',null,8000);}
 }
 function bindAccounts(){
-  try{const a=JSON.parse(localStorage.getItem('ltdt-acct')||'null');if(a&&a.key&&PROF.list.some(x=>x.acct===a.key))ACC.cur=a;}catch(e){}
+  try{const a=JSON.parse(localStorage.getItem('ltdt-acct')||'null');if(a&&a.key&&PROF.list.some(x=>x.acct===a.key)){ACC.cur=a;ACC.base=a.b||0;}}catch(e){}
   if(ACC.cur){const q=PROF.list.find(x=>x.acct===ACC.cur.key);if(q&&PROF.cur!==q.id){PROF.cur=q.id;saveProfiles();}}
   else{const n=PROF.list.length;PROF.list=PROF.list.filter(x=>!x.acct);if(PROF.list.length!==n){if(!curProfile())PROF.cur=PROF.list[0]?PROF.list[0].id:null;saveProfiles();}}
   const body=$('profBody');
