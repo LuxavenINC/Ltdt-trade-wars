@@ -91,6 +91,12 @@ body.home #toasts{top:calc(env(safe-area-inset-top,0px) + 16px);right:auto;left:
 .toast.bad .dot{background:var(--bad)}
 .toast.warn .dot{background:var(--warn)}
 .toast .tb{min-width:0;flex:1}
+.emo-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:10px 0 2px;font-size:13px;color:var(--muted)}
+.emo-row>span{margin-right:4px}
+.emo-row .emo{font-size:19px;line-height:1;padding:5px 6px;background:rgba(255,255,255,.04);border:1px solid var(--rule-hi);border-radius:3px;cursor:pointer;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.emo-row .emo:hover:not(:disabled){background:rgba(255,255,255,.1)}
+.emo-row .emo:disabled{opacity:.4;cursor:default}
+#iStop{margin-top:6px}
 .toast .acts{display:flex;gap:6px;margin-top:8px;pointer-events:auto}
 @keyframes tin{from{transform:translateY(-6px);opacity:0}}
 #tip{position:absolute;z-index:4;pointer-events:none;padding:6px 9px;font-size:13px;background:var(--panel-a);border:1px solid var(--rule-hi);border-radius:3px;white-space:nowrap;max-width:320px}
@@ -1348,7 +1354,7 @@ const PLAYER_COLOR=[242,194,62];
 /* integer-step powers only: identical on every browser engine */
 const ERA_ADV=(()=>{const o={};for(let k=-3;k<=3;k++){let v=1;if(k>0)for(let j=0;j<k;j++)v*=0.87;else for(let j=0;j<-k;j++)v/=0.87;o[k]=v;}return o;})();
 let R=Math.random,G=null;
-const HOOK={log(){},mv(){},request(){},over(){},cmd(){},nuke(){}};
+const HOOK={log(){},mv(){},request(){},over(){},cmd(){},nuke(){},emo(){}};
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function makeNoise(rand){const p=new Float32Array(65536);for(let i=0;i<65536;i++)p[i]=rand();const at=(x,y)=>p[((y&255)<<8)|(x&255)];return(x,y)=>{const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);const a=at(xi,yi),b=at(xi+1,yi),c=at(xi,yi+1),d=at(xi+1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;};}
@@ -2230,6 +2236,43 @@ function gift(A,B,amt){
   mv(A,'gf'+B.id,`sent ${fmt(amt)} ${A.cur} to ${B.name}`,'good');
   return {amt,recv,bars,drop:dr};
 }
+/* ---------- Emoji messages: presidents talk with emojis. When a country sends you an emoji, you can call off your attacks on it;
+   an AI president answers a player's peace sign by stopping its attacks (and holding its fire for a minute) or by refusing ---------- */
+const EMOJI=['🕊️','🤝','🙏','🏳️','👍','😂','😡','⚔️'],EMO_SAY=['asks for peace','offers a deal','asks you to stop','waves the white flag','says OK','laughs','is angry','threatens war'],EMO_PEACE=4;
+function emoInit(){if(!G.emo)G.emo=[];if(!G.emoAt)G.emoAt={};if(!G.truce)G.truce={};}
+/* has country b sent country a an emoji within the last two minutes? */
+function emoFrom(b,a){const t=G.emoAt?G.emoAt[b+'>'+a]:null;return t!=null&&t>=G.time-120;}
+function truceOn(a,b){return !!(G.truce&&G.truce[a+'>'+b]>G.time);}
+function attacksOn(a,b){let k=0;for(const x of G.attacks)if(x.a===a&&x.t===b)k++;for(const x of G.boats)if(x.o===a&&x.t===b)k++;for(const x of G.air)if(x.o===a&&G.owner[x.to]===b)k++;for(const x of G.raids)if(x.o===a&&x.tg===b&&x.life>0)k++;return k;}
+/* call off every offensive, troop fleet, aircraft and raider aimed at one country: the troops come home */
+function stopAttacks(A,B){let k=0;
+  for(let i=G.attacks.length-1;i>=0;i--){const x=G.attacks[i];if(x.a===A.id&&x.t===B.id){A.troops+=Math.max(0,x.troops);G.attacks.splice(i,1);k++;}}
+  for(let i=G.boats.length-1;i>=0;i--){const x=G.boats[i];if(x.o===A.id&&x.t===B.id){A.troops+=Math.max(0,x.troops);G.boats.splice(i,1);k++;}}
+  for(let i=G.air.length-1;i>=0;i--){const x=G.air[i];if(x.o===A.id&&G.owner[x.to]===B.id){A.troops+=x.troops||0;G.air.splice(i,1);k++;}}
+  for(const x of G.raids)if(x.o===A.id&&x.tg===B.id&&x.life>0){x.life=0;k++;}
+  return k;}
+function sendEmoji(A,B,e){
+  emoInit();if(!A.alive||!B||!B.alive||B===A)return 'Pick another country.';
+  if(!(e>=0&&e<EMOJI.length))return 'Unknown emoji.';
+  if((A.emoT!=null?A.emoT:-99)>G.time-1.5)return 'Wait a moment before sending another emoji.';
+  A.emoT=G.time;G.emoAt[A.id+'>'+B.id]=G.time;G.emo.push({f:A.id,t:B.id,e,at:G.time});if(G.emo.length>40)G.emo.shift();
+  if(e<EMO_PEACE)relAdd(A.id,B.id,1);else if(e>=6)relAdd(A.id,B.id,-2);
+  mv(A,'em'+B.id,`sent ${EMOJI[e]} to ${B.name}`,'info');
+  HOOK.emo({f:A.id,t:B.id,e});
+  if(!B.human&&A.human)emoAI(B,A,e);
+  return true;}
+function emoAI(B,A,e){
+  const on=attacksOn(B.id,A.id)>0;
+  if(e<EMO_PEACE){
+    if(!on){relAdd(B.id,A.id,2);if(R()<0.6){B.emoT=-99;sendEmoji(B,A,R()<0.5?4:1);}return;}
+    const p=clamp(0.3+rel(B.id,A.id)/150+(e===3?0.15:0)+(A.troops>B.troops?0.15:-0.05)-B.pers.aggr*0.3,0.1,0.85);
+    if(R()<p){const k=stopAttacks(B,A);G.truce[B.id+'>'+A.id]=G.time+60;relAdd(B.id,A.id,8);B.emoT=-99;sendEmoji(B,A,1);
+      log(A.id,`${B.name} answered your ${EMOJI[e]}: it called off ${k} attack${k===1?'':'s'} on you and holds its fire for 60 seconds.`,null,'good');
+      log(-1,null,`${B.name} stopped its attacks on ${A.name} after an emoji ${EMOJI[e]}.`,'info',false,B.id);}
+    else{B.emoT=-99;sendEmoji(B,A,R()<0.5?6:7);log(A.id,`${B.name} ignored your ${EMOJI[e]} and keeps attacking.`,null,'warn');}
+  }else if(e>=6){relAdd(B.id,A.id,-3);if(R()<0.4){B.emoT=-99;sendEmoji(B,A,7);}}
+  else if(R()<0.3){B.emoT=-99;sendEmoji(B,A,4);}
+}
 /* gold bars can be sent to any country you are not sanctioning; a country under World Assembly sanctions cannot take in gold */
 function giftGold(A,B,bars){
   if(sanctioned(A.id,B.id))return 'Sanctions block payments between you.';
@@ -2451,6 +2494,11 @@ function applyCmd(s,type,a){
       break;}
     case 'ba':{const B=natArg(a[0]);if(B&&isAllied(s,B.id))breakAlliance(A,B);break;}
     case 'gf':{const B=natArg(a[0]);if(B&&B.alive&&B!==A&&A.alive){const g=gift(A,B,clamp(Math.floor(+a[1]||0),0,1e24));if(typeof g==='string')r={msg:g,kind:'warn'};else{r={msg:`You sent ${fmt(g.amt)} ${A.cur} (${fmt(g.recv)} ${B.cur}) to ${B.name}. The ${A.cur} fell ${(g.drop*100).toFixed(g.drop<0.0995?1:0)}%; it recovers as your gold output backs the ${fmt(g.bars)} gold bars' worth you sent.`,kind:'good'};if(B.human)log(B.id,`${A.name} sent you ${fmt(g.recv)} ${B.cur}.`,null,'good');}}break;}
+    case 'em':{const B=natArg(a[0]),x=B?sendEmoji(A,B,a[1]|0):'Pick another country.';r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`You sent ${EMOJI[a[1]|0]} to ${B.name}.`,kind:'info'};break;}
+    case 'sa':{const B=natArg(a[0]);if(B&&B!==A&&A.alive){
+      if(!emoFrom(B.id,A.id))r={msg:`${B.name} has not sent you an emoji. You can call off your attacks once it reaches out.`,kind:'warn'};
+      else{const k=stopAttacks(A,B);r=k?{msg:`You called off ${k} attack${k===1?'':'s'} on ${B.name}. Your troops are coming home.`,kind:'good'}:{msg:`You have no attacks on ${B.name}.`,kind:'info'};
+        if(k){relAdd(A.id,B.id,8);mv(A,'sa'+B.id,`stopped its attacks on ${B.name}`,'good');if(B.human)log(B.id,`${A.name} answered your emoji and called off its attacks on you.`,null,'good');log(-1,null,`${A.name} stopped its attacks on ${B.name}.`,'info',false,A.id);}}}break;}
     case 'gg':{const B=natArg(a[0]);if(B&&B.alive&&B!==A&&A.alive){const g=giftGold(A,B,clamp(Math.floor(+a[1]||0),0,1e24));if(typeof g==='string')r={msg:g,kind:'warn'};else{r={msg:`You sent ${fmt(g.bars)} gold bars to ${B.name}.`,kind:'good'};if(B.human)log(B.id,`${A.name} sent you ${fmt(g.bars)} gold bars.`,null,'good');}}break;}
     case 'sn':{const B=natArg(a[0]);if(B&&B!==A&&A.alive){const on=toggleSanction(A,B);r={msg:on?`Sanctions on ${B.name}: no trade and no payments.`:`Sanctions on ${B.name} lifted.`,kind:on?'warn':'info'};if(on)log(-1,null,`${A.name} imposed sanctions on ${B.name}.`,'info',false,A.id);}break;}
     case 'pm':if(A.alive&&G.phase==='play'){const pp=a&&[25,50,100].includes(a[0])?a[0]:0;const e=printMoney(A,pp);if(e)r={msg:e,kind:'warn'};}break;
@@ -2578,6 +2626,9 @@ function aiThink(n,iv){
       if(G.sanc[k]&&r>5){toggleSanction(n,Q);break;}
     }
   }
+  /* an AI under attack by a player talks back with emojis: a plea for peace when it is losing, anger when it is not */
+  if(!peace&&(n.emoT==null||n.emoT<G.time-25)){let H=null;for(const x of G.attacks){const X=G.nations[x.a];if(x.t===n.id&&x.a!==n.id&&X&&X.human&&X.alive){H=X;break;}}
+    if(H&&R()<0.15){const lose=H.troops>n.troops*1.1;sendEmoji(n,H,lose?(n.troops<H.troops*0.4?3:(R()<0.5?2:0)):(R()<0.6?6:7));}}
   /* military */
   const held=n.asmSan&&!n.asmWar;
   if(!peace&&!held&&n.era>=1&&n.b.port>0&&raidsOf(n.id)<raidCap(n)&&n.money>raidCost(n)*2&&R()<0.05*D.aggr*(0.5+n.pers.aggr)){
@@ -2592,7 +2643,7 @@ function aiThink(n,iv){
   if(!peace&&!held){
     let best=-1,bs=0;
     for(let q=0;q<NN;q++){
-      if(q===n.id||G.adj[n.id*(NN+1)+q]===0||isAllied(n.id,q))continue;
+      if(q===n.id||G.adj[n.id*(NN+1)+q]===0||isAllied(n.id,q)||truceOn(n.id,q))continue;
       const Q=G.nations[q];if(!Q.alive)continue;
       let sc=n.troops/(Q.troops+50)/defMult(Q);if(Q.human)sc*=D.bias;sc*=1-rel(n.id,q)/200;if(Q.asmWar)sc*=3;
       if(sc>bs){bs=sc;best=q;}
@@ -2604,13 +2655,13 @@ function aiThink(n,iv){
     for(let k=0;k<25;k++){
       const t=G.coastList[(R()*G.coastList.length)|0],o=G.owner[t];
       if(o===n.id)continue;
-      if(o>=0&&(peace||held||isAllied(n.id,o)||G.nations[o].troops>n.troops*0.8))continue;
+      if(o>=0&&(peace||held||isAllied(n.id,o)||truceOn(n.id,o)||G.nations[o].troops>n.troops*0.8))continue;
       if(sendBoat(n,t)===null)break;
     }
   }
   if(!peace&&!held&&n.era>=3&&n.b.silo>0&&R()<D.nuke&&n.money>wpnCost(n,'atom')*1.1){
     let tg=-1,tt=0;
-    for(const Q of G.nations){if(!Q.alive||Q.id===n.id||isAllied(n.id,Q.id)||rel(n.id,Q.id)>-30)continue;if(Q.tiles>tt&&Q.tiles>n.tiles*0.5){tt=Q.tiles;tg=Q.id;}}
+    for(const Q of G.nations){if(!Q.alive||Q.id===n.id||isAllied(n.id,Q.id)||truceOn(n.id,Q.id)||rel(n.id,Q.id)>-30)continue;if(Q.tiles>tt&&Q.tiles>n.tiles*0.5){tt=Q.tiles;tg=Q.id;}}
     if(tg>=0){const Q=G.nations[tg];launchNuke(n,'atom',Q.sample>=0?Q.sample:Q.capital);}
   }
 }
@@ -3687,6 +3738,7 @@ function draw(rdt){
     const tl=fmt(n.troops)+(n.id===G.top?' ★':'')+(n.human&&n.id!==ME?' · player':'');
     ctx.strokeText(tl,sx,sy+size*0.5);ctx.fillStyle=n.id===G.top?TK.holo:(ME>=0&&isAllied(ME,n.id)?TK.good:TK.paper);ctx.fillText(tl,sx,sy+size*0.5);
   }
+  drawEmoBubbles(n=>{let lx=n.lx,ly=n.ly;const ti=Math.round(ly)*W+Math.round(lx);if(G.owner[ti]!==n.id){lx=n.capital%W;ly=(n.capital/W)|0;}const x=S(lx+0.5),y=T(ly+0.5)-(z>=8?z*1.2:0)-12;return x<-60||y<-60||x>cw+60||y>ch+80?null:{x,y};});
   if(G.phase==='spawn'&&P&&P.capital>=0){
     const c=tileXY(P.capital),sx=S(c.x+0.5),sy=T(c.y+0.5),pr=14+Math.sin(t*4)*3;
     ctx.beginPath();ctx.arc(sx,sy,pr,0,Math.PI*2);ctx.strokeStyle=TK.gold;ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(sx,sy,pr+7,0,Math.PI*2);ctx.lineWidth=1;ctx.stroke();
@@ -4471,6 +4523,7 @@ function overlay3D(nowS){
     const tl=fmt(n.troops)+(n.id===G.top?' ★':'')+(n.human&&n.id!==ME?' · player':'');
     ctx.strokeText(tl,p.x,p.y+size*0.5);ctx.fillStyle=n.id===G.top?TK.holo:(ME>=0&&isAllied(ME,n.id)?TK.good:TK.paper);ctx.fillText(tl,p.x,p.y+size*0.5);
   }
+  drawEmoBubbles(n=>{let lx=n.lx,ly=n.ly;const ti=Math.round(ly)*W+Math.round(lx);if(G.owner[ti]!==n.id){lx=n.capital%W;ly=(n.capital/W)|0;}const p=proj(lx+0.5-W/2,hAt(Math.round(ly)*W+Math.round(lx))+(z>=8?3:1.5),ly+0.5-H/2);return p&&p.x>-60&&p.y>-60&&p.x<cw+60&&p.y<ch+80?{x:p.x,y:p.y-14}:null;});
   for(const nk of G.nukes){
     const f=Math.min(1,nk.t/nk.dur),q=nuke3(nk,f),left=Math.max(0,nk.dur-nk.t),b=tileXY(nk.to);
     const pt=proj(b.x+0.5-W/2,hAt(nk.to)+0.2,b.y+0.5-H/2);if(pt)outlined(`IMPACT ${left.toFixed(1)}s`,pt.x,pt.y-24,`600 12px ${FN}`,TK.bad);
@@ -4684,6 +4737,28 @@ HOOK.request=(from,toId)=>{
   toast(`${from.name} proposes an alliance. Allies trade more and cannot attack each other.`,'good',[{label:'Accept',primary:true,fn:()=>issue('ac',from.id)},{label:'Decline',fn:()=>issue('dc',from.id)}],18000);
 };
 HOOK.over=res=>{if(!G||G.demo||G.replay)return;setTimeout(()=>openOver(res),400);};
+let EMOV=[];
+HOOK.emo=ev=>{
+  if(!G||G.demo||G.replay)return;EMOV.push(Object.assign({t0:performance.now()},ev));if(EMOV.length>24)EMOV.shift();
+  if(ev.t!==ME||ev.f===ME)return;const A=G.nations[ev.f];if(!A)return;
+  const on=attacksOn(ME,A.id)>0,txt=`${EMOJI[ev.e]} ${A.name} ${EMO_SAY[ev.e]}.`+(on?' You are attacking it: stop your attacks?':'');
+  if(on)toast(txt,ev.e<EMO_PEACE?'good':'warn',[{label:'Stop my attacks',primary:true,fn:()=>issue('sa',A.id)},{label:'Keep fighting',fn:()=>{}}],20000);
+  else toast(txt,ev.e<EMO_PEACE?'good':ev.e>=6?'bad':'info',[{label:'Reply 🤝',fn:()=>issue('em',A.id,1)},{label:'Reply 👍',fn:()=>issue('em',A.id,4)}],8000);
+};
+/* emoji speech bubbles over the country that sent them, labelled with who they were sent to */
+function drawEmoBubbles(at){
+  if(!EMOV.length||!G)return;const now=performance.now();EMOV=EMOV.filter(v=>now-v.t0<4500);const seen={};
+  for(const v of EMOV){
+    const n=G.nations[v.f],T=G.nations[v.t];if(!n||!n.alive)continue;const p=at(n);if(!p)continue;
+    const age=(now-v.t0)/1000,k=seen[v.f]=(seen[v.f]||0)+1,a=age<0.2?age/0.2:age>3.7?Math.max(0,(4.5-age)/0.8):1,pop=age<0.3?0.7+0.3*age/0.3+Math.sin(age/0.3*Math.PI)*0.25:1;
+    ctx.save();ctx.globalAlpha=a;ctx.translate(p.x+(k-1)*34,p.y-30-age*5);ctx.scale(pop,pop);
+    ctx.fillStyle='rgba(250,252,255,.96)';ctx.strokeStyle='rgba(10,14,20,.55)';ctx.lineWidth=1;rrect(-20,-20,40,34,10);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-6,13.5);ctx.lineTo(0,21);ctx.lineTo(6,13.5);ctx.closePath();ctx.fill();
+    ctx.font='22px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#000';ctx.fillText(EMOJI[v.e],0,-2);
+    if(T){ctx.font=`600 10px ${FN}`;ctx.lineWidth=3;ctx.lineJoin='round';ctx.strokeStyle=TK.ink;const s='→ '+(T.id===ME?'you':T.name);ctx.strokeText(s,0,-28);ctx.fillStyle=T.id===ME?TK.goldHi:TK.paper;ctx.fillText(s,0,-28);}
+    ctx.restore();
+  }
+}
 HOOK.nuke=nk=>{
   if(!G||G.demo||G.replay)return;
   const A=G.nations[nk.o],T=G.owner[nk.to],tn=T>=0?G.nations[T].name:'open land';
@@ -5411,6 +5486,7 @@ function renderInspector(){
     <dl class="kv"><dt>President</dt><dd id="iPres"></dd><dt>Approval</dt><dd id="iAppr"></dd><dt>Economy</dt><dd id="iEco"></dd><dt>Valuation</dt><dd id="iVal"></dd><dt>Currency</dt><dd id="iCur"></dd><dt>Gold reserve</dt><dd id="iGold"></dd><dt>Food price</dt><dd id="iFood"></dd><dt>Its currency abroad</dt><dd id="iAbroad"></dd><dt>Foreign reserves</dt><dd id="iFxr"></dd><dt>Land</dt><dd id="iLand"></dd><dt>Army</dt><dd id="iArmy"></dd><dt>Invasion cost</dt><dd id="iDef"></dd><dt>Era · ports</dt><dd id="iEra"></dd>${self?'':'<dt>You hold</dt><dd id="iHold"></dd>'}</dl>
     <div class="cmp-wrap"><div class="eyebrow">${self?'Your economy':'Their economy vs yours'}</div><table class="cmp" id="iCmp"></table></div>
     ${self?'':'<div><div class="relbar"><span id="iRelMk"></span></div><div class="rel-lab" style="margin-top:6px"><span>Relations</span><b id="iRel"></b></div></div>'}
+    ${self?'':`<div class="emo-row" id="iEmo"><span>Talk</span>${EMOJI.map((e,i)=>`<button type="button" class="emo" data-act="emo" data-e="${i}" title="${EMO_SAY[i]}" aria-label="${EMO_SAY[i]}">${e}</button>`).join('')}</div><button type="button" class="btn sm" data-act="stopat" id="iStop" style="display:none">Stop attacks</button>`}
     ${self?'':`<div class="fxamt"><span>Send</span><div class="seg mini" id="iGiftAmt" role="group" aria-label="Share of your money or gold bars to send">${[5,15,30,50,100].map(p=>`<button type="button" data-act="gpct" data-p="${p}" aria-pressed="${p===giftPct}">${p===100?'All':p+'%'}</button>`).join('')}</div><b>of your money or gold</b></div>`}
     <div class="row"><button type="button" class="btn ghost sm" data-act="locate">Locate</button>
     ${self?'':'<button type="button" class="btn sm" data-act="ally" id="iAlly">Propose alliance</button><button type="button" class="btn ghost sm" data-act="gift" id="iGift" title="Sending your own currency weakens it in step with how much you send: 3% for every 15% of your money, up to 20%. It recovers as your gold output backs the money you sent.">Send money</button><button type="button" class="btn ghost sm" data-act="giftg" id="iGiftG">Send gold</button><button type="button" class="btn ghost sm" data-act="sanction" id="iSan">Sanction</button><button type="button" class="btn ghost sm" data-act="raid" id="iRaid">Send raider</button><button type="button" class="btn ghost sm" data-act="fxb" id="iFxb">Buy currency</button><button type="button" class="btn danger sm" data-act="fxd" id="iFxd">Dump currency</button>'}
@@ -5463,6 +5539,8 @@ function updateInspector(){
   ab.disabled=!n.alive||!P.alive||(!al&&(propCd[n.id]||0)>performance.now());
   const blocked=sanctioned(ME,n.id)||P.locked||n.locked;
   $('iGift').textContent=blocked?'Payments blocked':`Send ${fmt(giftAmount())} ${P.cur} · −${(d=>(d*100).toFixed(d<0.0995?1:0))(giftDrop(Math.min(giftAmount(),P.money)/Math.max(1,P.money)))}%`;$('iGift').disabled=!n.alive||P.money<50||blocked;
+  {const can=n.alive&&P.alive&&emoFrom(n.id,ME)&&attacksOn(ME,n.id)>0,st=$('iStop');st.style.display=can?'':'none';st.textContent=`${EMOJI[(()=>{let e=0;if(G.emo)for(const v of G.emo)if(v.f===n.id&&v.t===ME)e=v.e;return e;})()]} Stop my attacks`;st.title=`${n.name} sent you an emoji: you can call off your attacks on it`;
+   document.querySelectorAll('#iEmo .emo').forEach(b=>b.disabled=!n.alive||!P.alive);}
   {const gb=$('iGiftG'),gs=sanctioned(ME,n.id);gb.textContent=gs?'Gold blocked':n.asmSan?'Gold blocked: Assembly sanctions':`Send ${fmt(giftGoldAmount())} gold bars`;gb.disabled=!n.alive||!P.alive||P.reserve<1||gs||n.asmSan;}
   $('iSan').textContent=G.sanc[ME*NN+n.id]?'Lift sanction':'Sanction';$('iSan').disabled=!n.alive;
   const hh=P.fxh[n.id]||0;$('iHold').textContent=hh>0?`${fmt(hh)} ${n.cur} · worth ${fmt(hh*n.fx/P.fx)} ${P.cur}`:`No ${n.cur}`;
@@ -5483,6 +5561,8 @@ function onInspector(e){
       break;
     case 'gift':issue('gf',n.id,giftAmount());break;
     case 'giftg':issue('gg',n.id,giftGoldAmount());break;
+    case 'emo':issue('em',n.id,+b.dataset.e);break;
+    case 'stopat':issue('sa',n.id);break;
     case 'gpct':giftPct=+b.dataset.p;document.querySelectorAll('#iGiftAmt [data-p]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-giftpct',String(giftPct));}catch(e){}break;
     case 'sanction':issue('sn',n.id);break;
     case 'raid':issue('rs',n.id);break;
