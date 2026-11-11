@@ -1282,8 +1282,10 @@ const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=16,CITY_MAX=3;
 /* World Assembly: every 4 years the presidents of every country meet and vote on one country to sanction.
    Every country then receives 5,000 gold bars; the sanctioned country receives only 1,000. Voting stays open 30 seconds. */
 const ASM_EVERY=4,ASM_T=30,ASM_GOLD=5000,ASM_SANC=1000,ASM_HOS=3;
-/* sending your own currency abroad weakens it about 3% a gift; the fall fades only as your gold output backs the money sent (at most 0.1% a second) */
-const GIFT_FX=0.03,GIFT_HEAL=0.001;
+/* sending your own currency abroad weakens it in step with how much you send: 3% for every 15% of your money, up to 20% for all of it;
+   the fall fades only as your gold output backs the money sent (at most 0.1% a second) */
+const GIFT_FX=0.03,GIFT_PER=0.15,GIFT_MAX=0.2,GIFT_HEAL=0.001;
+function giftDrop(share){return Math.min(GIFT_MAX,GIFT_FX*clamp(share,0,1)/GIFT_PER);}
 /* a sanction needs the votes of at least a third of the presidents (2 at the least) */
 function asmNeed(m){return Math.max(2,Math.ceil(m/3));}
 const RATION_MULT=[0.72,1,1.3],RATION_HAPPY=[-14,0,10],RATION_NAME=['Lean','Normal','Generous'];
@@ -2214,11 +2216,11 @@ function gift(A,B,amt){
   if(sanctioned(A.id,B.id))return 'Sanctions block payments between you.';
   if(A.locked||B.locked)return `The ${(A.locked?A:B).cur} cannot be exchanged while under sanctions.`;
   amt=Math.min(Math.floor(A.money),amt);if(amt<1)return 'Not enough money.';
-  const recv=amt*A.fx/B.fx,bars=amt/Math.max(1e-9,goldPrice(A));A.money-=amt;B.money+=recv;relAdd(A.id,B.id,Math.min(30,amt*A.fx/12));
-  /* the sender's currency falls about 3%; it climbs back as the sender's gold output covers the gold worth of the money sent */
-  A.gfxm=Math.max(0.3,(A.gfxm||1)*(1-GIFT_FX));A.fx*=1-GIFT_FX;A.rfx*=1-GIFT_FX;A.gfxd=(A.gfxd||0)+bars;
+  const recv=amt*A.fx/B.fx,bars=amt/Math.max(1e-9,goldPrice(A)),dr=giftDrop(amt/Math.max(1,A.money));A.money-=amt;B.money+=recv;relAdd(A.id,B.id,Math.min(30,amt*A.fx/12));
+  /* the sender's currency falls by the share of its money it sends (3% per 15%); it climbs back as the sender's gold output covers the gold worth of the money sent */
+  A.gfxm=Math.max(0.3,(A.gfxm||1)*(1-dr));A.fx*=1-dr;A.rfx*=1-dr;A.gfxd=(A.gfxd||0)+bars;
   mv(A,'gf'+B.id,`sent ${fmt(amt)} ${A.cur} to ${B.name}`,'good');
-  return {amt,recv,bars};
+  return {amt,recv,bars,drop:dr};
 }
 /* gold bars can be sent to any country you are not sanctioning; a country under World Assembly sanctions cannot take in gold */
 function giftGold(A,B,bars){
@@ -2440,7 +2442,7 @@ function applyCmd(s,type,a){
       else{const ok=proposeAlliance(A,B);r={msg:ok?`${B.name} accepts your alliance.`:`${B.name} declines. Gifts and time can warm relations.`,kind:ok?'good':'warn'};if(ok)log(-1,null,`${A.name} and ${B.name} signed an alliance.`,'info',false,A.id);else mv(A,'pa'+B.id,`proposed an alliance to ${B.name}, who declined`);}
       break;}
     case 'ba':{const B=natArg(a[0]);if(B&&isAllied(s,B.id))breakAlliance(A,B);break;}
-    case 'gf':{const B=natArg(a[0]);if(B&&B.alive&&B!==A&&A.alive){const g=gift(A,B,clamp(Math.floor(+a[1]||0),0,1e24));if(typeof g==='string')r={msg:g,kind:'warn'};else{r={msg:`You sent ${fmt(g.amt)} ${A.cur} (${fmt(g.recv)} ${B.cur}) to ${B.name}. The ${A.cur} fell ${Math.round(GIFT_FX*100)}%; it recovers as your gold output backs the ${fmt(g.bars)} gold bars' worth you sent.`,kind:'good'};if(B.human)log(B.id,`${A.name} sent you ${fmt(g.recv)} ${B.cur}.`,null,'good');}}break;}
+    case 'gf':{const B=natArg(a[0]);if(B&&B.alive&&B!==A&&A.alive){const g=gift(A,B,clamp(Math.floor(+a[1]||0),0,1e24));if(typeof g==='string')r={msg:g,kind:'warn'};else{r={msg:`You sent ${fmt(g.amt)} ${A.cur} (${fmt(g.recv)} ${B.cur}) to ${B.name}. The ${A.cur} fell ${(g.drop*100).toFixed(g.drop<0.0995?1:0)}%; it recovers as your gold output backs the ${fmt(g.bars)} gold bars' worth you sent.`,kind:'good'};if(B.human)log(B.id,`${A.name} sent you ${fmt(g.recv)} ${B.cur}.`,null,'good');}}break;}
     case 'gg':{const B=natArg(a[0]);if(B&&B.alive&&B!==A&&A.alive){const g=giftGold(A,B,clamp(Math.floor(+a[1]||0),0,1e24));if(typeof g==='string')r={msg:g,kind:'warn'};else{r={msg:`You sent ${fmt(g.bars)} gold bars to ${B.name}.`,kind:'good'};if(B.human)log(B.id,`${A.name} sent you ${fmt(g.bars)} gold bars.`,null,'good');}}break;}
     case 'sn':{const B=natArg(a[0]);if(B&&B!==A&&A.alive){const on=toggleSanction(A,B);r={msg:on?`Sanctions on ${B.name}: no trade and no payments.`:`Sanctions on ${B.name} lifted.`,kind:on?'warn':'info'};if(on)log(-1,null,`${A.name} imposed sanctions on ${B.name}.`,'info',false,A.id);}break;}
     case 'pm':if(A.alive&&G.phase==='play'){const pp=a&&[25,50,100].includes(a[0])?a[0]:0;const e=printMoney(A,pp);if(e)r={msg:e,kind:'warn'};}break;
@@ -5305,14 +5307,16 @@ function renderInspector(){
     <dl class="kv"><dt>President</dt><dd id="iPres"></dd><dt>Approval</dt><dd id="iAppr"></dd><dt>Economy</dt><dd id="iEco"></dd><dt>Valuation</dt><dd id="iVal"></dd><dt>Currency</dt><dd id="iCur"></dd><dt>Gold reserve</dt><dd id="iGold"></dd><dt>Food price</dt><dd id="iFood"></dd><dt>Its currency abroad</dt><dd id="iAbroad"></dd><dt>Foreign reserves</dt><dd id="iFxr"></dd><dt>Land</dt><dd id="iLand"></dd><dt>Army</dt><dd id="iArmy"></dd><dt>Invasion cost</dt><dd id="iDef"></dd><dt>Era · ports</dt><dd id="iEra"></dd>${self?'':'<dt>You hold</dt><dd id="iHold"></dd>'}</dl>
     <div class="cmp-wrap"><div class="eyebrow">${self?'Your economy':'Their economy vs yours'}</div><table class="cmp" id="iCmp"></table></div>
     ${self?'':'<div><div class="relbar"><span id="iRelMk"></span></div><div class="rel-lab" style="margin-top:6px"><span>Relations</span><b id="iRel"></b></div></div>'}
+    ${self?'':`<div class="fxamt"><span>Send</span><div class="seg mini" id="iGiftAmt" role="group" aria-label="Share of your money or gold bars to send">${[5,15,30,50,100].map(p=>`<button type="button" data-act="gpct" data-p="${p}" aria-pressed="${p===giftPct}">${p===100?'All':p+'%'}</button>`).join('')}</div><b>of your money or gold</b></div>`}
     <div class="row"><button type="button" class="btn ghost sm" data-act="locate">Locate</button>
-    ${self?'':'<button type="button" class="btn sm" data-act="ally" id="iAlly">Propose alliance</button><button type="button" class="btn ghost sm" data-act="gift" id="iGift" title="Sending your own currency weakens it about 3%. It recovers as your gold output backs the money you sent.">Send money</button><button type="button" class="btn ghost sm" data-act="giftg" id="iGiftG">Send gold</button><button type="button" class="btn ghost sm" data-act="sanction" id="iSan">Sanction</button><button type="button" class="btn ghost sm" data-act="raid" id="iRaid">Send raider</button><button type="button" class="btn ghost sm" data-act="fxb" id="iFxb">Buy currency</button><button type="button" class="btn danger sm" data-act="fxd" id="iFxd">Dump currency</button>'}
+    ${self?'':'<button type="button" class="btn sm" data-act="ally" id="iAlly">Propose alliance</button><button type="button" class="btn ghost sm" data-act="gift" id="iGift" title="Sending your own currency weakens it in step with how much you send: 3% for every 15% of your money, up to 20%. It recovers as your gold output backs the money you sent.">Send money</button><button type="button" class="btn ghost sm" data-act="giftg" id="iGiftG">Send gold</button><button type="button" class="btn ghost sm" data-act="sanction" id="iSan">Sanction</button><button type="button" class="btn ghost sm" data-act="raid" id="iRaid">Send raider</button><button type="button" class="btn ghost sm" data-act="fxb" id="iFxb">Buy currency</button><button type="button" class="btn danger sm" data-act="fxd" id="iFxd">Dump currency</button>'}
     </div></div>`;
   $('iName').textContent=n.name+(self?' (you)':'');
   updateInspector();
 }
-function giftAmount(){const P=me();return Math.max(50,Math.floor((P?P.money:0)*0.15));}
-function giftGoldAmount(){const P=me();return Math.max(1,Math.floor((P?P.reserve:0)*0.15));}
+let giftPct=15;try{const v=+localStorage.getItem('ltdt-giftpct');if([5,15,30,50,100].includes(v))giftPct=v;}catch(e){}
+function giftAmount(){const P=me();return Math.max(50,Math.floor((P?P.money:0)*giftPct/100));}
+function giftGoldAmount(){const P=me();return Math.max(1,Math.floor((P?P.reserve:0)*giftPct/100));}
 function updateInspector(){
   if(!G||selNation<0||!$('iName'))return;
   const n=G.nations[selNation],P=me();if(!n||!P)return;
@@ -5354,7 +5358,7 @@ function updateInspector(){
   if(ab.dataset.armed!=='1'){ab.textContent=al?'Break alliance':'Propose alliance';ab.className=al?'btn danger sm':'btn sm';}
   ab.disabled=!n.alive||!P.alive||(!al&&(propCd[n.id]||0)>performance.now());
   const blocked=sanctioned(ME,n.id)||P.locked||n.locked;
-  $('iGift').textContent=blocked?'Payments blocked':`Send ${fmt(giftAmount())} ${P.cur} · −${Math.round(GIFT_FX*100)}%`;$('iGift').disabled=!n.alive||P.money<50||blocked;
+  $('iGift').textContent=blocked?'Payments blocked':`Send ${fmt(giftAmount())} ${P.cur} · −${(d=>(d*100).toFixed(d<0.0995?1:0))(giftDrop(Math.min(giftAmount(),P.money)/Math.max(1,P.money)))}%`;$('iGift').disabled=!n.alive||P.money<50||blocked;
   {const gb=$('iGiftG'),gs=sanctioned(ME,n.id);gb.textContent=gs?'Gold blocked':n.asmSan?'Gold blocked: Assembly sanctions':`Send ${fmt(giftGoldAmount())} gold bars`;gb.disabled=!n.alive||!P.alive||P.reserve<1||gs||n.asmSan;}
   $('iSan').textContent=G.sanc[ME*NN+n.id]?'Lift sanction':'Sanction';$('iSan').disabled=!n.alive;
   const hh=P.fxh[n.id]||0;$('iHold').textContent=hh>0?`${fmt(hh)} ${n.cur} · worth ${fmt(hh*n.fx/P.fx)} ${P.cur}`:`No ${n.cur}`;
@@ -5375,6 +5379,7 @@ function onInspector(e){
       break;
     case 'gift':issue('gf',n.id,giftAmount());break;
     case 'giftg':issue('gg',n.id,giftGoldAmount());break;
+    case 'gpct':giftPct=+b.dataset.p;document.querySelectorAll('#iGiftAmt [data-p]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-giftpct',String(giftPct));}catch(e){}break;
     case 'sanction':issue('sn',n.id);break;
     case 'raid':issue('rs',n.id);break;
     case 'fxb':issue('fb',n.id,fxPct);break;
