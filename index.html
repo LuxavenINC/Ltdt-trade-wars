@@ -1040,7 +1040,7 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
         <p class="hint" id="electHint"></p>
       </div>
       <div class="block rcard">
-        <div class="rhead"><span class="ric"><svg><use href="#ic-scales"/></svg></span><div><h4>World Assembly</h4><p class="explain">Every 4 years the presidents vote to sanction a hostile country, one that attacks others. Peaceful countries building their economy are left alone. The sanctioned country earns half its income, cannot buy gold and must not attack anyone until the next session, or every country goes to war with it. Every country receives 5,000 gold bars; the sanctioned one only 1,000.</p></div></div>
+        <div class="rhead"><span class="ric"><svg><use href="#ic-scales"/></svg></span><div><h4>World Assembly</h4><p class="explain">Every 4 years the presidents vote to sanction a hostile country, one that attacks others. Peaceful countries building their economy are left alone. The sanctioned country earns half its income, cannot buy gold and must not attack anyone until the next session, or every country goes to war with it. Presidents who vote receive 5,000 gold bars for protecting the peace and rebuilding the economy; those who do not vote receive nothing, and the sanctioned one only 1,000. If no one votes, every country receives just 200.</p></div></div>
         <dl class="kv"><dt>Next session</dt><dd id="asmNextV">Year 4</dd><dt>Sanctioned now</dt><dd id="asmNowV">Nobody</dd><dt>Your hostility</dt><dd id="asmHosV">Peaceful</dd><dt>Last verdict</dt><dd id="asmLastV">None yet</dd></dl>
         <button type="button" class="btn ghost sm" id="asmOpenB">Open the chamber</button>
       </div>
@@ -1278,10 +1278,15 @@ const PEACE=1800,GOLD_WC=50,GOLD_PX=15000,SHIELD_R=6,RAID_MAX=120,RAID_PRICE=100
 const RES_GOLD=50000,RES_OIL=30000,RES_TEMP=1000;
 /* every trade ship that docks brings 12 gold bars and 12 food; a farm makes 25 food a second; tariffs also back the currency */
 const SHIP_FOOD=12,FARM_FOOD=25,TARIFF_BACK=3,FOOD_PX=5;
-const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=16,CITY_MAX=3;
+const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=11,CITY_MAX=3;
+/* ships sail at a realistic pace: troop transports 7 tiles a second, trade ships 9, raider warships 11 */
+const BOAT_SPEED=7,SHIP_SPEED=9;
 /* World Assembly: every 4 years the presidents of every country meet and vote on one country to sanction.
-   Every country then receives 5,000 gold bars; the sanctioned country receives only 1,000. Voting stays open 30 seconds. */
-const ASM_EVERY=4,ASM_T=30,ASM_GOLD=5000,ASM_SANC=1000,ASM_HOS=3;
+   Every president who votes receives 5,000 gold bars for protecting the peace and rebuilding the economy; those who do not vote receive nothing;
+   the sanctioned country receives only 1,000. If no one votes at all, every country receives just 200. Voting stays open 30 seconds. */
+const ASM_EVERY=4,ASM_T=30,ASM_GOLD=5000,ASM_SANC=1000,ASM_HOS=3,ASM_NONE=200;
+/* what one country receives from a closed session */
+function asmPay(S,id){if(!S||!S.res)return 0;const R0=S.res;if(id===R0.w)return ASM_SANC;if(!(R0.tot>0))return ASM_NONE;return S.vt[id]>=0?ASM_GOLD:0;}
 /* sending your own currency abroad weakens it in step with how much you send: 3% for every 15% of your money, up to 20% for all of it;
    the fall fades only as your gold output backs the money sent (at most 0.1% a second) */
 const GIFT_FX=0.03,GIFT_PER=0.15,GIFT_MAX=0.2,GIFT_HEAL=0.001;
@@ -1797,7 +1802,7 @@ function processBoats(dt){
   for(let k=G.boats.length-1;k>=0;k--){
     const b=G.boats[k],A=G.nations[b.o];
     if(!A.alive){G.boats.splice(k,1);continue;}
-    b.pos+=10*A.mods.boatSpeed*dt;
+    b.pos+=BOAT_SPEED*A.mods.boatSpeed*dt;
     if(b.pos<b.path.length-1)continue;
     G.boats.splice(k,1);
     const L=b.land,cur=G.owner[L];
@@ -1838,10 +1843,10 @@ function processTrade(dt){
     if(!opts.length)continue;
     let r=R()*tot,pick=opts[0][0];for(const o of opts){r-=o[1];if(r<=0){pick=o[0];break;}}
     const path=getRoute(p.tile,pick.tile);
-    if(path&&path.length>2&&G.ships.length<160)G.ships.push({o:p.owner,d:pick.owner,to:pick.tile,path,pos:0});
+    if(path&&path.length>2&&G.ships.length<230)G.ships.push({o:p.owner,d:pick.owner,to:pick.tile,path,pos:0});
   }
   for(let k=G.ships.length-1;k>=0;k--){
-    const s=G.ships[k];s.pos+=13*dt;if(s.pos<s.path.length-1)continue;
+    const s=G.ships[k];s.pos+=SHIP_SPEED*dt;if(s.pos<s.path.length-1)continue;
     G.ships.splice(k,1);
     const S=G.nations[s.o],D=G.nations[s.d];
     if(!S.alive||!D.alive||G.owner[s.to]!==s.d)continue;
@@ -1877,21 +1882,24 @@ function launchRaider(A,tg){
 /* sea battles: warships of countries that are not allies sail at each other when they meet (within 14 tiles) and open fire
    inside 4 tiles; a warship takes about six to eight hits before it sinks. Warships also shell enemy troop transports
    sailing to invade their country, or belonging to the country they hunt. */
-const SEA_R2=16,SEA_SEEK2=196;
+const SEA_R2=16,SEA_SEEK2=676;
 function raidT(r){return pathTile(r.path,r.pos);}
 function seaFoe(r){
   const t=raidT(r),x=t%W,y=(t/W)|0;let best=null,bd=SEA_SEEK2+1;
   for(const q of G.raids){if(q===r||q.sunk||q.o===r.o||isAllied(q.o,r.o)||!G.nations[q.o].alive)continue;const u=raidT(q),d=(u%W-x)**2+(((u/W)|0)-y)**2;if(d<bd){bd=d;best=q;}}
   return best?{q:best,d:bd}:null;
 }
+/* where a ship is and which way it points, for the picture of it going down (display only) */
+function seaWreck(path,pos,a0){const a=pathTile(path,pos),b=pathTile(path,pos+1),f=Math.max(0,Math.min(1,pos-Math.floor(pos)));
+  return {x:(a%W)*(1-f)+(b%W)*f+0.5,y:((a/W)|0)*(1-f)+((b/W)|0)*f+0.5,hd:a===b?(a0||0):Math.atan2(((b/W)|0)-((a/W)|0),b%W-a%W)};}
 function seaSunk(A,q){
-  const B=G.nations[q.o],t=raidT(q);G.fxQ.push({x:t%W+0.5,y:((t/W)|0)+0.5,r:1,sea:1});relAdd(A.id,B.id,-8);
+  const B=G.nations[q.o],wr=seaWreck(q.path,q.pos,q._a);G.fxQ.push({x:wr.x,y:wr.y,r:1,sea:1,wk:1,o:q.o,hd:wr.hd});relAdd(A.id,B.id,-8);
   if(A.human)log(A.id,`Your warship sank one of ${B.name}'s warships.`,null,'good');
   if(B.human)log(B.id,`${A.name} sank one of your warships.`,null,'bad');
   mv(A,'sk'+B.id,`sank ${B.name}'s warships at sea`,'warn');
 }
 function boatSunk(A,b){
-  const B=G.nations[b.o],t=pathTile(b.path,b.pos);G.fxQ.push({x:t%W+0.5,y:((t/W)|0)+0.5,r:0.9,sea:1});relAdd(A.id,B.id,-8);
+  const B=G.nations[b.o],wr=seaWreck(b.path,b.pos,0);G.fxQ.push({x:wr.x,y:wr.y,r:0.9,sea:1,wk:2,o:b.o,hd:wr.hd});relAdd(A.id,B.id,-8);
   if(A.human)log(A.id,`Your warship sank a ${B.name} troop transport.`,null,'good');
   if(B.human)log(B.id,`${A.name}'s warship sank your troop transport${b.t>=0&&G.nations[b.t]?` sailing to ${G.nations[b.t].name}`:''}.`,null,'bad');
   mv(A,'sb'+B.id,`sank ${B.name}'s troop transports`,'warn');
@@ -2761,8 +2769,9 @@ function closeAssembly(){
   let w=-1;const need=asmNeed(S.members.length);
   if(tot>0)for(const id of S.members){const q=G.nations[id];if(!q.alive||cnt[id]<need)continue;if(w<0||cnt[id]>cnt[w]||(cnt[id]===cnt[w]&&(q.hos||0)>(G.nations[w].hos||0))||(cnt[id]===cnt[w]&&(q.hos||0)===(G.nations[w].hos||0)&&q.tiles>G.nations[w].tiles))w=id;}
   for(const n of G.nations){n.asmSan=false;n.asmWar=false;}
-  for(const n of G.nations)if(n.alive)n.reserve+=n.id===w?ASM_SANC:ASM_GOLD;
   S.done=true;S.res={w,cnt,tot,need};
+  let voters=0;for(const id of S.members)if(S.vt[id]>=0&&id!==w&&G.nations[id].alive)voters++;S.res.voters=voters;
+  for(const n of G.nations)if(n.alive)n.reserve+=asmPay(S,n.id);
   const W0=w>=0?G.nations[w]:null;if(W0){W0.asmS=S.year;W0.asmSan=true;
     /* the sanction is a ceasefire: its offensives, fleets and helicopters on other countries stand down and the troops come home */
     for(let k=G.attacks.length-1;k>=0;k--){const a=G.attacks[k];if(a.a===w&&a.t>=0){W0.troops+=a.troops;G.attacks.splice(k,1);}}
@@ -2771,10 +2780,12 @@ function closeAssembly(){
   for(const n of G.nations){
     if(!n.alive||!n.human)continue;
     if(W0&&n.id===w)log(n.id,`The World Assembly sanctioned you with ${cnt[w]} of ${tot} votes. Your attacks stand down and you receive only ${ASM_SANC.toLocaleString('en-US')} gold bars. Until the next session your income is halved, you cannot buy gold, and if you attack any country, every country goes to war with you.`,null,'bad');
-    else log(n.id,W0?`The World Assembly sanctioned ${W0.name}. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`:`No country drew the ${need} votes a sanction needs. You receive ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,null,'good');
+    else{const pay=asmPay(S,n.id),head=W0?`The World Assembly sanctioned ${W0.name}.`:tot>0?`No country drew the ${need} votes a sanction needs.`:'No president voted, so no one is sanctioned.';
+      log(n.id,`${head} ${!(tot>0)?`Every country receives only ${ASM_NONE.toLocaleString('en-US')} gold bars.`:pay>0?`You voted, so you receive ${pay.toLocaleString('en-US')} gold bars for protecting the peace and rebuilding the economy.`:`You did not vote, so you receive no gold: the ${ASM_GOLD.toLocaleString('en-US')} gold bars go only to presidents who vote to protect the peace and rebuild the economy.`}`,null,pay>0&&tot>0?'good':pay>0?'info':'warn');}
   }
   if(W0)mv(W0,'asmS',`was sanctioned by the World Assembly with ${cnt[w]} votes`,'warn');
-  log(-1,null,W0?`World Assembly, Year ${S.year}: ${W0.name} is sanctioned with ${cnt[w]} of ${tot} votes. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars; ${W0.name} receives ${ASM_SANC.toLocaleString('en-US')}, earns half its income, cannot buy gold and must not attack anyone until the next session.`:`World Assembly, Year ${S.year}: no country drew the ${need} votes a sanction needs, so no one is sanctioned. Every country receives ${ASM_GOLD.toLocaleString('en-US')} gold bars.`,'warn',true);
+  {const g5=ASM_GOLD.toLocaleString('en-US'),vt=`${voters} countr${voters===1?'y':'ies'} that voted receive${voters===1?'s':''} ${g5} gold bars${voters===1?'':' each'} and those that did not vote receive nothing`;
+   log(-1,null,W0?`World Assembly, Year ${S.year}: ${W0.name} is sanctioned with ${cnt[w]} of ${tot} votes. The ${vt}; ${W0.name} receives ${ASM_SANC.toLocaleString('en-US')}, earns half its income, cannot buy gold and must not attack anyone until the next session.`:tot>0?`World Assembly, Year ${S.year}: no country drew the ${need} votes a sanction needs, so no one is sanctioned. The ${vt}.`:`World Assembly, Year ${S.year}: no president voted, so no one is sanctioned and every country receives only ${ASM_NONE.toLocaleString('en-US')} gold bars.`,'warn',true);}
 }
 function holdElections(){
   let kept=0,out=0;
@@ -3383,7 +3394,7 @@ function pathPos(path,pos){const L=path.length;const p=Math.min(pos,L-1),i0=Math
 function outlined(text,x,y,font,fill){ctx.font=font;ctx.lineWidth=3;ctx.strokeStyle=TK.ink;ctx.lineJoin='round';ctx.strokeText(text,x,y);ctx.fillStyle=fill;ctx.fillText(text,x,y);}
 /* a warship's shot on the flat map: muzzle flash and gun smoke, a glowing shell arcing over the water,
    then a fireball on the enemy ship or a white water spout where it misses */
-const SHOT_FL=0.5,SHOT_D=1.25;
+const SHOT_FL=0.5,SHOT_D=1.7,WRECK_T=3.6;
 function drawShot2D(e,S,T,z){
   const x0=S(e.x0),y0=T(e.y0),x1=S(e.x),y1=T(e.y);
   if(Math.max(x0,x1)<-40||Math.min(x0,x1)>cw+40||Math.max(y0,y1)<-40||Math.min(y0,y1)>ch+40)return;
@@ -3398,17 +3409,42 @@ function drawShot2D(e,S,T,z){
     ctx.globalAlpha=1;ctx.fillStyle='#fff7da';ctx.beginPath();ctx.arc(px,py,Math.max(1.2,s*0.6),0,Math.PI*2);ctx.fill();
   }else{
     const f=(t-SHOT_FL)/(SHOT_D-SHOT_FL);
-    if(e.hit){
-      const r=s*(1.6+f*4.5),g=ctx.createRadialGradient(x1,y1,0,x1,y1,r);g.addColorStop(0,'rgba(255,240,190,1)');g.addColorStop(0.45,'rgba(255,130,50,.9)');g.addColorStop(1,'rgba(255,90,40,0)');
-      ctx.globalAlpha=1-f;ctx.fillStyle=g;ctx.beginPath();ctx.arc(x1,y1,r,0,Math.PI*2);ctx.fill();
-      ctx.globalAlpha=(1-f)*0.6;ctx.fillStyle='#2a2d33';ctx.beginPath();ctx.arc(x1+f*s*3,y1-s*2-f*s*7,s*(1.3+f*4),0,Math.PI*2);ctx.fill();
-    }else{
+    if(e.hit)boom2D(x1,y1,Math.max(2.4,z*0.17),f,e.seed||0);
+    else{
       const hg=Math.sin(Math.min(1,f*1.6)*Math.PI)*s*7;ctx.globalAlpha=0.9*(1-f);ctx.fillStyle='#f4fbff';
       ctx.beginPath();ctx.moveTo(x1-s*1.3,y1);ctx.quadraticCurveTo(x1-s*0.45,y1-hg*0.6,x1,y1-hg);ctx.quadraticCurveTo(x1+s*0.45,y1-hg*0.6,x1+s*1.3,y1);ctx.closePath();ctx.fill();
       ctx.strokeStyle=`rgba(235,248,255,${0.8*(1-f)})`;ctx.lineWidth=Math.max(1,s*0.35);ctx.beginPath();ctx.ellipse(x1,y1,s*(1.4+f*6),s*(0.6+f*2.5),0,0,Math.PI*2);ctx.stroke();
     }
   }
   ctx.restore();
+}
+/* an explosion on the flat map: a white flash, rolling fireballs, a shock ring across the water, flying sparks and black smoke */
+function boom2D(x,y,s,f,seed){
+  ctx.save();
+  if(f<0.18){ctx.globalAlpha=1-f/0.18;ctx.fillStyle='#fffbe6';ctx.beginPath();ctx.arc(x,y,s*(2+f*10),0,Math.PI*2);ctx.fill();}
+  ctx.globalAlpha=Math.max(0,1-f*1.15)*0.9;ctx.strokeStyle='#ffecc8';ctx.lineWidth=Math.max(1,s*0.45*(1-f));ctx.beginPath();ctx.ellipse(x,y,s*(1.5+f*9),s*(0.8+f*5),0,0,Math.PI*2);ctx.stroke();
+  for(let j=0;j<4;j++){const a=hash(seed*7+j)*Math.PI*2,dd=s*(0.4+hash(seed*3+j)*1.2)*(0.5+f),px=x+Math.cos(a)*dd,py=y+Math.sin(a)*dd*0.7-f*s*2,r=s*(1.1+f*3.2)*(0.7+hash(seed+j*5)*0.6);
+    const g=ctx.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,`rgba(255,244,200,${1-f})`);g.addColorStop(0.4,`rgba(255,150,50,${0.9*(1-f)})`);g.addColorStop(0.75,`rgba(200,60,30,${0.6*(1-f)})`);g.addColorStop(1,'rgba(120,30,20,0)');
+    ctx.globalAlpha=1;ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();}
+  ctx.lineCap='round';
+  for(let j=0;j<9;j++){const a=hash(seed*13+j)*Math.PI*2,sp=s*(4+hash(seed*17+j)*7),d0=sp*f,d1=sp*Math.max(0,f-0.12),lift=f*f*s*3;ctx.globalAlpha=Math.max(0,1-f*1.4);ctx.strokeStyle=j%3?'#ffd27a':'#fff2c4';ctx.lineWidth=Math.max(1,s*0.3);
+    ctx.beginPath();ctx.moveTo(x+Math.cos(a)*d1,y+Math.sin(a)*d1-lift);ctx.lineTo(x+Math.cos(a)*d0,y+Math.sin(a)*d0-lift);ctx.stroke();}
+  for(let j=0;j<3;j++){const ff=Math.max(0,f-0.15-j*0.08);if(ff<=0)continue;ctx.globalAlpha=0.55*(1-ff);ctx.fillStyle=j?'#3a3d42':'#24272b';ctx.beginPath();ctx.arc(x+(j-1)*s*1.2+ff*s*2,y-s*1.5-ff*s*(7+j*2),s*(1.2+ff*3.5),0,Math.PI*2);ctx.fill();}
+  ctx.restore();
+}
+/* a ship going down on the flat map: a big blast, then it lists, burns and fades under the waves, leaving an oil slick, bubbles and smoke */
+function drawWreck2D(e,sx,sy,z,f){
+  const n=G.nations[e.o],len=Math.max(11,z*1.7),t=e.t,s=Math.max(2.4,z*0.17);
+  ctx.save();
+  ctx.globalAlpha=0.42*(1-f*0.6);ctx.fillStyle='#0d1114';ctx.beginPath();ctx.ellipse(sx,sy,len*(0.45+f*0.9),len*(0.28+f*0.55),e.hd||0,0,Math.PI*2);ctx.fill();
+  if(n&&f<0.8){const k=f/0.8;ctx.save();ctx.globalAlpha=1-k*k;ctx.translate(sx,sy);ctx.rotate(0.35*k*(e.o%2?1:-1));ctx.scale(1-0.3*k,1-0.45*k);drawShip2D(0,0,e.hd||0,len,true,n,e.wk===1);
+    ctx.globalAlpha=0.55*k;ctx.fillStyle='#0b1a26';ctx.beginPath();ctx.ellipse(0,0,len*0.55,len*0.22,e.hd||0,0,Math.PI*2);ctx.fill();ctx.restore();}
+  if(f<0.75){for(let j=0;j<3;j++){const fl=0.6+0.4*Math.sin(t*19+j*2.1+e.seed);ctx.globalAlpha=(1-f/0.75)*fl;const px=sx+Math.cos((e.hd||0))*len*(j-1)*0.22,py=sy+Math.sin((e.hd||0))*len*(j-1)*0.22,r=len*0.13*fl;
+    const g=ctx.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,'rgba(255,236,170,1)');g.addColorStop(0.5,'rgba(255,120,40,.85)');g.addColorStop(1,'rgba(255,80,30,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();}}
+  for(let j=0;j<4;j++){const ff=((t*0.55+j/4)%1);ctx.globalAlpha=(1-ff)*0.5*(1-f*0.7);ctx.fillStyle=j%2?'#2b2e33':'#3d4147';ctx.beginPath();ctx.arc(sx+ff*len*0.35,sy-len*0.2-ff*len*1.4,len*(0.12+ff*0.3),0,Math.PI*2);ctx.fill();}
+  if(f>0.35){for(let j=0;j<3;j++){const ff=((t*0.8+j/3)%1);ctx.globalAlpha=(1-ff)*0.7*(1-f);ctx.strokeStyle='#e8f4fb';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(sx,sy,len*(0.1+ff*0.5),len*(0.06+ff*0.3),0,0,Math.PI*2);ctx.stroke();}}
+  ctx.restore();
+  if(e.t<1.1)boom2D(sx,sy,s*1.7,e.t/1.1,e.seed||0);
 }
 function drawShip2D(x,y,ang,len,war,n,raid){
   const L=len,B=len*0.34;
@@ -3460,24 +3496,61 @@ function drawAir(S,T,z,nowS){
     }
   }
 }
-/* the flat map's sea: two layers of wave crests drift across the water (only on water, fading near zoomed-out views) */
-let waveCv=null,waveMask=null,waveFor=null,wavePat=null;
+/* the flat map's sea, painted smooth at three to four times the map's detail: deep navy far out, blue water, turquoise shallows,
+   rounded coastlines with a band of surf along every shore, and slow patches of light and shade where the swell rolls */
+let seaCv=null,seaFor=null,surfCv=null;
+function buildSea2D(){
+  const K=W*H>40000?3:4,w=W*K,h=H*K;seaCv=document.createElement('canvas');seaCv.width=w;seaCv.height=h;surfCv=document.createElement('canvas');surfCv.width=w;surfCv.height=h;
+  const sx=seaCv.getContext('2d'),ux=surfCv.getContext('2d'),im=sx.createImageData(w,h),um=ux.createImageData(w,h),d=im.data,u=um.data;
+  const wm=new Float32Array(N),dp=new Float32Array(N);
+  for(let i=0;i<N;i++)if(G.terr[i]===WATER){wm[i]=1;dp[i]=clamp(0.08+(G.elevSea-G.elev[i])*5,0,1);}
+  const RAMP=[[0,108,192,178],[0.1,52,160,168],[0.25,26,112,146],[0.5,14,74,118],[0.8,9,46,88],[1,7,34,70]];
+  for(let y=0;y<h;y++){const ty=(y+0.5)/K-0.5,y0=clamp(Math.floor(ty),0,H-1),y1=Math.min(H-1,y0+1),fy=clamp(ty-y0,0,1);
+    for(let x=0;x<w;x++){const tx=(x+0.5)/K-0.5,x0=clamp(Math.floor(tx),0,W-1),x1=Math.min(W-1,x0+1),fx=clamp(tx-x0,0,1);
+      const a00=y0*W+x0,a10=y0*W+x1,a01=y1*W+x0,a11=y1*W+x1,w00=(1-fx)*(1-fy),w10=fx*(1-fy),w01=(1-fx)*fy,w11=fx*fy;
+      const m=wm[a00]*w00+wm[a10]*w10+wm[a01]*w01+wm[a11]*w11;if(m<0.36)continue;
+      const dep=(dp[a00]*w00+dp[a10]*w10+dp[a01]*w01+dp[a11]*w11)/m*smooth01(0.4,1,m),o=(y*w+x)*4;
+      let q=1;while(q<RAMP.length-1&&RAMP[q][0]<dep)q++;const A=RAMP[q-1],B=RAMP[q],t=clamp((dep-A[0])/Math.max(1e-6,B[0]-A[0]),0,1);
+      const nz=0.92+vnoise(tx*0.45,ty*0.45)*0.1+vnoise(tx*1.7,ty*1.7)*0.05;
+      d[o]=(A[1]+(B[1]-A[1])*t)*nz;d[o+1]=(A[2]+(B[2]-A[2])*t)*nz;d[o+2]=(A[3]+(B[3]-A[3])*t)*nz;d[o+3]=255*smooth01(0.42,0.54,m);
+      const sb=smooth01(0.42,0.5,m)*(1-smooth01(0.6,0.86,m));if(sb>0.01){u[o]=u[o+1]=u[o+2]=255;u[o+3]=sb*235*(0.55+0.45*vnoise(tx*3.1,ty*3.1));}
+    }}
+  sx.putImageData(im,0,0);ux.putImageData(um,0,0);seaFor=G;
+}
+function drawSea2D(ox,oy,z,nowS){
+  if(seaFor!==G)buildSea2D();
+  ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(seaCv,ox,oy,W*z,H*z);
+  ctx.globalAlpha=(0.5+0.28*Math.sin(nowS*1.6))*clamp((z-0.8)/3,0.2,1);const sh=Math.sin(nowS*0.8)*z*0.06;ctx.drawImage(surfCv,ox+sh,oy+sh*0.6,W*z,H*z);
+  ctx.restore();ctx.imageSmoothingEnabled=false;
+}
+/* the flat map's sea: two layers of wave crests drift across the water, with a rolling swell and twinkling sun glints (only on water, fading near zoomed-out views) */
+let waveCv=null,waveMask=null,waveFor=null,wavePat=null,swellPat=null,glintPat=null;
 function drawWaves2D(ox,oy,z,nowS){
   if(z<1.6||!G)return;
   if(waveFor!==G){waveFor=G;waveMask=document.createElement('canvas');waveMask.width=W;waveMask.height=H;const mx=waveMask.getContext('2d'),im=mx.createImageData(W,H);
     for(let i=0;i<N;i++)if(G.terr[i]===WATER){im.data[i*4]=im.data[i*4+1]=im.data[i*4+2]=255;im.data[i*4+3]=255;}mx.putImageData(im,0,0);}
+  if(!swellPat){const p=document.createElement('canvas');p.width=p.height=256;const c=p.getContext('2d'),im=c.createImageData(256,256);
+    for(let j=0;j<256;j++)for(let i=0;i<256;i++){const u=i/256*Math.PI*2,v=j/256*Math.PI*2,k=Math.sin(u*2+Math.sin(v)*1.3)*0.6+Math.sin(u+v*2)*0.4,o=(j*256+i)*4;im.data[o]=im.data[o+1]=k>0?255:4;im.data[o+2]=k>0?255:20;im.data[o+3]=Math.abs(k)*46;}
+    c.putImageData(im,0,0);swellPat=p;}
+  if(!glintPat){const p=document.createElement('canvas');p.width=p.height=128;const c=p.getContext('2d');
+    for(let k=0;k<11;k++){const x=hash(k*7+1)*128,y=hash(k*13+5)*128,r=0.8+hash(k*3+2)*1.2,g=c.createRadialGradient(x,y,0,x,y,r*3);g.addColorStop(0,'rgba(255,255,240,1)');g.addColorStop(0.35,'rgba(255,250,225,.6)');g.addColorStop(1,'rgba(255,250,225,0)');c.fillStyle=g;c.fillRect(x-r*3,y-r*3,r*6,r*6);}
+    glintPat=p;}
   if(!wavePat){const p=document.createElement('canvas');p.width=p.height=96;const c=p.getContext('2d');c.lineCap='round';
     for(let k=0;k<18;k++){const x=(k*37)%96,y=(k*53+k*k*3)%96,l=12+(k*7)%14;c.strokeStyle=`rgba(236,246,255,${0.55+0.35*((k*13)%5)/4})`;c.lineWidth=2;for(const dx of [-96,0,96])for(const dy of [-96,0,96]){c.beginPath();c.moveTo(x+dx,y+dy);c.quadraticCurveTo(x+dx+l/2,y+dy-4,x+dx+l,y+dy);c.stroke();}}
     wavePat=p;}
   const pw=Math.ceil(cw*dpr),ph=Math.ceil(ch*dpr);if(!waveCv){waveCv=document.createElement('canvas');}if(waveCv.width!==pw||waveCv.height!==ph){waveCv.width=pw;waveCv.height=ph;}
   const w=waveCv.getContext('2d');w.setTransform(1,0,0,1,0,0);w.globalCompositeOperation='source-over';w.clearRect(0,0,pw,ph);
-  w.setTransform(dpr,0,0,dpr,0,0);w.imageSmoothingEnabled=true;w.drawImage(waveMask,ox,oy,W*z,H*z);
-  w.globalCompositeOperation='source-in';
+  w.setTransform(dpr,0,0,dpr,0,0);w.imageSmoothingEnabled=true;
+  /* every layer is painted first, then cut to the sea: wave crests, a second set crossing them, the rolling swell and the glints */
   const pat=w.createPattern(wavePat,'repeat'),sc=z*6/96;
   if(pat&&pat.setTransform){
-    pat.setTransform(new DOMMatrix([sc,0,0,sc,ox+((nowS*0.55)%6)*z,oy+((nowS*0.22)%6)*z]));w.fillStyle=pat;w.fillRect(0,0,cw,ch);
-    const p2=w.createPattern(wavePat,'repeat');p2.setTransform(new DOMMatrix([-sc*0.8,0,0,sc*0.8,ox-((nowS*0.35)%4.8)*z,oy+((nowS*0.4)%4.8)*z]));w.globalAlpha=0.6;w.fillStyle=p2;w.fillRect(0,0,cw,ch);w.globalAlpha=1;
+    const ssc=z*16/256,p3=w.createPattern(swellPat,'repeat');p3.setTransform(new DOMMatrix([ssc,0,0,ssc,ox+((nowS*0.25)%16)*z,oy+((nowS*0.12)%16)*z]));w.globalAlpha=0.75;w.fillStyle=p3;w.fillRect(0,0,cw,ch);
+    pat.setTransform(new DOMMatrix([sc,0,0,sc,ox+((nowS*0.55)%6)*z,oy+((nowS*0.22)%6)*z]));const ca=z>12?Math.max(0.45,1-(z-12)/40):1;w.globalAlpha=0.34*ca;w.fillStyle=pat;w.fillRect(0,0,cw,ch);
+    const p2=w.createPattern(wavePat,'repeat');p2.setTransform(new DOMMatrix([-sc*0.8,0,0,sc*0.8,ox-((nowS*0.35)%4.8)*z,oy+((nowS*0.4)%4.8)*z]));w.globalAlpha=0.22*ca;w.fillStyle=p2;w.fillRect(0,0,cw,ch);
+    const gsc=Math.min(z*7/128,0.75);for(const [k,sp] of [[0,1],[1,-1]]){const p4=w.createPattern(glintPat,'repeat');p4.setTransform(new DOMMatrix([gsc*(k?0.8:1),0,0,gsc*(k?0.8:1),ox+sp*((nowS*0.6)%7)*z,oy+((nowS*(k?0.3:0.45))%7)*z]));w.globalAlpha=Math.max(0,Math.sin(nowS*(k?2.3:1.7)+k*1.9))*0.7;w.fillStyle=p4;w.fillRect(0,0,cw,ch);}
+    w.globalAlpha=1;
   }
+  w.globalCompositeOperation='destination-in';w.drawImage(waveMask,ox,oy,W*z,H*z);w.globalCompositeOperation='source-over';
   ctx.save();ctx.globalAlpha=clamp((z-1.6)/4,0.3,0.8);ctx.imageSmoothingEnabled=true;ctx.drawImage(waveCv,0,0,cw,ch);ctx.restore();
 }
 function drawNukes(S,T,z,nowS){
@@ -3510,6 +3583,7 @@ function draw(rdt){
   ctx.fillStyle=TK.void;ctx.fillRect(0,0,cw,ch);
   ctx.imageSmoothingEnabled=false;
   ctx.drawImage(off,ox,oy,W*z,H*z);
+  drawSea2D(ox,oy,z,nowS);
   drawWaves2D(ox,oy,z,nowS);
   if(z<16){ctx.save();ctx.imageSmoothingEnabled=true;ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.5;ctx.drawImage(goff,ox,oy,W*z,H*z);ctx.restore();ctx.imageSmoothingEnabled=false;}
   /* holo grid, frame and radar sweep */
@@ -3584,10 +3658,11 @@ function draw(rdt){
     if(z>=2.2)outlined('RAIDER',sx,sy-len*0.45-8,`600 10px ${FN}`,TK.bad);
   }
   for(let k=fx.length-1;k>=0;k--){
-    const e=fx[k];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:2.6;
+    const e=fx[k];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.wk?WRECK_T:2.6;
     if(e.t>d){fx.splice(k,1);continue;}
     if(e.kind==='shot'){drawShot2D(e,S,T,z);continue;}
     const f=e.t/d,sx=S(e.x),sy=T(e.y);
+    if(e.wk){if(sx>-80&&sy>-80&&sx<cw+80&&sy<ch+80)drawWreck2D(e,sx,sy,z,f);continue;}
     if(e.kind==='ring'){ctx.globalAlpha=1-f;ctx.beginPath();ctx.arc(sx,sy,4+f*16,0,Math.PI*2);ctx.strokeStyle=TK.gold;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1;continue;}
     const R0=e.r*z,rr=R0*(0.6+f*0.8),g=ctx.createRadialGradient(sx,sy,0,sx,sy,rr);
     g.addColorStop(0,`rgba(255,242,205,${0.95*(1-f)})`);g.addColorStop(0.5,`rgba(238,120,64,${0.65*(1-f)})`);g.addColorStop(1,'rgba(238,120,64,0)');
@@ -3643,13 +3718,17 @@ varying vec3 vW;varying vec2 vG;varying float vZ;varying float vH;
 void main(){vec2 p=vW.xz;
 vec3 n1=texture2D(uNorm,p*0.085+vec2(uTime*0.012,uTime*0.008)).xyz*2.0-1.0;
 vec3 n2=texture2D(uNorm,p*0.21+vec2(-uTime*0.02,uTime*0.015)).xyz*2.0-1.0;
-vec3 N=normalize(vec3(-vG.x+(n1.x+n2.x)*0.18,1.0,-vG.y+(n1.y+n2.y)*0.18));
+vec3 n3=texture2D(uNorm,p*0.62+vec2(uTime*0.035,-uTime*0.027)).xyz*2.0-1.0;
+vec3 N=normalize(vec3(-vG.x+(n1.x+n2.x)*0.18+n3.x*0.07,1.0,-vG.y+(n1.y+n2.y)*0.18+n3.y*0.07));
 vec3 V=normalize(cameraPosition-vW);float ndv=max(dot(N,V),0.0);float fres=0.02+0.98*pow(1.0-ndv,5.0);
 vec3 R=reflect(-V,N);vec3 sky=mix(uSkyHor,uSkyTop,clamp(R.y*1.6,0.0,1.0));
 vec2 muv=(p+uMap*0.5)/uMap;float dep=1.0;if(muv.x>0.0&&muv.x<1.0&&muv.y>0.0&&muv.y<1.0)dep=texture2D(uDepth,muv).r;
-vec3 body=mix(vec3(0.22,0.58,0.58),vec3(0.06,0.33,0.42),smoothstep(0.0,0.25,dep));body=mix(body,vec3(0.03,0.16,0.27),smoothstep(0.25,0.8,dep));
-body*=0.75+0.35*max(dot(N,uSun),0.0);
+vec3 body=mix(vec3(0.24,0.62,0.6),vec3(0.07,0.36,0.45),smoothstep(0.0,0.22,dep));body=mix(body,vec3(0.025,0.14,0.25),smoothstep(0.22,0.75,dep));body=mix(body,vec3(0.015,0.08,0.17),smoothstep(0.75,1.0,dep)*0.6);
+body*=0.72+0.38*max(dot(N,uSun),0.0);
+vec2 hv=-V.xz;float lh=length(hv);float sss=lh>0.0001?pow(max(dot(hv/lh,normalize(uSun.xz)),0.0),3.0):0.0;sss*=smoothstep(-0.02,0.2,vH)*(1.0-fres);
+body+=vec3(0.06,0.34,0.30)*sss*0.75;
 vec3 col=mix(body,sky,fres*0.8);float sp=max(dot(R,uSun),0.0);col+=vec3(1.0,0.95,0.85)*(pow(sp,220.0)*2.5+pow(sp,30.0)*0.12);
+vec3 Ng=normalize(vec3(n3.x*0.6+N.x,1.0,n3.y*0.6+N.z));float spg=max(dot(reflect(-V,Ng),uSun),0.0);col+=vec3(1.0,0.97,0.9)*pow(spg,900.0)*3.0;
 float fn=texture2D(uNorm,p*0.6+vec2(uTime*0.03,-uTime*0.02)).r;
 float shore=1.0-smoothstep(0.02,0.14,dep);
 float foam=shore*smoothstep(0.45,0.8,fn+0.35*sin(uTime*1.3+dep*60.0+p.x*0.3));
@@ -3700,7 +3779,8 @@ function init3D(){
     tm.onBeforeCompile=sh=>{sh.uniforms.ownTex={value:V3.ownTex};sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D ownTex;').replace('#include <color_fragment>','#include <color_fragment>\n{vec4 ov=texture2D(ownTex,vUv);diffuseColor.rgb=mix(diffuseColor.rgb,ov.rgb,ov.a);}');};
     V3.terrain=new THREE.Mesh(geo,tm);V3.terrain.castShadow=Math.min(window.innerWidth,window.innerHeight)>=560;V3.terrain.receiveShadow=true;
     sc.add(V3.terrain);
-    /* the sea: rolling waves, ripples, sun glints, sky reflections, turquoise shallows and foam along the coasts */
+    /* the sea: rolling waves, ripples, sun glints and glitter, sky reflections, light through the wave crests, turquoise shallows,
+       deep navy far out, and foam along the coasts */
     V3.waterTex=(()=>{const S=256,cv=document.createElement('canvas');cv.width=cv.height=S;const x=cv.getContext('2d'),img=x.createImageData(S,S),hm=new Float32Array(S*S);
       for(let j=0;j<S;j++)for(let i=0;i<S;i++){const u=i/S*Math.PI*2,v=j/S*Math.PI*2;hm[j*S+i]=Math.sin(u*3+Math.sin(v*2)*1.4)*0.5+Math.sin(v*5+u*2)*0.32+Math.sin((u+v)*7)*0.16+Math.sin(u*11-v*9)*0.09+Math.sin(u*17+v*13)*0.05;}
       for(let j=0;j<S;j++)for(let i=0;i<S;i++){const dx=hm[j*S+(i+1)%S]-hm[j*S+(i+S-1)%S],dy=hm[((j+1)%S)*S+i]-hm[((j+S-1)%S)*S+i],nx=-dx*3,ny=-dy*3,l=Math.hypot(nx,ny,1),o=(j*S+i)*4;img.data[o]=(nx/l*0.5+0.5)*255;img.data[o+1]=(ny/l*0.5+0.5)*255;img.data[o+2]=(1/l*0.5+0.5)*255;img.data[o+3]=255;}
@@ -3733,18 +3813,19 @@ function init3D(){
      V3.hroof=inst(roofGeo(),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.7,metalness:0.04,side:THREE.DoubleSide}),12000);}
     const hs=new THREE.Shape();hs.moveTo(-0.5,-0.16);hs.lineTo(0.22,-0.18);hs.quadraticCurveTo(0.42,-0.12,0.5,0);hs.quadraticCurveTo(0.42,0.12,0.22,0.18);hs.lineTo(-0.5,0.16);hs.closePath();
     const hg=new THREE.ExtrudeGeometry(hs,{depth:0.18,bevelEnabled:false,curveSegments:6});hg.rotateX(-Math.PI/2);
-    V3.hull=inst(hg,solid(),400);
-    V3.sbox=inst(new THREE.BoxGeometry(1,1,1).translate(0,0.5,0),solid(),6000);
-    V3.scyl=inst(new THREE.CylinderGeometry(0.5,0.5,1,10).translate(0,0.5,0),solid(),1800);
+    V3.hull=inst(hg,solid(),560);
+    V3.sbox=inst(new THREE.BoxGeometry(1,1,1).translate(0,0.5,0),solid(),8000);
+    V3.scyl=inst(new THREE.CylinderGeometry(0.5,0.5,1,10).translate(0,0.5,0),solid(),2400);
     const wkg=new THREE.PlaneGeometry(1,1);wkg.rotateX(-Math.PI/2);
-    V3.wake=inst(wkg,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.28,depthWrite:false}),1200);
+    V3.wake=inst(wkg,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.28,depthWrite:false}),1600);
     V3._bm=new THREE.Matrix4();V3._lm=new THREE.Matrix4();V3._fm=new THREE.Matrix4();V3._qi=new THREE.Quaternion();
     V3.blasts=[];
     for(let k=0;k<6;k++){const m=new THREE.Mesh(new THREE.SphereGeometry(1,24,14),new THREE.MeshBasicMaterial({color:0xffb070,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));m.visible=false;sc.add(m);V3.blasts.push(m);}
     /* sea battles: glowing shells, muzzle flashes and fires, white water spouts, and drifting gun smoke and battle smoke */
-    V3.glow=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),320);
+    V3.glow=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),640);
+    V3.ring=inst(new THREE.RingGeometry(0.86,1,40).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}),64);
     V3.spout=inst(new THREE.CylinderGeometry(0.3,1,1,12,1,true).translate(0,0.5,0),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.75,depthWrite:false,side:THREE.DoubleSide}),96);
-    V3.puff=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0.55,depthWrite:false,roughness:1,metalness:0}),480);
+    V3.puff=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0.55,depthWrite:false,roughness:1,metalness:0}),720);
     /* aircraft: fighter jets with contrails, helicopters with spinning rotors, painted in their nation's colour */
     V3.jets=[];V3.helis=[];
     {const metal=c=>new THREE.MeshStandardMaterial({color:c,roughness:0.42,metalness:0.55}),glass=new THREE.MeshStandardMaterial({color:0x9fd8ee,roughness:0.15,metalness:0.6}),dark=metal(0x2a2f36);
@@ -4147,7 +4228,7 @@ function vessels3D(){
   const part=(m,i,lx,ly,lz,sx,sy,sz,css)=>{_p3.set(lx,ly,lz);_s3.set(sx,sy,sz);lm.compose(_p3,qi,_s3);fm.multiplyMatrices(bm,lm);m.setMatrixAt(i,fm);m.setColorAt(i,col3(css));};
   const head=(path,pos)=>{const p=pathPos(path,pos),q=pathPos(path,Math.min(path.length-1,pos+1));return {p,a:Math.atan2(-(q.y-p.y),q.x-p.x)};};
   for(const sh of G.ships){
-    if(nh>=395||nb>=5980||nc>=1795||nw>=1195)break;
+    if(nh>=555||nb>=7980||nc>=2395||nw>=1595)break;
     const o=head(sh.path,sh.pos),n=G.nations[sh.o];base(o.p.x-W/2,o.p.y-H/2,o.a,1.5);
     part(V.hull,nh++,0,-0.06,0,1,1,1,n.cssDark);
     part(V.sbox,nb++,-0.14,-0.05,0,0.72,0.04,0.365,'#8f2a24');
@@ -4157,7 +4238,7 @@ function vessels3D(){
     part(V.wake,nw++,-0.95,0.012,0,1.1,1,0.24,'#ffffff');part(V.wake,nw++,0.5,0.013,0,0.14,1,0.34,'#ffffff');
   }
   for(const b of G.boats){
-    if(nh>=395||nb>=5980||nc>=1790||nw>=1195)break;
+    if(nh>=555||nb>=7980||nc>=2390||nw>=1595)break;
     const o=head(b.path,b.pos),n=G.nations[b.o];base(o.p.x-W/2,o.p.y-H/2,o.a,1.9);
     part(V.hull,nh++,0,-0.06,0,1,1,1,'#6f7a86');part(V.sbox,nb++,-0.14,-0.05,0,0.72,0.04,0.365,'#2b3038');part(V.wake,nw++,0.5,0.013,0,0.14,1,0.34,'#ffffff');
     part(V.sbox,nb++,0,0.12,0,0.62,0.012,0.05,n.css);
@@ -4172,7 +4253,7 @@ function vessels3D(){
     part(V.wake,nw++,-0.9,0.012,0,0.9,1,0.26,'#ffffff');
   }
   for(const r of G.raids){
-    if(nh>=395||nb>=5980||nc>=1790||nw>=1195)break;
+    if(nh>=555||nb>=7980||nc>=2390||nw>=1595)break;
     const o=head(r.path,r.pos),n=G.nations[r.o],q=pathPos(r.path,Math.min(r.path.length-1,r.pos+1));
     if(q.x===o.p.x&&q.y===o.p.y)o.a=r._a3||0;r._a3=o.a;
     base(o.p.x-W/2,o.p.y-H/2,o.a,1.7);
@@ -4185,6 +4266,15 @@ function vessels3D(){
     part(V.scyl,nc++,0.24,0.12,0,0.11,0.06,0.11,'#3c444e');
     part(V.sbox,nb++,0.35,0.15,0,0.18,0.022,0.024,'#1d2228');
     part(V.wake,nw++,-0.9,0.012,0,1,1,0.26,'#ffffff');
+  }
+  /* ships going down: burnt black, they settle stern first, list over and slide under the waves */
+  for(const e of fx){
+    if(e.kind!=='blast'||!e.wk)continue;if(nh>=555||nb>=7970||nc>=2385)break;
+    const n=G.nations[e.o];if(!n)continue;const f=Math.min(1,e.t/WRECK_T),ef=f*f*(3-2*f),sg=e.o%2?1:-1,L=e.wk===1?1.7:1.9;
+    _p3.set(e.x-W/2,0.02-1.2*Math.pow(f,1.3),e.y-H/2);_e3.set(0.45*ef*sg,-(e.hd||0),0.5*ef,'YZX');_q4.setFromEuler(_e3);_s3.set(L,L,L);bm.compose(_p3,_q4,_s3);
+    part(V.hull,nh++,0,-0.06,0,1,1,1,'#1f2328');part(V.sbox,nb++,-0.14,-0.05,0,0.72,0.04,0.365,'#3a2420');
+    if(e.wk===1){part(V.sbox,nb++,-0.08,0.12,0,0.26,0.16,0.16,'#3a3f46');part(V.sbox,nb++,-0.06,0.28,0,0.1,0.07,0.1,n.cssDark);part(V.scyl,nc++,-0.08,0.35,0,0.02,0.24,0.02,'#8f959c');part(V.scyl,nc++,0.24,0.12,0,0.11,0.06,0.11,'#2a2f35');part(V.sbox,nb++,0.35,0.15,0,0.18,0.022,0.024,'#15181c');}
+    else{part(V.sbox,nb++,-0.06,0.12,0,0.28,0.15,0.17,'#4a5058');part(V.sbox,nb++,-0.03,0.27,0,0.12,0.08,0.12,'#7d838b');part(V.scyl,nc++,-0.18,0.12,0,0.07,0.14,0.07,n.cssDark);part(V.scyl,nc++,0.24,0.12,0,0.11,0.06,0.11,'#3a4048');}
   }
   finish(V.hull,nh);finish(V.sbox,nb);finish(V.scyl,nc);finish(V.wake,nw);
   const m=V.vessels;
@@ -4247,10 +4337,18 @@ function air3D(nowS){
 /* an additive glow colour faded toward black (which reads as transparent) */
 function glowC(r,g,b,a){a=Math.round(clamp(a,0,1)*16)/16;return `rgb(${Math.round(r*a)},${Math.round(g*a)},${Math.round(b*a)})`;}
 function fx3D(rdt){
-  let k=0;const GL=V3.glow,SP=V3.spout,PF=V3.puff,lt=V3.lt||0,c={g:0,s:0,p:0};
-  const glow=(x,y,z,r,css)=>{if(c.g<316)put(GL,c.g++,x,y,z,r,r,r,0,css);},puff=(x,y,z,r,css)=>{if(c.p<476)put(PF,c.p++,x,y,z,r,r,r,0,css);};
+  let k=0;const GL=V3.glow,SP=V3.spout,PF=V3.puff,RG=V3.ring,lt=V3.lt||0,c={g:0,s:0,p:0,r:0};
+  const glow=(x,y,z,r,css)=>{if(c.g<636)put(GL,c.g++,x,y,z,r,r,r,0,css);},puff=(x,y,z,r,css)=>{if(c.p<716)put(PF,c.p++,x,y,z,r,r,r,0,css);};
+  /* an explosion: a white flash, rolling fireballs, sparks thrown out and falling back, black smoke, and a shock ring racing across the water */
+  const boom3=(X,Y,Z,f,seed,sz)=>{
+    if(f<0.16)glow(X,Y+0.1*sz,Z,(0.25+f*2)*sz,glowC(255,250,225,1-f/0.16));
+    for(let j=0;j<5;j++){const a=hash(seed+j*7)*6.283,dd=(0.06+hash(seed*3+j)*0.16)*sz*(0.5+f),r=(0.12+f*0.36)*sz*(0.7+hash(seed+j*5)*0.6);glow(X+Math.cos(a)*dd,Y+0.08*sz+f*0.35*sz+hash(seed*11+j)*0.1*sz,Z+Math.sin(a)*dd,r,glowC(255,j%2?200:140,j%2?90:50,(1-f)*(j?0.8:1)));}
+    for(let j=0;j<10;j++){const a=hash(seed*13+j)*6.283,v=(1.2+hash(seed*17+j)*1.8)*sz,up=(1+hash(seed*19+j)*1.6)*sz,tt=f*1.1,y=Y+up*tt-2.4*tt*tt*sz;if(y<0.03)continue;glow(X+Math.cos(a)*v*tt,y,Z+Math.sin(a)*v*tt,0.028*sz,glowC(255,215,140,1-f));}
+    for(let j=0;j<3;j++){const ff=Math.max(0,f-0.12-j*0.07);if(ff>0)puff(X+(j-1)*0.08*sz+ff*0.15,Y+0.2*sz+ff*(0.9+j*0.25)*sz,Z,(0.1+ff*0.32)*sz,j?'#3d4046':'#26292d');}
+    if(RG&&c.r<62)put(RG,c.r++,X,0.12,Z,(0.15+f*1.2)*sz,1,(0.15+f*1.2)*sz,0,glowC(255,236,205,(1-f)*0.85));
+  };
   for(let j=fx.length-1;j>=0;j--){
-    const e=fx[j];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:2.6;
+    const e=fx[j];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.wk?WRECK_T:2.6;
     if(e.t>d){fx.splice(j,1);continue;}
     if(e.kind==='shot'&&GL){
       const X0=e.x0-W/2,Z0=e.y0-H/2,X1=e.x-W/2,Z1=e.y-H/2,t=e.t,dist=Math.hypot(X1-X0,Z1-Z0);
@@ -4259,19 +4357,24 @@ function fx3D(rdt){
       if(t<SHOT_FL){const u=t/SHOT_FL,at=v=>[X0+(X1-X0)*v,0.34+(0.06-0.34)*v+Math.sin(v*Math.PI)*(0.3+dist*0.12),Z0+(Z1-Z0)*v];
         let q=at(u);glow(q[0],q[1],q[2],0.055,'#fff0c0');q=at(Math.max(0,u-0.06));glow(q[0],q[1],q[2],0.04,glowC(255,200,110,0.7));q=at(Math.max(0,u-0.12));glow(q[0],q[1],q[2],0.03,glowC(255,170,80,0.4));}
       else{const f=(t-SHOT_FL)/(SHOT_D-SHOT_FL);
-        if(e.hit){glow(X1,0.26,Z1,0.12+f*0.34,glowC(255,150,70,1-f));glow(X1,0.26,Z1,0.06+f*0.12,glowC(255,236,180,1-f));puff(X1+f*0.2,0.32+f*0.8,Z1,0.1+f*0.28,'#3a3d42');}
+        if(e.hit)boom3(X1,0.26,Z1,f,e.seed||0,1);
         else{if(c.s<94)put(SP,c.s++,X1,0.02,Z1,0.06+f*0.1,Math.sin(Math.min(1,f*1.5)*Math.PI)*0.85+0.01,0.06+f*0.1,0,'#f2f9ff');puff(X1,0.05,Z1,(0.08+f*0.22)*(1-f*0.6),'#e8f2f8');}}
       continue;
     }
+    if(e.kind==='blast'&&e.wk&&GL){const f=e.t/d,X=e.x-W/2,Z=e.y-H/2,sy=0.02-1.2*Math.pow(f,1.3);
+      if(e.t<1.2)boom3(X,0.3,Z,e.t/1.2,e.seed||0,1.8);
+      if(f<0.7)for(let q=0;q<3;q++){const fl=0.6+0.4*Math.sin(lt*19+q*2.1+(e.seed||0)),ox=Math.cos(e.hd||0)*(q-1)*0.35,oz=Math.sin(e.hd||0)*(q-1)*0.35;glow(X+ox,Math.max(0.08,sy+0.32+q*0.04),Z+oz,0.16*fl*(1-f/0.7),'#ff8a3c');}
+      for(let q=0;q<4;q++){const ff=(lt*0.5+q/4)%1;puff(X+ff*0.4,0.45+ff*2.2,Z+ff*0.15,(0.14+ff*0.5)*(1-f*0.5),q%2?'#2b2e33':'#40444a');}
+      if(c.p<716)put(PF,c.p++,X,0.06,Z,0.6+f*1.4,0.012,0.4+f*1.0,-(e.hd||0),'#0d1114');}
     if(e.kind==='blast'&&e.sea&&SP){const f=e.t/d,X=e.x-W/2,Z=e.y-H/2;if(c.s<94)put(SP,c.s++,X,0.02,Z,0.2+f*0.45,Math.sin(Math.min(1,f*2.2)*Math.PI)*1.5+0.01,0.2+f*0.45,0,'#f2f9ff');for(let q=0;q<3;q++)puff(X+(q-1)*0.25*f,0.2+f*(1.2+q*0.3),Z+(q-1)*0.15*f,(0.15+f*0.45)*(1-f*0.5),q?'#6d737b':'#e8eef2');}
-    if(e.kind==='blast'&&k<V3.blasts.length){const m=V3.blasts[k++],f=e.t/d;m.visible=true;m.position.set(e.x-W/2,hAt(Math.floor(e.y)*W+Math.floor(e.x))+(e.air?6:0),e.y-H/2);m.scale.setScalar(e.r*(0.25+1.5*f));m.material.opacity=0.85*(1-f);}
+    if(e.kind==='blast'&&!e.wk&&k<V3.blasts.length){const m=V3.blasts[k++],f=e.t/d;m.visible=true;m.position.set(e.x-W/2,hAt(Math.floor(e.y)*W+Math.floor(e.x))+(e.air?6:0),e.y-H/2);m.scale.setScalar(e.r*(0.25+1.5*f));m.material.opacity=0.85*(1-f);}
   }
   for(;k<V3.blasts.length;k++)V3.blasts[k].visible=false;
   /* damaged warships trail smoke; badly hit ones burn */
   if(GL){for(const r of G.raids){if(!(r.hp<60)||r.sunk)continue;const p=pathPos(r.path,r.pos),X=p.x-W/2,Z=p.y-H/2,hp=r.hp/100,sd=(r.o*0.37)%1;
       for(let q=0;q<4;q++){const f=(lt*0.45+q/4+sd)%1;puff(X-f*0.35,0.42+f*1.3,Z+f*0.15,(0.08+f*0.3)*(f>0.85?(1-f)/0.15:1),hp<0.3?'#2e3136':'#8a9097');}
       if(hp<0.3){const fl=0.6+0.4*Math.sin(lt*18+r.o);glow(X,0.3,Z,0.13*fl,'#ff8a3c');}}
-    finish(GL,c.g);finish(SP,c.s);finish(PF,c.p);}
+    finish(GL,c.g);finish(SP,c.s);finish(PF,c.p);if(RG)finish(RG,c.r);}
 }
 function updateCam3D(){
   if(V3.walk){
@@ -4911,10 +5014,11 @@ function drawAsm(){
     asmDesk(c,st.x,st.y,s,n,U,now,dead);
     if(V&&!dead){
       const st0=lay.indexOf(st),t0=1.0+st0*0.05,k=dv<0?1:Math.min(1,Math.max(0,(dv-t0)/0.7));
-      if(k>=1){const fs=Math.max(12*s,8*U),txt='+'+(st.id===w?ASM_SANC:ASM_GOLD).toLocaleString('en-US'),rise=dv<0?0:Math.max(0,1-(dv-t0-0.7))*10*s;
-        for(let b=0;b<(st.id===w?1:3);b++)asmBar(c,st.x+(b-1)*15*s+(st.id===w?15*s:0),st.y-15*s,s*0.9);
-        c.font=`700 ${fs}px ${FN}`;c.textAlign='center';c.textBaseline='bottom';c.lineWidth=Math.max(3*s,2.5*U);c.strokeStyle='rgba(10,6,2,.85)';const ty=st.y-80*s-rise;c.strokeText(txt,st.x,ty);c.fillStyle=st.id===w?'#ff8a5e':'#f7dd8c';c.fillText(txt,st.x,ty);}
-      else if(k>0){const p=k,bx=500+(st.x-500)*p,by=200+(st.y-15*s-200)*p-Math.sin(Math.PI*p)*90;asmBar(c,bx,by,0.6+0.4*s);}
+      const pay=asmPay(S,st.id);
+      if(k>=1){const fs=Math.max(12*s,8*U),txt=pay>0?'+'+pay.toLocaleString('en-US'):'No vote',rise=dv<0?0:Math.max(0,1-(dv-t0-0.7))*10*s,nb=pay>=ASM_GOLD?3:pay>0?1:0;
+        for(let b=0;b<nb;b++)asmBar(c,st.x+(b-1)*15*s+(nb===1?15*s:0),st.y-15*s,s*0.9);
+        c.font=`700 ${fs}px ${FN}`;c.textAlign='center';c.textBaseline='bottom';c.lineWidth=Math.max(3*s,2.5*U);c.strokeStyle='rgba(10,6,2,.85)';const ty=st.y-80*s-rise;c.strokeText(txt,st.x,ty);c.fillStyle=st.id===w?'#ff8a5e':pay>=ASM_GOLD?'#f7dd8c':pay>0?'#e8d6a8':'#a9b1ba';c.fillText(txt,st.x,ty);}
+      else if(k>0&&pay>0){const p=k,bx=500+(st.x-500)*p,by=200+(st.y-15*s-200)*p-Math.sin(Math.PI*p)*90;asmBar(c,bx,by,0.6+0.4*s);}
     }else if(S&&S.vt[st.id]>=0&&S.va[st.id]<=G.time+1e-9&&now-ASMV.rt[st.id+':'+S.va[st.id]]>=1.05&&!dead){
       const T=G.nations[S.vt[st.id]],fs=Math.max(10.5*s,7.5*U),txt='→ '+T.cur;c.font=`600 ${fs}px ${FD}`;const tw=c.measureText(txt).width+fs*0.9,th=fs*1.45,by=st.y-78*s-th;
       c.fillStyle=T.css;asmRR(c,st.x-tw/2,by,tw,th,th/2);c.fill();c.fillStyle=asmInk(T.css);c.textAlign='center';c.textBaseline='middle';c.fillText(txt,st.x,by+th/2+0.5);
@@ -4955,11 +5059,11 @@ function asmList(force){
   $('asmKick').textContent=`World Assembly · Year ${S?S.year:nx.year}`;
   $('asmTitle').textContent=S&&!S.done?'Who gets sanctioned?':S?'The verdict':'The world courtroom';
   $('asmClock').textContent=S&&!S.done?`Voting closes in ${Math.max(0,Math.ceil(S.end-G.time))}s`:`Next session: Year ${nx.year} · ${mmss(nx.wait)}`;
-  const g5=ASM_GOLD.toLocaleString('en-US'),g1=ASM_SANC.toLocaleString('en-US');
+  const g5=ASM_GOLD.toLocaleString('en-US'),g1=ASM_SANC.toLocaleString('en-US'),g0=ASM_NONE.toLocaleString('en-US');
   const need=asmNeed(ms.length);
-  let note=`Vote to sanction a hostile country, one that attacks others; leave peaceful countries building their economy alone. A sanction needs ${need} votes. Sanctioned: half income, no gold buying and no attacks until the next session, or every country goes to war with it. Every country gets ${g5} gold bars, the sanctioned one ${g1}.`;
-  if(canVote)note+=my>=0?` Your vote: sanction ${G.nations[my].name}. You can change it until voting closes.`:' Tap a country to cast your vote. You cannot vote for yourself.';
-  else if(S&&S.done)note+=w>=0?` ${G.nations[w].name} was sanctioned with ${S.res.cnt[w]} of ${S.res.tot} votes.`:` No country drew ${S.res.need||need} votes, so no one is sanctioned.`;
+  let note=`Vote to sanction a hostile country, one that attacks others; leave peaceful countries building their economy alone. A sanction needs ${need} votes. Sanctioned: half income, no gold buying and no attacks until the next session, or every country goes to war with it. Presidents who vote get ${g5} gold bars for protecting the peace and rebuilding the economy; those who do not vote get nothing, the sanctioned one ${g1}. If no one votes, every country gets just ${g0}.`;
+  if(canVote)note+=my>=0?` Your vote: sanction ${G.nations[my].name}. You can change it until voting closes.`:` Tap a country to cast your vote and earn ${g5} gold bars. You cannot vote for yourself.`;
+  else if(S&&S.done)note+=(w>=0?` ${G.nations[w].name} was sanctioned with ${S.res.cnt[w]} of ${S.res.tot} votes.`:S.res.tot>0?` No country drew ${S.res.need||need} votes, so no one is sanctioned.`:` No president voted, so no one is sanctioned and every country gets only ${g0} gold bars.`)+(P&&S.members.includes(P.id)?(asmPay(S,P.id)>0?` You received ${asmPay(S,P.id).toLocaleString('en-US')} gold bars.`:' You did not vote, so you received no gold.'):'');
   else if(S&&P&&!P.alive)note+=' Your empire has fallen: you can watch but not vote.';
   $('asmNote').textContent=note;
   const key=[S?S.n:0,S&&S.done?1:0,my,canVote?1:0,ms.join(','),ms.map(m=>cnt[m]+(G.nations[m].alive?'':'x')+asmHos(G.nations[m]).c).join(','),lead].join('|');
@@ -4967,7 +5071,7 @@ function asmList(force){
   $('asmList').innerHTML=ms.map(m=>{
     const n=G.nations[m],mine=m===ME,sel=m===my&&m>=0,dead=!n.alive;
     const cls='asm-row'+(mine?' mine':'')+(sel?' sel':'')+(m===lead?' lead':'')+(m===w?' sanc':'');
-    const sub=S&&S.done?(dead?'Fallen':m===w?`Sanctioned · +${g1} gold bars`:`+${g5} gold bars`):`${esc(n.cur)} · ${esc(n.pres)}${mine?' (you)':''}`;
+    const pay=S&&S.done?asmPay(S,m):0,sub=S&&S.done?(dead?'Fallen':m===w?`Sanctioned · +${g1} gold bars`:pay>0?`+${pay.toLocaleString('en-US')} gold bars`:'Did not vote · no gold'):`${esc(n.cur)} · ${esc(n.pres)}${mine?' (you)':''}`;
     const hz=asmHos(n);
     return `<button type="button" class="${cls}" data-t="${m}" ${!canVote||mine||dead?'disabled':''} aria-pressed="${sel}"><i class="sw" style="background:${n.css}"></i><span class="nm"><b>${esc(n.name)}${sel?' · your vote':''}</b><small>${dead?'':`<em class="hos ${hz.c}">${hz.t}</em> · `}${sub}</small></span><span class="vc">${cnt[m]}<small>vote${cnt[m]===1?'':'s'}</small></span></button>`;
   }).join('');
@@ -6504,8 +6608,8 @@ function frame(now){
     while(G.fxQ.length){
       const e=G.fxQ.shift();
       /* sea battles: a shell flies from a warship's gun to its target; a ship going down blasts the water without shaking the screen */
-      if(e.shot){if(fx.length<160)fx.push({kind:'shot',x:e.x1,y:e.y1,x0:e.x0,y0:e.y0,hit:!!e.hit,t:0});continue;}
-      fx.push({kind:'blast',x:e.x,y:e.y,r:e.r,t:0,air:!!e.ic,sea:!!e.sea});if(e.sea)continue;
+      if(e.shot){if(fx.length<160)fx.push({kind:'shot',x:e.x1,y:e.y1,x0:e.x0,y0:e.y0,hit:!!e.hit,t:0,seed:(Math.random()*1e6)|0});continue;}
+      fx.push({kind:'blast',x:e.x,y:e.y,r:e.r,t:0,air:!!e.ic,sea:!!e.sea,wk:e.wk||0,o:e.o,hd:e.hd||0,seed:(Math.random()*1e6)|0});if(e.sea)continue;
       const sx=(e.x-cam.x)*cam.z+cw/2,sy=(e.y-cam.y)*cam.z+ch/2;
       if(!G.demo&&sx>-80&&sy>-80&&sx<cw+80&&sy<ch+80){shakeT=0.7;flashT=0.24;}
     }
