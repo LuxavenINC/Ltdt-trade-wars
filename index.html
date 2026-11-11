@@ -1219,6 +1219,7 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
           <div class="field"><span class="flabel" id="lblRiv">AI rivals</span><div class="seg" id="fRiv" role="group" aria-labelledby="lblRiv"><button type="button" data-v="6" aria-pressed="false">6</button><button type="button" data-v="9" aria-pressed="true">9</button><button type="button" data-v="14" aria-pressed="false">14</button></div></div>
           <div class="field"><span class="flabel" id="lblDif">Difficulty</span><div class="seg" id="fDif" role="group" aria-labelledby="lblDif"><button type="button" data-v="easy" aria-pressed="false">Easy</button><button type="button" data-v="normal" aria-pressed="true">Normal</button><button type="button" data-v="hard" aria-pressed="false">Hard</button></div></div>
         </div>
+        <div class="field"><span class="flabel" id="lblPeace">Peace treaty at the start (minutes)</span><div class="seg" id="fPeace" role="group" aria-labelledby="lblPeace"><button type="button" data-v="5" aria-pressed="false">5</button><button type="button" data-v="10" aria-pressed="false">10</button><button type="button" data-v="15" aria-pressed="false">15</button><button type="button" data-v="20" aria-pressed="false">20</button><button type="button" data-v="25" aria-pressed="false">25</button><button type="button" data-v="30" aria-pressed="true">30</button></div></div>
         <div class="field"><label class="flabel" for="fMap">Map</label><select id="fMap"><option value="world">World · real countries</option><option value="canada">Canada · provinces and territories</option><option value="usa">United States · states</option><option value="australia">Australia · states and cities</option><option value="random">Random continents</option></select></div>
         <button type="button" class="btn" id="btnSolo">Start solo war</button>
         <p class="hint">Your empire name is also what other commanders see online.</p>
@@ -1279,6 +1280,8 @@ const SEASON_LEN=30,VICTORY=0.72;
 /* GOLD_WC is how much currency a bar backs; GOLD_PX is the world price of a 1 oz bar when a game starts. It holds steady and only rises when nations print money */
 /* every currency starts at FX0 = 0.50 and climbs as its economy grows; CLAIM0 is the money base a young economy is measured against */
 const FX0=0.5,CLAIM0=2500,GOLD_PRINT=0.5;
+/* the opening peace treaty: 30 minutes unless the game is set up with 5, 10, 15, 20 or 25 */
+const PEACE_OPTS=[5,10,15,20,25,30];
 const PEACE=1800,GOLD_WC=50,GOLD_PX=15000,SHIELD_R=6,RAID_MAX=120,RAID_PRICE=10000;
 /* world reserve: full status needs 50,000 gold bars and 30,000 oil (oil storage now holds up to 30,000); 1,000 gold bars or oil makes a temporary reserve */
 const RES_GOLD=50000,RES_OIL=30000,RES_TEMP=1000;
@@ -1321,13 +1324,15 @@ const BLD={
   silo:{name:'Missile Silo',era:3,cost:{stone:600,money:100000},desc:'Unlocks atom and hydrogen bombs. The first silo costs 100,000, the next 250,000, then 500,000, 1M, 2.5M and so on'},
   goldmine:{name:'Gold Mine',era:1,cost:{stone:300,money:1000000},desc:'Digs 100 gold bars every second. The first mine costs 1M, the next 2.5M, then 5M, 10M, 25M and so on'},
   gov:{name:'Government',era:1,cost:{stone:400,money:20000},desc:'Your seat of government, built in the style of the land it stands on: the White House in the United States, the European Parliament in Europe, a national parliament anywhere else. One per nation: +150 gold bars every second, +10 happiness, +15% taxes, and it shields your currency from 15% of war losses. Every 4 years the World Assembly meets in its courtroom'},
-  irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Missile defence for 22 tiles around it: shoots down 3 in 4 enemy jets, helicopters and atom bombs, and half of hydrogen bombs. Costs 50 million'},
-  goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'A shield over your whole country: shoots down every hydrogen bomb and 19 in 20 enemy jets and helicopters aimed at any of your land. A barrage of atom bombs can overwhelm it: 1 to 3 get through, then it seals against atom bombs for 5 minutes. One per nation. Costs 500 million'}
+  irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Powers the white energy shield over your whole country. Every Iron Dome adds strength; with 40 it is at full power and shoots down 3 in 4 enemy jets, helicopters and atom bombs and half of hydrogen bombs aimed at any of your land. With fewer, gaps let more through. Costs 50 million'},
+  goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'Powers the golden energy shield over your whole country; 5 give it full power. At full power it shoots down every hydrogen bomb and 19 in 20 enemy jets and helicopters aimed at any of your land. A barrage of atom bombs can overwhelm it: 1 to 3 get through, then it seals against atom bombs for 5 minutes. With fewer than 5, gaps let some through. Up to 5 per nation. Costs 500 million'}
 };
 /* Iron Dome reach in tiles */
 const IRON_R=22;
 /* a Golden Dome lets 1 to 3 atom bombs through, then seals against them for this many seconds */
 const GOLD_SEAL=300;
+/* the domes power one energy shield over the whole country: 40 Iron Domes give the white shield full power, 5 Golden Domes the golden one */
+const IRON_FULL=40,GOLD_FULL=5;
 const BLD_KEYS=Object.keys(BLD);
 const WEAPONS={atom:{name:'Atom Bomb',cost:6000,radius:7},hydrogen:{name:'Hydrogen Bomb',cost:15000,radius:13}};
 const CARDS=[
@@ -1519,7 +1524,7 @@ function newGame(opts){
     owner:new Int16Array(N).fill(-1),bld:new Int16Array(N).fill(-1),fallout:new Uint8Array(N),fallN:0,road:new Uint8Array(N),roadN:0,raids:[],
     buildings:[],bldDirty:false,nations:[],attacks:[],boats:[],ships:[],nukes:[],air:[],fxQ:[],routes:new Map(),reqs:[],
     NN,rel:new Float32Array(NN*NN),ally:new Uint8Array(NN*NN),sanc:new Uint8Array(NN*NN),adj:new Int32Array(NN*(NN+1)),atkIdx:new Int16Array(NN*(NN+1)),
-    time:0,tick:0,phase:'spawn',spawnLeft:15,peaceT:PEACE,peaceOver:false,top:-1,gpx:GOLD_PX,season:0,year:1,cardYear:3,asm:null,asmN:0,log:[],dirty:true,over:null,
+    time:0,tick:0,phase:'spawn',spawnLeft:15,peaceT:PEACE_OPTS.includes(+opts.peace)?opts.peace*60:PEACE,peaceOver:false,top:-1,gpx:GOLD_PX,season:0,year:1,cardYear:3,asm:null,asmN:0,log:[],dirty:true,over:null,
     diff:DIFF[opts.difficulty]||DIFF.normal};
   const ni=shuffled(NAMES.length),ci=shuffled(COLORS.length);
   let ai=0;
@@ -1642,7 +1647,7 @@ function canBuildAt(n,type,i){
   if(type==='farm'&&G.terr[i]===MOUNT)return 'Farms cannot go on mountains.';
   if(type==='oilrig'&&G.terr[i]!==DESERT&&!G.coast[i])return 'Oil rigs need desert or coastline.';
   if(type==='gov'&&n.b.gov>0)return 'You already have a seat of government.';
-  if(type==='goldendome'&&n.b.goldendome>0)return 'One Golden Dome already covers your whole country.';
+  if(type==='goldendome'&&n.b.goldendome>=GOLD_FULL)return `Your ${GOLD_FULL} Golden Domes already give your golden shield full power.`;
   if(G.bld[i]>=0)return 'There is already a building here.';
   /* buildings can sit right next to each other; a city fills the 3x3 block around its centre tile */
   const x=i%W,y=(i/W)|0,rr=type==='city'?2:1;
@@ -1664,6 +1669,8 @@ function build(n,type,i){
   G.buildings.push(nb);G.bld[i]=G.buildings.length-1;n.b[type]++;
   layRoad(n,i);
   mv(n,'bd'+type,type==='silo'?`built Missile Silo no. ${n.b.silo} for ${fmt(cost.money)} ${n.cur}`:`built ${article(BLD[type].name)} ${BLD[type].name}`,type==='silo'?'warn':'mv');
+  if(n.human&&(type==='irondome'||type==='goldendome')){const F=type==='irondome'?IRON_FULL:GOLD_FULL,k=n.b[type];
+    log(n.id,`Your ${type==='irondome'?'white':'golden'} shield is at ${Math.round(Math.min(1,k/F)*100)}% power: ${Math.min(k,F)} of the ${F} ${BLD[type].name}s it needs${k>=F?'. It now covers your whole country with no gaps.':'.'}`,null,'good');}
   return null;
 }
 /* pathways: every new building is joined by road to the nearest building (or the capital) on your own land */
@@ -2014,40 +2021,37 @@ function launchAir(A,kind,t){
 }
 /* missile defence: an Iron Dome guards 22 tiles around it, a Golden Dome every tile its nation owns; allies' Iron Domes help too.
    The chance an incoming strike from A on tile t is shot down (0 when nothing guards it) */
+/* aircraft: the golden shield stops 19 in 20 and the white shield 3 in 4, each scaled by how much of its power its domes supply */
 function domeOdds(A,t,kind){
-  const T=G.owner[t];if(T<0||T===A.id)return 0;
-  let miss=1;const tx=t%W,ty=(t/W)|0,heavy=kind==='hydrogen';
-  for(const b of G.buildings){
-    if(b.dead||(b.type!=='irondome'&&b.type!=='goldendome'))continue;
-    const o=b.owner;if(o===A.id||isAllied(A.id,o))continue;
-    if(b.type==='goldendome'){if(o===T)miss*=heavy?0.1:0.05;continue;}
-    if(o!==T&&!isAllied(o,T))continue;
-    const dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty;if(dx*dx+dy*dy<=IRON_R*IRON_R)miss*=heavy?0.5:0.25;
-  }
+  const g=domeGuards(A,t),heavy=kind==='hydrogen';let miss=1;
+  if(g.gold)miss*=1-g.gs*(heavy?0.9:0.95);
+  if(g.irons.length)miss*=1-g.is*(heavy?0.5:0.75);
   return 1-miss;
 }
-/* the defences that engage a strike from A on tile t: the target's Golden Dome, and the Iron Domes (its own and its allies') in range, nearest first */
+/* the shields over the target's country: its nearest Golden Dome and all its Iron Domes, nearest first, with each shield's power
+   (gs, is: 1 at full power, 5 Golden Domes or 40 Iron Domes) and how many domes power it (ng, ni) */
 function domeGuards(A,t){
-  const T=G.owner[t],out={gold:null,irons:[]};if(T<0||T===A.id)return out;const tx=t%W,ty=(t/W)|0,ir=[];
+  const T=G.owner[t],out={gold:null,irons:[],gs:0,is:0,ng:0,ni:0,T:-1};if(T<0||T===A.id||isAllied(A.id,T))return out;out.T=T;
+  const tx=t%W,ty=(t/W)|0,ir=[];let gd=0;
   for(const b of G.buildings){
-    if(b.dead||(b.type!=='irondome'&&b.type!=='goldendome'))continue;
-    const o=b.owner;if(o===A.id||isAllied(A.id,o))continue;
-    if(b.type==='goldendome'){if(o===T&&!out.gold)out.gold=b;continue;}
-    if(o!==T&&!isAllied(o,T))continue;
-    const dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty,d=dx*dx+dy*dy;if(d<=IRON_R*IRON_R)ir.push([d,b]);
+    if(b.dead||b.owner!==T||(b.type!=='irondome'&&b.type!=='goldendome'))continue;
+    const dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty,d=dx*dx+dy*dy;
+    if(b.type==='goldendome'){out.ng++;if(!out.gold||d<gd){out.gold=b;gd=d;}}else ir.push([d,b]);
   }
-  ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);return out;
+  ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);out.ni=ir.length;out.gs=Math.min(1,out.ng/GOLD_FULL);out.is=Math.min(1,out.ni/IRON_FULL);return out;
 }
-/* a bomb meets the defences: a Golden Dome stops every hydrogen bomb; atom bombs can saturate it, so 1 to 3 slip through before it seals
-   for 5 minutes; Iron Domes in range then get their own chance (3 in 4 atom bombs, half of hydrogen bombs). null when nothing defends */
+/* a bomb meets the shields. A golden shield short of full power has gaps the bomb may fall through; where it covers, it stops every
+   hydrogen bomb, and atom bombs can saturate it, so 1 to 3 slip through before it seals for 5 minutes. The white shield, where its gaps
+   allow, then stops 3 in 4 atom bombs and half of hydrogen bombs. null when nothing defends */
 function nukeDefence(A,nk){
   const g=domeGuards(A,nk.to);if(!g.gold&&!g.irons.length)return null;
   let stop=false,by='',leak=-1;
-  if(g.gold){const b=g.gold;
+  if(g.gold&&g.gs<1&&R()>=g.gs)g.gold=null;
+  if(g.gold){const S=G.nations[g.T];
     if(nk.kind==='hydrogen'){stop=true;by='gold';}
-    else{if(b.leak==null||(b.leak<=0&&G.time>=(b.leakT||0)))b.leak=1+Math.floor(R()*3);
-      if(b.leak>0){b.leak--;leak=b.leak;if(b.leak<=0)b.leakT=G.time+GOLD_SEAL;}else{stop=true;by='gold';}}}
-  if(!stop&&g.irons.length){let miss=1;for(const b of g.irons)miss*=nk.kind==='hydrogen'?0.5:0.25;if(R()<1-miss){stop=true;by='iron';}}
+    else{if(S.gleak==null||(S.gleak<=0&&G.time>=(S.gleakT||0)))S.gleak=1+Math.floor(R()*3);
+      if(S.gleak>0){S.gleak--;leak=S.gleak;if(S.gleak<=0)S.gleakT=G.time+GOLD_SEAL;}else{stop=true;by='gold';}}}
+  if(!stop&&g.irons.length){if(g.is<1&&R()>=g.is)g.irons=[];else if(R()<(nk.kind==='hydrogen'?0.5:0.75)){stop=true;by='iron';}}
   return {stop,by,leak,g};
 }
 /* the interceptors that rise to meet a strike, for the screen: the Golden Dome fires from its site and from orbit, each Iron Dome battery in range fires two */
@@ -2056,6 +2060,15 @@ function icptFx(g,o,by){
   const add=(sys,bt,dl,k)=>{const fam=sys==='orbit'?'gold':sys,hit=by===fam,e=Object.assign({icpt:1,sys,bt,dl,k,hit,boom:hit&&first[fam]},o);if(hit)first[fam]=false;G.fxQ.push(e);};
   if(g.gold){add('gold',g.gold.tile,0,0);add('orbit',-1,0.05,0);add('orbit',-1,0.12,1);}
   g.irons.slice(0,3).forEach((b,i)=>{add('iron',b.tile,0.06*i,0);add('iron',b.tile,0.06*i+0.1,1);});
+}
+/* what the energy shields show when a strike meets them (display only). The golden shield shatters under a hydrogen bomb it stops and
+   ripples under anything else; the white shield breaks more easily: any bomb that meets it shatters it, and so does an aircraft it
+   stops while under half power. dl -1 means at the moment the interceptors strike */
+function shieldFx(g,x,y,by,kind,dl){
+  if(!g||g.T<0)return;const P=(lay,fx,d)=>G.fxQ.push({shield:1,n:g.T,lay,x,y,fx,dl:d}),nuke=kind==='atom'||kind==='hydrogen';
+  if(by==='gold'){P('gold',kind==='hydrogen'?'shatter':'flash',-1);return;}
+  if(g.ng>0&&nuke)P('gold','punch',by==='iron'?-1:dl);
+  if(g.ni>0){if(nuke)P('iron','shatter',by==='iron'?-1:dl);else if(by==='iron')P('iron',g.is<0.5?'shatter':'flash',-1);}
 }
 function shotDown(A,t,what,x,y,sys,noFx){
   const T=G.owner[t],D=T>=0?G.nations[T]:null;
@@ -2102,7 +2115,7 @@ function processAir(dt){
     const a=G.air[k],A=G.nations[a.o];
     if(!A||!A.alive){G.air.splice(k,1);continue;}
     a.d+=AIR[a.kind].speed*dt;
-    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to);icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},st?(g.gold?'gold':'iron'):'');
+    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to),by=st?(g.gold?'gold':'iron'):'';icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},by);shieldFx(g,a.to%W+0.5,((a.to/W)|0)+0.5,by,a.kind,0);
       if(st){G.air.splice(k,1);shotDown(A,a.to,a.kind==='jet'?'jet':'helicopter',q.x,q.y,g.gold?'Golden Dome':'Iron Dome',true);continue;}}}
     if(a.d<a.dist)continue;
     G.air.splice(k,1);
@@ -2153,7 +2166,7 @@ function detonate(nk){
 }
 function processNukes(dt){for(let k=G.nukes.length-1;k>=0;k--){const nk=G.nukes[k];nk.t+=dt;
   if(!nk.ic&&nk.t>=nk.dur*0.8){nk.ic=1;const A=G.nations[nk.o],d=A?nukeDefence(A,nk):null;
-    if(d){icptFx(d.g,{from:nk.from,to:nk.to,dur:nk.dur,f0:0.8,hy:nk.kind==='hydrogen'?1:0},d.by);
+    if(d){icptFx(d.g,{from:nk.from,to:nk.to,dur:nk.dur,f0:0.8,hy:nk.kind==='hydrogen'?1:0},d.by);shieldFx(d.g,nk.to%W+0.5,((nk.to/W)|0)+0.5,d.by,nk.kind,nk.dur*0.12);
       if(d.stop){G.nukes.splice(k,1);const a=nk.from,b=nk.to,f=0.8;shotDown(A,nk.to,WEAPONS[nk.kind].name,a%W+0.5+((b%W)-(a%W))*f,((a/W)|0)+0.5+(((b/W)|0)-((a/W)|0))*f,d.by==='gold'?'Golden Dome':'Iron Dome',true);continue;}
       if(d.leak>=0){const T=G.owner[nk.to],D=T>=0?G.nations[T]:null;
         if(D&&D.human)log(D.id,`${A.name}'s atom bomb overwhelmed your Golden Dome and got through. ${d.leak>0?`${d.leak} more can slip through before it seals.`:`It is now sealed against atom bombs for ${GOLD_SEAL/60} minutes.`}`,null,'bad');
@@ -2973,7 +2986,7 @@ let TK={},dpr=1,cw=1,ch=1;
 const cam={x:W/2,y:H/2,z:4};
 let ME=-1,speed=1,paused=false,modalOpen=false,mode={k:'attack'},selNation=-1,hover=-1,hoverXY=null,activeTab='realm';
 let realLast=performance.now(),acc=0,uiAcc=1,fx=[],animT=0,cardWait=-1,fallenShown=false,demoT=0;
-const homeOpts={rivals:9,difficulty:'normal',map:'world'};
+const homeOpts={rivals:9,difficulty:'normal',map:'world',peace:30};
 const propCd={};
 const me=()=>G&&ME>=0?G.nations[ME]||null:null;
 
@@ -3560,6 +3573,132 @@ function drawMush2D(e,S,T,z){
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(c[0],c[1],R,0,Math.PI*2);ctx.fill();}
   ctx.restore();
 }
+/* ---------- energy shields. Iron Domes power a white shield over the whole country (full power with 40), Golden Domes a golden one
+   (full power with 5); missing power shows as gaps in the lattice. A strike sends a ring of light across the shield. A hydrogen bomb
+   shatters the golden shield, and any bomb shatters the white one, which breaks more easily: cracks race out from the hit, the cells
+   break away as falling shards, the shield goes dark, then it recharges in waves of energy spreading out from its domes. ---------- */
+const SHL={gold:{full:GOLD_FULL,col:[255,192,64],H:6.4,down:1.5,rec:7},iron:{full:IRON_FULL,col:[226,238,255],H:4.8,down:1,rec:4.5}};
+const SH_DR=7,SH_SHARD=1.8;
+let SHC=0,SHG=null,SHN=0,SHO=0;const SHD=new Map(),SHQ=[],SHARDS=[];
+function shH(L,d){return SHL[L.lay].H*Math.sqrt(Math.min(1,Math.max(0,d-1)/SH_DR));}
+function shDist(L,x,y){const tx=Math.floor(x)-L.x0,ty=Math.floor(y)-L.y0;if(tx<0||ty<0||tx>=L.bw||ty>=L.bh)return 1;const i=ty*L.bw+tx;return L.own[i]?L.dist[i]:1;}
+function shieldDrop(L){if(L.mesh&&V3.scene){V3.scene.remove(L.mesh);L.mesh.material.dispose();}L.mesh=null;}
+/* a point of the map (tile coordinates) in the dome's own frame: x and z across the dome (1 at its rim), y its height there (0 outside) */
+function domeO(L,x,y){const D=L.dome,k=L.lay==='iron'?0.9:1,dx=x-D.cx,dz=y-D.cz,u=(dx*D.c+dz*D.s)/(D.rx*k),v=(-dx*D.s+dz*D.c)/(D.rz*k);return [u,Math.sqrt(Math.max(0,1-u*u-v*v)),v];}
+function domeY(L,x,y){return 0.08+domeO(L,x,y)[1]*L.dome.ry*(L.lay==='iron'?0.9:1);}
+/* where a strike meets the dome (on its rim when the target lies outside it) */
+function shO(L,x,y){const o=domeO(L,x,y);if(o[1]<=0){const m=Math.hypot(o[0],o[2])||1;o[0]/=m;o[2]/=m;}return o;}
+function shieldsTick(rdt){
+  if(SHG!==G){for(const L of SHD.values())shieldDrop(L);SHD.clear();SHQ.length=0;SHARDS.length=0;SHG=G;SHN=0;}
+  if(!G)return;
+  SHC+=rdt;
+  for(let i=SHQ.length-1;i>=0;i--){const q=SHQ[i];if(q.at>SHC)continue;SHQ.splice(i,1);const L=SHD.get(q.n+':'+q.lay);if(!L||!L.own)continue;
+    if(q.fx==='shatter'){L.sh={t0:q.at,x:q.x,y:q.y,seed:(Math.random()*1e6)|0};shardsSpawn(L,q);}
+    else{L.hits.push({x:q.x,y:q.y,t0:q.at,fx:q.fx});if(L.hits.length>4)L.hits.shift();}}
+  for(const L of SHD.values()){if(L.sh&&SHC-L.sh.t0>SHL[L.lay].down+SHL[L.lay].rec)L.sh=null;while(L.hits.length&&SHC-L.hits[0].t0>1.3)L.hits.shift();}
+  for(let i=SHARDS.length-1;i>=0;i--)if(SHC-SHARDS[i].t0-SHARDS[i].dl>SH_SHARD)SHARDS.splice(i,1);
+  const now=performance.now();if(now-SHN>500){SHN=now;shieldsScan(now);}
+}
+/* which countries have shields, how strong, and where their domes stand */
+function shieldsScan(now){
+  const cnt=new Map();
+  for(const b of G.buildings){if(b.dead||(b.type!=='irondome'&&b.type!=='goldendome'))continue;const k=b.owner+':'+(b.type==='goldendome'?'gold':'iron');let c=cnt.get(k);if(!c)cnt.set(k,c=[]);c.push(b.tile);}
+  for(const [k,L] of SHD){const n=G.nations[L.id];if(!cnt.has(k)||!n||!n.alive){shieldDrop(L);SHD.delete(k);}}
+  for(const [k,tiles] of cnt){const id=+k.split(':')[0],lay=k.split(':')[1],n=G.nations[id];if(!n||!n.alive||n.tiles<1)continue;
+    let L=SHD.get(k);if(!L){L={id,lay,hits:[],sh:null,ver:-1,s:-1,gk:'',bt:0,own:null};SHD.set(k,L);}
+    const s=Math.min(1,tiles.length/SHL[lay].full),gk=tiles.join(',');
+    if(!L.own||L.s!==s||L.gk!==gk||(L.ver!==SHO&&now-L.bt>1500)){L.s=s;L.gk=gk;L.ver=SHO;L.bt=now;L.gens=tiles;shieldBase(L);L.dirty2=L.dirty3=true;}}
+}
+/* the shape of a country's shield: its land, how far each tile lies from the border (the shield rises from the border like a dome),
+   up to 12 domes the recharge spreads from, and how far it has to spread */
+function shieldBase(L){
+  const id=L.id;let x0=W,y0=H,x1=-1,y1=-1;
+  for(let i=0;i<N;i++)if(G.owner[i]===id){const x=i%W,y=(i/W)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  if(x1<0){L.own=null;return;}
+  x0=Math.max(0,x0-1);y0=Math.max(0,y0-1);x1=Math.min(W-1,x1+1);y1=Math.min(H-1,y1+1);
+  const bw=x1-x0+1,bh=y1-y0+1,own=new Uint8Array(bw*bh),dist=new Float32Array(bw*bh);let cells=0;
+  for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){const o=G.owner[(y0+y)*W+x0+x]===id,i=y*bw+x;own[i]=o?1:0;dist[i]=o?1e6:0;if(o)cells++;}
+  const D=(x,y)=>x<0||y<0||x>=bw||y>=bh?0:dist[y*bw+x];
+  for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){const i=y*bw+x;if(own[i])dist[i]=Math.min(dist[i],D(x-1,y)+1,D(x,y-1)+1,D(x-1,y-1)+1.414,D(x+1,y-1)+1.414);}
+  for(let y=bh-1;y>=0;y--)for(let x=bw-1;x>=0;x--){const i=y*bw+x;if(own[i])dist[i]=Math.min(dist[i],D(x+1,y)+1,D(x,y+1)+1,D(x+1,y+1)+1.414,D(x-1,y+1)+1.414);}
+  Object.assign(L,{x0,y0,bw,bh,own,dist,cells});
+  /* the 3D dome: an ellipse fitted round the country's land along its long and short axes */
+  let sx=0,sy=0;for(let y=0;y<bh;y++)for(let x=0;x<bw;x++)if(own[y*bw+x]){sx+=x;sy+=y;}
+  const mx=sx/cells,my=sy/cells;let ca=0,cb=0,cc=0;for(let y=0;y<bh;y++)for(let x=0;x<bw;x++)if(own[y*bw+x]){const dx=x-mx,dy=y-my;ca+=dx*dx;cb+=dx*dy;cc+=dy*dy;}ca/=cells;cb/=cells;cc/=cells;
+  const tr=ca+cc,dq=Math.sqrt(Math.max(0,tr*tr/4-(ca*cc-cb*cb))),th=0.5*Math.atan2(2*cb,ca-cc),rx=2.1*Math.sqrt(tr/2+dq)+1.5,rz=2.1*Math.sqrt(Math.max(0,tr/2-dq))+1.5;
+  L.dome={cx:x0+mx+0.5,cz:y0+my+0.5,rx,rz,ry:clamp(0.6*Math.sqrt(rx*rz),3,20),th,c:Math.cos(th),s:Math.sin(th)};
+  const g=L.gens,st=Math.max(1,g.length/12),g12=[];for(let k=0;k<g.length&&g12.length<12;k+=st)g12.push(g[Math.floor(k)]);L.g12=g12;
+  let mr=1;for(let y=0;y<bh;y+=2)for(let x=0;x<bw;x+=2){if(!own[y*bw+x])continue;let md=1e9;for(const t of g12){const dx=t%W+0.5-(x0+x+0.5),dy=((t/W)|0)-(y0+y);md=Math.min(md,dx*dx+dy*dy);}if(md>mr)mr=md;}
+  L.maxR=Math.sqrt(mr)+2;
+}
+/* shards of a shattered shield: they break away from the hit outwards (the farther, the later) and tumble down */
+function shardsSpawn(L,q){
+  const gold=L.lay==='gold',n=gold?72:50,R=gold?9:6,sd=(Math.random()*1e6)|0;
+  for(let i=0;i<n;i++){const a=hash(sd+i)*6.283,r=Math.sqrt(hash(sd*3+i))*R,x=q.x+Math.cos(a)*r,y=q.y+Math.sin(a)*r,d=shDist(L,x,y);
+    const tx=Math.floor(x)-L.x0,ty=Math.floor(y)-L.y0;if(tx<0||ty<0||tx>=L.bw||ty>=L.bh||!L.own[ty*L.bw+tx])continue;
+    const h=L.dome?domeY(L,x,y):Math.max((V3.heights?hAt(Math.floor(y)*W+Math.floor(x)):0)+0.18,shH(L,d)),out=0.5+hash(sd*5+i)*1.6;
+    SHARDS.push({lay:L.lay,x,y,h,vx:Math.cos(a)*out,vy:Math.sin(a)*out,vh:0.4+hash(sd*7+i)*2.2,rx:hash(sd*11+i)*6.28,ry:hash(sd*13+i)*6.28,sp:(hash(sd*17+i)-0.5)*14,s:0.22+hash(sd*19+i)*0.45,t0:q.at,dl:0.12+(r/R)*0.35});}
+  if(SHARDS.length>520)SHARDS.splice(0,SHARDS.length-520);
+}
+/* the flat-map shield: a lattice of glowing cells over the country (missing cells where power is short) and a bright rim along the border */
+function shieldTex2D(L){
+  const P=4,bw=L.bw,bh=L.bh,cv=L.cv||(L.cv=document.createElement('canvas'));cv.width=bw*P;cv.height=bh*P;
+  const x=cv.getContext('2d'),col=SHL[L.lay].col,c=col.join(','),R=2.4,hw=Math.sqrt(3)*R,sd=L.id*977+(L.lay==='gold'?13:0);
+  x.clearRect(0,0,cv.width,cv.height);x.lineWidth=1.2;x.strokeStyle=`rgba(${c},0.55)`;x.fillStyle=`rgba(${c},0.07)`;
+  const r0=Math.floor(L.y0/(1.5*R))-1,r1=Math.ceil((L.y0+bh)/(1.5*R))+1;
+  for(let r=r0;r<=r1;r++){const cy=r*1.5*R,off=(r&1)?hw/2:0,q0=Math.floor((L.x0-off)/hw)-1,q1=Math.ceil((L.x0+bw-off)/hw)+1;
+    for(let q=q0;q<=q1;q++){if(hash(sd+q*7919+r*104729)>=L.s)continue;const cx=q*hw+off;x.beginPath();
+      for(let k=0;k<6;k++){const a=Math.PI/6+k*Math.PI/3,px=(cx+Math.cos(a)*R*0.94-L.x0)*P,py=(cy+Math.sin(a)*R*0.94-L.y0)*P;if(k)x.lineTo(px,py);else x.moveTo(px,py);}
+      x.closePath();x.fill();x.stroke();}}
+  const m=document.createElement('canvas');m.width=bw;m.height=bh;const mx=m.getContext('2d'),id=mx.createImageData(bw,bh),dd=id.data;
+  for(let i=0;i<bw*bh;i++)if(L.own[i])dd[i*4+3]=255;
+  mx.putImageData(id,0,0);x.globalCompositeOperation='destination-in';x.imageSmoothingEnabled=true;x.drawImage(m,0,0,bw*P,bh*P);
+  for(let i=0;i<bw*bh;i++){const o=i*4;dd[o]=col[0];dd[o+1]=col[1];dd[o+2]=col[2];dd[o+3]=L.own[i]?Math.round(195*Math.exp(-(L.dist[i]-1)/1.3)):0;}
+  mx.putImageData(id,0,0);x.globalCompositeOperation='source-over';x.drawImage(m,0,0,bw*P,bh*P);
+}
+function drawShields2D(S,T,z){
+  if(!SHD.size&&!SHARDS.length)return;
+  ctx.save();ctx.imageSmoothingEnabled=true;
+  for(const lay of ['iron','gold'])for(const L of SHD.values()){
+    if(L.lay!==lay||!L.own)continue;if(L.dirty2||!L.cv){shieldTex2D(L);L.dirty2=false;}
+    const X=S(L.x0),Y=T(L.y0),Wd=L.bw*z,Hd=L.bh*z;if(X>cw||Y>ch||X+Wd<0||Y+Hd<0)continue;
+    const cfg=SHL[lay],c=cfg.col.join(','),br=0.72+0.16*Math.sin(SHC*1.6+L.id*1.3),sh=L.sh,st=sh?SHC-sh.t0:-1,gp=g=>[S(g%W+0.5),T(((g/W)|0)+0.5)];
+    let a=br,rec=-1;
+    if(sh&&st>=0){if(st<0.22)a=br*(1+1.8*(1-st/0.22));else if(st<cfg.down){const f=(st-0.22)/(cfg.down-0.22);a=br*Math.max(0,1-f*1.7)*(Math.sin(st*57)>0.2?1:0.35);}else rec=Math.min(1,(st-cfg.down)/cfg.rec);}
+    ctx.save();
+    const rr=rec>=0?(1-(1-rec)*(1-rec))*L.maxR*1.02*z:0;
+    if(rec>=0){ctx.beginPath();for(const g of L.g12){const [gx,gy]=gp(g);ctx.moveTo(gx+rr,gy);ctx.arc(gx,gy,rr,0,6.2832);}ctx.clip();a=br*(0.5+0.5*rec);}
+    if(a>0.01){ctx.globalAlpha=Math.min(1,a);ctx.drawImage(L.cv,X,Y,Wd,Hd);
+      /* a slow sheen sweeping across the shield */
+      const sw=Wd+Hd,s0=((SHC*0.06+L.id*0.37)%1.5-0.25)*sw,bw2=Math.max(40,sw*0.08);
+      ctx.save();ctx.beginPath();ctx.moveTo(X+s0,Y);ctx.lineTo(X+s0+bw2,Y);ctx.lineTo(X+s0+bw2-Hd,Y+Hd);ctx.lineTo(X+s0-Hd,Y+Hd);ctx.closePath();ctx.clip();
+      ctx.globalCompositeOperation='lighter';ctx.globalAlpha=Math.min(1,a*0.55);ctx.drawImage(L.cv,X,Y,Wd,Hd);ctx.restore();}
+    if(rec>=0&&rec<1){/* the recharge front: a band of energy re-forming the shield as it spreads out from the domes */
+      const ri=Math.max(0,rr-1.8*z);ctx.beginPath();for(const g of L.g12){const [gx,gy]=gp(g);ctx.moveTo(gx+rr,gy);ctx.arc(gx,gy,rr,0,6.2832);ctx.moveTo(gx+ri,gy);ctx.arc(gx,gy,ri,6.2832,0,true);}
+      ctx.clip();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=1;ctx.drawImage(L.cv,X,Y,Wd,Hd);ctx.drawImage(L.cv,X,Y,Wd,Hd);
+      for(const g of L.g12){const [gx,gy]=gp(g),pr=Math.max(3,z*0.9)*(1+0.3*Math.sin(SHC*9));const gg=ctx.createRadialGradient(gx,gy,0,gx,gy,pr*3);gg.addColorStop(0,`rgba(255,255,255,${0.8*(1-rec)})`);gg.addColorStop(0.4,`rgba(${c},${0.5*(1-rec)})`);gg.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=gg;ctx.beginPath();ctx.arc(gx,gy,pr*3,0,6.2832);ctx.fill();}}
+    ctx.restore();
+    /* strikes: a ring of light races across the shield from the hit */
+    for(const h of L.hits){const t=SHC-h.t0;if(t<0||t>1.3)continue;const hx=S(h.x),hy=T(h.y),f=t/1.3,r=(0.6+t*9)*z,ri=Math.max(0,r-1.8*z);
+      ctx.save();ctx.beginPath();ctx.arc(hx,hy,r,0,6.2832);ctx.arc(hx,hy,ri,6.2832,0,true);ctx.clip();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=1-f;ctx.drawImage(L.cv,X,Y,Wd,Hd);ctx.drawImage(L.cv,X,Y,Wd,Hd);ctx.restore();
+      ctx.save();ctx.globalCompositeOperation='lighter';const fr=(1.2+t*2.5)*z,g=ctx.createRadialGradient(hx,hy,0,hx,hy,fr);g.addColorStop(0,`rgba(255,255,255,${0.9*(1-f)})`);g.addColorStop(0.35,`rgba(${c},${0.6*(1-f)})`);g.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(hx,hy,fr,0,6.2832);ctx.fill();
+      if(h.fx==='punch'&&t<0.9){/* the bomb tears a hole through: short cracks round it */
+        ctx.strokeStyle=`rgba(${c},${1-t/0.9})`;ctx.lineWidth=Math.max(1,z*0.12);for(let i=0;i<7;i++){let an=i/7*6.283+hash(i*31+h.t0*97|0)*0.5,px=hx,py=hy;ctx.beginPath();ctx.moveTo(px,py);for(let k=0;k<4;k++){an+=(hash(i*7+k*13+(h.t0*53|0))-0.5)*0.9;px+=Math.cos(an)*z*0.7;py+=Math.sin(an)*z*0.7;ctx.lineTo(px,py);}ctx.stroke();}}
+      ctx.restore();}
+    /* shattering: cracks race out from the hit with a white-hot flash */
+    if(sh&&st>=0&&st<0.8){const sx0=S(sh.x),sy0=T(sh.y),grow=Math.min(1,st/0.22),al=st<0.3?1:Math.max(0,1-(st-0.3)/0.5),sd=sh.seed,len=(lay==='gold'?16:10)*z;
+      ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=`rgba(${c},${al})`;ctx.lineWidth=Math.max(1.6,z*0.22);ctx.lineJoin='round';
+      for(let i=0;i<16;i++){let an=i/16*6.283+hash(sd+i)*0.4,px=sx0,py=sy0;const L1=len*(0.45+hash(sd*3+i)*0.75)*grow;ctx.beginPath();ctx.moveTo(px,py);
+        for(let k=0;k<7;k++){an+=(hash(sd*7+i*13+k)-0.5)*0.9;px+=Math.cos(an)*L1/7;py+=Math.sin(an)*L1/7;ctx.lineTo(px,py);
+          if(k===3&&hash(sd*29+i)>0.5){ctx.moveTo(px,py);ctx.lineTo(px+Math.cos(an+0.9)*L1*0.25,py+Math.sin(an+0.9)*L1*0.25);ctx.moveTo(px,py);}}ctx.stroke();}
+      const fr=(2+st*7)*z,g=ctx.createRadialGradient(sx0,sy0,0,sx0,sy0,fr);g.addColorStop(0,`rgba(255,255,255,${al})`);g.addColorStop(0.3,`rgba(${c},${0.8*al})`);g.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx0,sy0,fr,0,6.2832);ctx.fill();ctx.restore();}
+  }
+  /* the falling shards */
+  if(SHARDS.length){ctx.globalCompositeOperation='lighter';
+    for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0||t>SH_SHARD)continue;const f=t/SH_SHARD,sx=S(p.x+p.vx*t),sy=T(p.y+p.vy*t+1.6*t*t),r=Math.max(2.2,p.s*z*1.8*(1-f*0.4)),an=p.rx+p.sp*t;
+      if(sx<-20||sy<-20||sx>cw+20||sy>ch+20)continue;ctx.globalAlpha=(1-f)*0.95;ctx.fillStyle=`rgb(${SHL[p.lay].col})`;ctx.beginPath();ctx.moveTo(sx+Math.cos(an)*r,sy+Math.sin(an)*r);ctx.lineTo(sx+Math.cos(an+2.3)*r*0.75,sy+Math.sin(an+2.3)*r*0.75);ctx.lineTo(sx+Math.cos(an+4.1)*r*0.9,sy+Math.sin(an+4.1)*r*0.9);ctx.closePath();ctx.fill();}}
+  ctx.restore();
+}
 /* missile defence on the flat map. Iron Dome batteries fire pairs of interceptors that climb on white smoke trails; the Golden Dome fires
    from its site and drops kinetic interceptors from orbit. On a kill the warhead bursts high in the sky (and the Golden Dome's shield
    flares gold over the target); on a miss the interceptors burst wide and the bomb flies on */
@@ -3737,6 +3876,7 @@ function drawNukes(S,T,z,nowS){
   }
 }
 function draw(rdt){
+  shieldsTick(rdt);
   if(++cityFrame%240===0)for(const [k,e] of cityCache)if(cityFrame-(e.used||0)>240)cityCache.delete(k);
   const z=cam.z,shk=shakeT>0?shakeT*14:0,ox=cw/2-cam.x*z+(shk?(Math.random()-0.5)*shk:0),oy=ch/2-cam.y*z+(shk?(Math.random()-0.5)*shk:0),S=x=>ox+x*z,T=y=>oy+y*z,P=me(),t=animT,nowS=performance.now()/1000;
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -3817,6 +3957,7 @@ function draw(rdt){
     }
     if(z>=2.2)outlined('RAIDER',sx,sy-len*0.45-8,`600 10px ${FN}`,TK.bad);
   }
+  drawShields2D(S,T,z);
   for(let k=fx.length-1;k>=0;k--){
     const e=fx[k];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.kind==='icpt'?ICPT_D+(e.dl||0):e.wk?WRECK_T:e.nk?mushD(e):2.6;
     if(e.t>d){fx.splice(k,1);continue;}
@@ -4003,6 +4144,9 @@ function init3D(){
      mm.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAlpha;varying float vAl;').replace('#include <begin_vertex>','#include <begin_vertex>\nvAl=aAlpha;');
        sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vAl;').replace('#include <alphamap_fragment>','#include <alphamap_fragment>\ndiffuseColor.a*=vAl;');};
      V3.mush=inst(g,mm,MUSH_N);}
+    /* shards of a shattered energy shield */
+    {const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0.55,-0.42,0,-0.3,0.48,0,-0.22],3));tg.computeVertexNormals();
+     V3.shard=inst(tg,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}),520);}
     /* aircraft: fighter jets with contrails, helicopters with spinning rotors, painted in their nation's colour */
     V3.jets=[];V3.helis=[];
     {const metal=c=>new THREE.MeshStandardMaterial({color:c,roughness:0.42,metalness:0.55}),glass=new THREE.MeshStandardMaterial({color:0x9fd8ee,roughness:0.15,metalness:0.6}),dark=metal(0x2a2f36);
@@ -4514,6 +4658,65 @@ function air3D(nowS){
 /* an additive glow colour faded toward black (which reads as transparent) */
 const MUSH_N=360;
 function glowC(r,g,b,a){a=Math.round(clamp(a,0,1)*16)/16;return `rgb(${Math.round(r*a)},${Math.round(g*a)},${Math.round(b*a)})`;}
+/* the shields in 3D: a see-through energy dome over each country, glowing at its rim and where it meets the ground, with faint bands
+   drifting up it; the white one sits inside the golden one. Short of power, patches of it are missing. A strike sends a ring of light
+   round it; shattering cracks it like glass from the hit, the pieces break away and fall, it goes dark, then re-forms outwards from the domes */
+const SH_VS=`varying vec3 vO;varying vec3 vN;varying vec3 vV;
+void main(){vO=position;vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}`;
+const SH_FS=`uniform vec3 uCol;uniform float uTime,uStr,uSeed,uShT,uDown,uRec,uMaxR,uNG,uA;uniform vec3 uImp;uniform vec3 uGen[12];uniform vec4 uHit[4];
+varying vec3 vO;varying vec3 vN;varying vec3 vV;
+vec3 h33(vec3 p){p=fract(p*vec3(0.1031,0.1030,0.0973)+uSeed*0.137);p+=dot(p,p.yxz+33.33);return fract((p.xxy+p.yxx)*p.zyx);}
+vec3 vor(vec3 p){vec3 b=floor(p),f=fract(p);float d1=8.0,d2=8.0,id=0.0;
+  for(int k=-1;k<=1;k++)for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){vec3 g=vec3(float(i),float(j),float(k));vec3 r=g+h33(b+g)-f;float d=dot(r,r);if(d<d1){d2=d1;d1=d;id=h33(b+g+7.0).x;}else if(d<d2)d2=d;}
+  return vec3(sqrt(d1),sqrt(d2)-sqrt(d1),id);}
+void main(){
+  float rim=pow(clamp(1.0-abs(dot(normalize(vN),normalize(vV))),0.0,1.0),3.6);
+  float bd=0.55+0.45*pow(abs(sin(vO.y*31.4-uTime*0.6)),6.0);
+  float base=1.0-smoothstep(0.0,0.08,vO.y);
+  float a=(0.05+0.95*rim)*bd+base*0.7;
+  a*=0.85+0.15*sin(uTime*1.7+uSeed*3.0);
+  float vis=1.0,k=1.0,add=0.0;vec3 vc=vec3(1.0,1.0,0.5);
+  if(uStr<0.999||uShT>=0.0){vc=vor(vO*5.0);vis=step(vc.z,uStr+0.0001);}
+  for(int i=0;i<4;i++){vec4 h=uHit[i];if(h.w>=0.0){float d=distance(vO,h.xyz);float f=h.w/1.3;add+=exp(-pow((d-h.w*2.2)/0.12,2.0))*(1.0-f)*1.6+exp(-d*6.0)*max(0.0,1.0-h.w*2.5)*2.0;}}
+  if(uShT>=0.0){float t=uShT;float d=distance(vO,uImp);float crack=1.0-smoothstep(0.0,0.07,vc.y);
+    add+=crack*step(d,t*6.0)*max(0.0,1.0-t/0.75)*2.4+exp(-d*5.0)*max(0.0,1.0-t/0.35)*3.0;
+    k=1.0-clamp((t-0.18-vc.z*0.55*(uDown-0.35)-d*0.05)/0.1,0.0,1.0);
+    if(t<uDown)k=max(k,step(0.94,fract(sin(t*83.0+vc.z*57.0)*43758.5))*0.45);
+    else{float u=clamp((t-uDown)/uRec,0.0,1.0);float r=(1.0-(1.0-u)*(1.0-u))*uMaxR*1.02;float md=1e5;
+      for(int j=0;j<12;j++){if(float(j)<uNG)md=min(md,distance(vO.xz,uGen[j].xz));}
+      k=step(md,r);add+=exp(-pow((md-r)/0.08,2.0))*1.6*(1.0-u*0.4);}}
+  a=a*vis*k+add*(0.4+0.6*vis);
+  gl_FragColor=vec4(uCol*a*uA,1.0);
+}`;
+function shieldMesh3D(L){
+  if(!V3.shGeo)V3.shGeo=new THREE.SphereGeometry(1,72,24,0,Math.PI*2,0,Math.PI/2);
+  if(!L.mesh){const c=SHL[L.lay].col;
+    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,vertexShader:SH_VS,fragmentShader:SH_FS,
+      uniforms:{uCol:{value:new THREE.Vector3(c[0]/255,c[1]/255,c[2]/255)},uTime:{value:0},uStr:{value:1},uSeed:{value:L.id*1.37+(L.lay==='gold'?0.5:0)},uShT:{value:-1},uDown:{value:1},uRec:{value:4},uMaxR:{value:1},uNG:{value:0},
+        uA:{value:L.lay==='gold'?0.62:0.5},uImp:{value:new THREE.Vector3()},uGen:{value:Array.from({length:12},()=>new THREE.Vector3())},uHit:{value:Array.from({length:4},()=>new THREE.Vector4(0,0,0,-1))}}});
+    L.mesh=new THREE.Mesh(V3.shGeo,m);L.mesh.renderOrder=3;V3.scene.add(L.mesh);}
+  const D=L.dome,k=L.lay==='iron'?0.9:1;L.mesh.position.set(D.cx-W/2,0.08,D.cz-H/2);L.mesh.rotation.set(0,-D.th,0);L.mesh.scale.set(D.rx*k,D.ry*k,D.rz*k);
+  /* how far across the dome the recharge must spread from the nearest dome */
+  let mr=0.2;const go=L.g12.map(g=>domeO(L,g%W+0.5,((g/W)|0)+0.5));
+  for(let i=-10;i<=10;i++)for(let j=-10;j<=10;j++){const u=i/10,v=j/10;if(u*u+v*v>1)continue;let md=9;for(const o of go)md=Math.min(md,Math.hypot(u-o[0],v-o[2]));if(md>mr)mr=md;}
+  L.maxRo=mr;L.gO=go;L.mesh.visible=true;
+}
+function shields3D(){
+  if(!V3.scene||!V3.heights)return;
+  for(const L of SHD.values()){
+    if(!L.own||!L.dome){if(L.mesh)L.mesh.visible=false;continue;}
+    if(L.dirty3||!L.mesh){shieldMesh3D(L);L.dirty3=false;}
+    const u=L.mesh.material.uniforms,cfg=SHL[L.lay];
+    u.uTime.value=SHC;u.uStr.value=L.s;u.uDown.value=cfg.down;u.uRec.value=cfg.rec;u.uMaxR.value=L.maxRo;u.uNG.value=L.gO.length;
+    L.gO.forEach((o,i)=>u.uGen.value[i].set(o[0],0,o[2]));
+    if(L.sh&&SHC>=L.sh.t0){u.uShT.value=SHC-L.sh.t0;const o=shO(L,L.sh.x,L.sh.y);u.uImp.value.set(o[0],o[1],o[2]);}else u.uShT.value=-1;
+    for(let i=0;i<4;i++){const h=L.hits[L.hits.length-1-i],v=u.uHit.value[i];v.w=-1;if(h){const t=SHC-h.t0;if(t>=0&&t<1.3){const o=shO(L,h.x,h.y);v.set(o[0],o[1],o[2],t);}}}
+  }
+  const SP=V3.shard;if(!SP)return;let ns=0;
+  for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0||t>SH_SHARD||ns>=520)continue;const f=t/SH_SHARD,c=SHL[p.lay].col,x=p.x+p.vx*t,y=p.y+p.vy*t,h=Math.max(0.05,p.h+p.vh*t-4.5*t*t),sz=p.s*(1-f*0.3);
+    putR(SP,ns++,x-W/2,h,y-H/2,sz,sz,sz,p.rx+p.sp*t,p.ry+p.sp*0.7*t,glowC(c[0],c[1],c[2],(1-f)*0.95));}
+  finish(SP,ns);
+}
 function fx3D(rdt){
   let k=0;const GL=V3.glow,SP=V3.spout,PF=V3.puff,RG=V3.ring,lt=V3.lt||0,c={g:0,s:0,p:0,r:0};
   const glow=(x,y,z,r,css)=>{if(c.g<636)put(GL,c.g++,x,y,z,r,r,r,0,css);},puff=(x,y,z,r,css)=>{if(c.p<716)put(PF,c.p++,x,y,z,r,r,r,0,css);};
@@ -4713,7 +4916,7 @@ function render3D(rdt,realDt){
   V3.bldAcc+=realDt;if(V3.bldAcc>=0.4){V3.bldAcc=0;buildings3D();}
   const nowS=performance.now()/1000;
   V3.shieldMat.opacity=0.11+0.05*Math.sin(nowS*2);
-  people3D();vessels3D();nukes3D(nowS);air3D(nowS);fx3D(rdt);
+  people3D();vessels3D();nukes3D(nowS);air3D(nowS);fx3D(rdt);shieldsTick(rdt);shields3D();
   updateCam3D();
   if(V3.waterU){V3.waterU.uTime.value=V3.lt;V3.waterU.uFogNear.value=V3.scene.fog.near;V3.waterU.uFogFar.value=V3.scene.fog.far;}
   if(V3.sky){V3.sky.position.copy(V3.camera.position);const s=V3.camera.far*0.9;V3.sky.scale.set(s,s,s);}
@@ -6343,7 +6546,7 @@ function startSolo(){
   if(!curProfile()){needProfile();return;}
   if(NET.r)leaveServer();
   const name=cleanName($('cmdName').value);
-  G=newGame({seed:randSeed(),rivals:homeOpts.rivals,difficulty:homeOpts.difficulty,humans:[name],map:homeOpts.map});
+  G=newGame({seed:randSeed(),rivals:homeOpts.rivals,difficulty:homeOpts.difficulty,humans:[name],map:homeOpts.map,peace:homeOpts.peace});
   ME=0;enterGame();bumpProfile('played');
 }
 function startDemo(){
@@ -6371,7 +6574,7 @@ function hasSave(){try{return localStorage.getItem(saveKey())!==null;}catch(e){r
 
 /* =================== Online play: rooms, 15-seat servers, lockstep =================== */
 let ROOM=null,roomState='connecting';
-const NET={r:null,srv:null,srvName:'',match:null,slot:-1,host:false,hostPeer:null,F:0,L:[],ak:[],seq:0,myc:[],applied:new Set(),active:[],lastT:[],hbVal:[],hbAt:[],acc:0,lastNow:0,hb:0,myHbAt:0,pubDirty:true,hostGone:0,lastMid:null,hostAI:9,hostDiff:'normal',hostMap:'world',joining:false};
+const NET={r:null,srv:null,srvName:'',match:null,slot:-1,host:false,hostPeer:null,F:0,L:[],ak:[],seq:0,myc:[],applied:new Set(),active:[],lastT:[],hbVal:[],hbAt:[],acc:0,lastNow:0,hb:0,myHbAt:0,pubDirty:true,hostGone:0,lastMid:null,hostAI:9,hostDiff:'normal',hostMap:'world',hostPeace:30,joining:false};
 /* ---------- Public site (outside Claude): the same online servers, carried by Firebase ----------
    Inside Claude nothing here runs: Claude's own room carries online play. On the public website there is no
    window.claude, so this builds an object with the same calls the game already uses (presence, peers, onPeers,
@@ -6501,14 +6704,14 @@ function onServerPeers(){
 function hostStart(){
   const st=seated();if(!st.length||!st[0].sameTab)return;
   const roster=st.slice(0,MAXP),ai=clamp(NET.hostAI,0,MAXN-roster.length);
-  const m={id:'m'+Math.random().toString(36).slice(2,10),seed:randSeed(),ai,diff:NET.hostDiff,map:NET.hostMap,roster:roster.map(p=>p.peer),names:roster.map(p=>cleanName(p.presence.nm))};
+  const m={id:'m'+Math.random().toString(36).slice(2,10),seed:randSeed(),ai,diff:NET.hostDiff,map:NET.hostMap,peace:NET.hostPeace,roster:roster.map(p=>p.peer),names:roster.map(p=>cleanName(p.presence.nm))};
   NET.r.presence({m}).catch(()=>{});
   startMatch(m,0);
 }
 function startMatch(m,slot){
   const now=performance.now();
   Object.assign(NET,{match:m,slot,host:slot===0,hostPeer:m.roster[0],F:0,L:[],ak:new Array(m.roster.length).fill(0),seq:0,myc:[],applied:new Set(),active:m.roster.map(()=>true),lastT:m.roster.map(()=>0),hbVal:m.roster.map(()=>-1),hbAt:m.roster.map(()=>now),acc:0,lastNow:now,hb:0,myHbAt:now,pubDirty:true,hostGone:0,lastMid:m.id,peers:m.roster.slice(),H:[],rjT:0,rjRt:[],rjSrv:null,hxOn:false,hxKey:''});
-  G=newGame({seed:m.seed,rivals:m.ai,difficulty:m.diff,humans:m.names.map(cleanName),map:m.map||'random'});G.spawnLeft=20;G.netId=m.id;ME=slot;
+  G=newGame({seed:m.seed,rivals:m.ai,difficulty:m.diff,humans:m.names.map(cleanName),map:m.map||'random',peace:m.peace});G.spawnLeft=20;G.netId=m.id;ME=slot;
   enterGame();bumpProfile('played');
   accServer({at:Date.now(),srv:NET.srv,sn:NET.srvName,mid:m.id,code:matchCode(NET.srv,m.id),slot,emp:m.names[slot],n:m.roster.length,map:m.map||'random'});
   NET.r.presence({mid:m.id,t:0,c:[],hb:0}).catch(()=>{});
@@ -6647,7 +6850,7 @@ function rjBegin(s){
   const m=RJ.m;Object.assign(RJ,{s,phase:'sync',k:0,n:-1,hostT:0,safe:0,rd:0,byT:new Map(),applied:new Set(),lastTk:0,syncAt:performance.now(),lastHx:0});
   /* build the match exactly as every other device did, without touching the title-screen battle */
   const kG=G,kR=R;
-  try{newGame({seed:m.seed,rivals:m.ai,difficulty:m.diff,humans:m.names.map(cleanName),map:m.map||'random'});G.spawnLeft=20;G.netId=m.id;G.replay=true;RJ.G=G;RJ.R=R;}
+  try{newGame({seed:m.seed,rivals:m.ai,difficulty:m.diff,humans:m.names.map(cleanName),map:m.map||'random',peace:m.peace});G.spawnLeft=20;G.netId=m.id;G.replay=true;RJ.G=G;RJ.R=R;}
   finally{G=kG;R=kR;}
   rjPublish();rjModal();rjRun();
 }
@@ -6790,6 +6993,7 @@ function refreshHome(){
           <div class="field"><span class="flabel">Difficulty</span><div class="seg">${['easy','normal','hard'].map(v=>`<button type="button" data-act="dif" data-v="${v}" aria-pressed="${v===NET.hostDiff}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}</div></div>
         </div>
         <div class="field"><span class="flabel">Map</span><select data-act="map" aria-label="Map">${'<option value="world">World · real countries</option><option value="canada">Canada · provinces and territories</option><option value="usa">United States · states</option><option value="australia">Australia · states and cities</option><option value="random">Random continents</option>'.replace(`value="${NET.hostMap}"`,`value="${NET.hostMap}" selected`)}</select></div>
+        <div class="field"><span class="flabel">Peace treaty at the start (minutes)</span><div class="seg">${PEACE_OPTS.map(v=>`<button type="button" data-act="peace" data-v="${v}" aria-pressed="${v===NET.hostPeace}">${v}</button>`).join('')}</div></div>
         <p class="hint">You are the host. Start whenever your commanders are seated; empty slots up to 15 nations can be filled with AI.</p>`:`<p class="hint">Waiting for ${esc(host?cleanName(host.presence.nm):'the host')} to start the match.</p>`}
       <div class="row">${isHost&&!hm?'<button type="button" class="btn" data-act="start">Start match</button>':''}<button type="button" class="btn ghost" data-act="leave">Leave server</button></div>
     </div>`;
@@ -6813,6 +7017,7 @@ function bindHome(){
       case 'aiUp':NET.hostAI++;refreshHome();break;
       case 'aiDown':NET.hostAI=Math.max(0,NET.hostAI-1);refreshHome();break;
       case 'dif':NET.hostDiff=b.dataset.v;refreshHome();break;
+      case 'peace':NET.hostPeace=+b.dataset.v;refreshHome();break;
     }
   });
   $('ctaOnline').onclick=()=>{if(!curProfile()){needProfile();return;}$('srvPanel').scrollIntoView({behavior:'smooth',block:'start'});};
@@ -6821,6 +7026,8 @@ function bindHome(){
   $('btnSolo').onclick=startSolo;
   const seg=(id,key)=>document.querySelectorAll(`#${id} button`).forEach(b=>b.onclick=()=>{homeOpts[key]=key==='rivals'?+b.dataset.v:b.dataset.v;document.querySelectorAll(`#${id} button`).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
   seg('fRiv','rivals');seg('fDif','difficulty');
+  try{const pv=+localStorage.getItem('ltdt-peace');if(PEACE_OPTS.includes(pv))homeOpts.peace=pv;}catch(e){}
+  document.querySelectorAll('#fPeace button').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.v===homeOpts.peace));b.onclick=()=>{homeOpts.peace=+b.dataset.v;try{localStorage.setItem('ltdt-peace',String(homeOpts.peace));}catch(e){}document.querySelectorAll('#fPeace button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));};});
   try{const mp=localStorage.getItem('ltdt-map');if(mp&&(MAPS[mp]||mp==='random'))homeOpts.map=mp;}catch(e){}
   $('fMap').value=homeOpts.map;$('fMap').onchange=()=>{homeOpts.map=$('fMap').value;try{localStorage.setItem('ltdt-map',homeOpts.map);}catch(e){}};
   let nmT=0;$('cmdName').addEventListener('input',()=>{clearTimeout(nmT);nmT=setTimeout(()=>{const nm=cleanName($('cmdName').value);if(ROOM)ROOM.presence({nm}).catch(()=>{});if(NET.r&&!NET.match)NET.r.presence({nm}).catch(()=>{});try{localStorage.setItem('ltdt-name',nm);}catch(e){}},400);});
@@ -6847,6 +7054,7 @@ function frame(now){
     while(G.fxQ.length){
       const e=G.fxQ.shift();
       /* sea battles: a shell flies from a warship's gun to its target; a ship going down blasts the water without shaking the screen */
+      if(e.shield){if(SHQ.length<60)SHQ.push({n:e.n,lay:e.lay,x:e.x,y:e.y,fx:e.fx,at:SHC+(e.dl<0?ICPT_FLY:e.dl/Math.max(1,speed))});continue;}
       if(e.icpt){if(fx.length<170)fx.push(Object.assign({},e,{kind:'icpt',t:0,seed:(Math.random()*1e6)|0}));continue;}
       if(e.shot){if(fx.length<160)fx.push({kind:'shot',x:e.x1,y:e.y1,x0:e.x0,y0:e.y0,hit:!!e.hit,t:0,seed:(Math.random()*1e6)|0});continue;}
       fx.push({kind:'blast',x:e.x,y:e.y,r:e.r,t:0,air:!!e.ic,sea:!!e.sea,wk:e.wk||0,nk:e.nk||0,o:e.o,hd:e.hd||0,seed:(Math.random()*1e6)|0});if(e.sea)continue;
@@ -6856,7 +7064,7 @@ function frame(now){
     if(follow){if(G.nukes.includes(follow)){const p=nukePos(follow,Math.min(1,follow.t/follow.dur));const fx_=V3.on?p.gx:p.x,fy_=V3.on?p.gy:p.y;cam.x+=(fx_-cam.x)*0.12;cam.y+=(fy_-cam.y)*0.12;}else follow=null;}
     if(shakeT>0)shakeT=Math.max(0,shakeT-rdt);
     if(flashT>0)flashT=Math.max(0,flashT-rdt);
-    if(G.dirty){paintMap();G.dirty=false;}
+    if(G.dirty){paintMap();G.dirty=false;SHO++;}
     updateWalkers(gdt);
     if(V3.on)render3D(gdt>0?rdt:0,rdt);else draw(gdt>0?rdt:0);
     if(ASMV.open)drawAsm();
