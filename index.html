@@ -1322,10 +1322,12 @@ const BLD={
   goldmine:{name:'Gold Mine',era:1,cost:{stone:300,money:1000000},desc:'Digs 100 gold bars every second. The first mine costs 1M, the next 2.5M, then 5M, 10M, 25M and so on'},
   gov:{name:'Government',era:1,cost:{stone:400,money:20000},desc:'Your seat of government, built in the style of the land it stands on: the White House in the United States, the European Parliament in Europe, a national parliament anywhere else. One per nation: +150 gold bars every second, +10 happiness, +15% taxes, and it shields your currency from 15% of war losses. Every 4 years the World Assembly meets in its courtroom'},
   irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Missile defence for 22 tiles around it: shoots down 3 in 4 enemy jets, helicopters and atom bombs, and half of hydrogen bombs. Costs 50 million'},
-  goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'A shield over your whole country: shoots down 19 in 20 enemy jets, helicopters and nuclear bombs aimed at any of your land. One per nation. Costs 500 million'}
+  goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'A shield over your whole country: shoots down every hydrogen bomb and 19 in 20 enemy jets and helicopters aimed at any of your land. A barrage of atom bombs can overwhelm it: 1 to 3 get through, then it seals against atom bombs for 5 minutes. One per nation. Costs 500 million'}
 };
 /* Iron Dome reach in tiles */
 const IRON_R=22;
+/* a Golden Dome lets 1 to 3 atom bombs through, then seals against them for this many seconds */
+const GOLD_SEAL=300;
 const BLD_KEYS=Object.keys(BLD);
 const WEAPONS={atom:{name:'Atom Bomb',cost:6000,radius:7},hydrogen:{name:'Hydrogen Bomb',cost:15000,radius:13}};
 const CARDS=[
@@ -2024,11 +2026,42 @@ function domeOdds(A,t,kind){
   }
   return 1-miss;
 }
-function shotDown(A,t,what,x,y){
+/* the defences that engage a strike from A on tile t: the target's Golden Dome, and the Iron Domes (its own and its allies') in range, nearest first */
+function domeGuards(A,t){
+  const T=G.owner[t],out={gold:null,irons:[]};if(T<0||T===A.id)return out;const tx=t%W,ty=(t/W)|0,ir=[];
+  for(const b of G.buildings){
+    if(b.dead||(b.type!=='irondome'&&b.type!=='goldendome'))continue;
+    const o=b.owner;if(o===A.id||isAllied(A.id,o))continue;
+    if(b.type==='goldendome'){if(o===T&&!out.gold)out.gold=b;continue;}
+    if(o!==T&&!isAllied(o,T))continue;
+    const dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty,d=dx*dx+dy*dy;if(d<=IRON_R*IRON_R)ir.push([d,b]);
+  }
+  ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);return out;
+}
+/* a bomb meets the defences: a Golden Dome stops every hydrogen bomb; atom bombs can saturate it, so 1 to 3 slip through before it seals
+   for 5 minutes; Iron Domes in range then get their own chance (3 in 4 atom bombs, half of hydrogen bombs). null when nothing defends */
+function nukeDefence(A,nk){
+  const g=domeGuards(A,nk.to);if(!g.gold&&!g.irons.length)return null;
+  let stop=false,by='',leak=-1;
+  if(g.gold){const b=g.gold;
+    if(nk.kind==='hydrogen'){stop=true;by='gold';}
+    else{if(b.leak==null||(b.leak<=0&&G.time>=(b.leakT||0)))b.leak=1+Math.floor(R()*3);
+      if(b.leak>0){b.leak--;leak=b.leak;if(b.leak<=0)b.leakT=G.time+GOLD_SEAL;}else{stop=true;by='gold';}}}
+  if(!stop&&g.irons.length){let miss=1;for(const b of g.irons)miss*=nk.kind==='hydrogen'?0.5:0.25;if(R()<1-miss){stop=true;by='iron';}}
+  return {stop,by,leak,g};
+}
+/* the interceptors that rise to meet a strike, for the screen: the Golden Dome fires from its site and from orbit, each Iron Dome battery in range fires two */
+function icptFx(g,o,by){
+  let first={gold:true,iron:true};
+  const add=(sys,bt,dl,k)=>{const fam=sys==='orbit'?'gold':sys,hit=by===fam,e=Object.assign({icpt:1,sys,bt,dl,k,hit,boom:hit&&first[fam]},o);if(hit)first[fam]=false;G.fxQ.push(e);};
+  if(g.gold){add('gold',g.gold.tile,0,0);add('orbit',-1,0.05,0);add('orbit',-1,0.12,1);}
+  g.irons.slice(0,3).forEach((b,i)=>{add('iron',b.tile,0.06*i,0);add('iron',b.tile,0.06*i+0.1,1);});
+}
+function shotDown(A,t,what,x,y,sys,noFx){
   const T=G.owner[t],D=T>=0?G.nations[T]:null;
-  G.fxQ.push({x,y,r:1.6,ic:1});
-  if(D&&D.human)log(D.id,`Your missile defence shot down ${A.name}'s ${what}.`,null,'good');
-  if(A.human)log(A.id,`${D?D.name+"'s":'Enemy'} missile defence shot down your ${what}.`,null,'bad');
+  if(!noFx)G.fxQ.push({x,y,r:1.6,ic:1});
+  if(D&&D.human)log(D.id,`Your ${sys||'missile defence'} shot down ${A.name}'s ${what}.`,null,'good');
+  if(A.human)log(A.id,`${D?D.name+"'s":'Enemy'} ${sys||'missile defence'} shot down your ${what}.`,null,'bad');
   if(D)mv(D,'sd',`shot down ${A.name}'s ${what}`,'good');
 }
 function jetStrike(A,t){
@@ -2069,7 +2102,8 @@ function processAir(dt){
     const a=G.air[k],A=G.nations[a.o];
     if(!A||!A.alive){G.air.splice(k,1);continue;}
     a.d+=AIR[a.kind].speed*dt;
-    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0&&R()<p){G.air.splice(k,1);const q=airPos(a,0.8);shotDown(A,a.to,a.kind==='jet'?'jet':'helicopter',q.x,q.y);continue;}}
+    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to);icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},st?(g.gold?'gold':'iron'):'');
+      if(st){G.air.splice(k,1);shotDown(A,a.to,a.kind==='jet'?'jet':'helicopter',q.x,q.y,g.gold?'Golden Dome':'Iron Dome',true);continue;}}}
     if(a.d<a.dist)continue;
     G.air.splice(k,1);
     if(a.kind==='jet')jetStrike(A,a.to);else heliLand(A,a);
@@ -2118,7 +2152,12 @@ function detonate(nk){
   G.dirty=true;G.fxQ.push({x:cx+0.5,y:cy+0.5,r});
 }
 function processNukes(dt){for(let k=G.nukes.length-1;k>=0;k--){const nk=G.nukes[k];nk.t+=dt;
-  if(!nk.ic&&nk.t>=nk.dur*0.8){nk.ic=1;const A=G.nations[nk.o],p=A?domeOdds(A,nk.to,nk.kind):0;if(p>0&&R()<p){G.nukes.splice(k,1);const a=nk.from,b=nk.to,f=0.8;shotDown(A,nk.to,WEAPONS[nk.kind].name,a%W+0.5+((b%W)-(a%W))*f,((a/W)|0)+0.5+(((b/W)|0)-((a/W)|0))*f);continue;}}
+  if(!nk.ic&&nk.t>=nk.dur*0.8){nk.ic=1;const A=G.nations[nk.o],d=A?nukeDefence(A,nk):null;
+    if(d){icptFx(d.g,{from:nk.from,to:nk.to,dur:nk.dur,f0:0.8,hy:nk.kind==='hydrogen'?1:0},d.by);
+      if(d.stop){G.nukes.splice(k,1);const a=nk.from,b=nk.to,f=0.8;shotDown(A,nk.to,WEAPONS[nk.kind].name,a%W+0.5+((b%W)-(a%W))*f,((a/W)|0)+0.5+(((b/W)|0)-((a/W)|0))*f,d.by==='gold'?'Golden Dome':'Iron Dome',true);continue;}
+      if(d.leak>=0){const T=G.owner[nk.to],D=T>=0?G.nations[T]:null;
+        if(D&&D.human)log(D.id,`${A.name}'s atom bomb overwhelmed your Golden Dome and got through. ${d.leak>0?`${d.leak} more can slip through before it seals.`:`It is now sealed against atom bombs for ${GOLD_SEAL/60} minutes.`}`,null,'bad');
+        if(A.human&&D)log(A.id,`Your atom bomb got through ${D.name}'s Golden Dome.`,null,'good');}}}
   if(nk.t>=nk.dur){G.nukes.splice(k,1);detonate(nk);}}}
 
 /* ---------- Economy ---------- */
@@ -3483,6 +3522,38 @@ function boom2D(x,y,s,f,seed){
   for(let j=0;j<3;j++){const ff=Math.max(0,f-0.15-j*0.08);if(ff<=0)continue;ctx.globalAlpha=0.55*(1-ff);ctx.fillStyle=j?'#3a3d42':'#24272b';ctx.beginPath();ctx.arc(x+(j-1)*s*1.2+ff*s*2,y-s*1.5-ff*s*(7+j*2),s*(1.2+ff*3.5),0,Math.PI*2);ctx.fill();}
   ctx.restore();
 }
+/* missile defence on the flat map. Iron Dome batteries fire pairs of interceptors that climb on white smoke trails; the Golden Dome fires
+   from its site and drops kinetic interceptors from orbit. On a kill the warhead bursts high in the sky (and the Golden Dome's shield
+   flares gold over the target); on a miss the interceptors burst wide and the bomb flies on */
+const ICPT_FLY=0.55,ICPT_D=2.1;
+function icptAt2D(e,f){if(e.from!=null){const p=nukePos({from:e.from,to:e.to},f);return {x:p.x,y:p.y};}return {x:e.ax,y:e.ay};}
+function drawIcpt2D(e,S,T,z){
+  const t=e.t-(e.dl||0);if(t<0)return;
+  const nuke=e.from!=null,fm=nuke?Math.min(0.98,e.f0+ICPT_FLY/Math.max(0.5,e.dur)):0.8,M=icptAt2D(e,fm),gold=e.sys!=='iron',miss=!e.hit;
+  const mx=S(M.x)+(miss?(e.k?-1:1)*Math.max(6,z*0.6):0),my=T(M.y)-(miss?Math.max(4,z*0.4):0);
+  if(Math.max(mx,0)>cw+300||mx<-300||my<-300||my>ch+300)return;
+  let bx,by,cx,cy;
+  if(e.sys==='orbit'){bx=mx+(e.k?1:-1)*Math.min(260,cw*0.25);by=my-Math.min(520,ch*0.7);cx=(bx+mx)/2;cy=(by+my)/2;}
+  else{bx=S(e.bt%W+0.5)+(e.k?3:-3);by=T(((e.bt/W)|0)+0.5);cx=bx+(mx-bx)*0.15;cy=Math.min(by,my)-Math.abs(by-my)*0.35-30;}
+  const at=u=>{const q=1-u;return [q*q*bx+2*q*u*cx+u*u*mx,q*q*by+2*q*u*cy+u*u*my];};
+  const trail=gold?'255,214,120':'236,242,250',u=Math.min(1,t/ICPT_FLY),ease=u*u*(1.6-0.6*u);
+  ctx.save();ctx.lineCap='round';
+  const fade=t<ICPT_FLY?1:Math.max(0,1-(t-ICPT_FLY)/1.2);
+  if(fade>0){ctx.lineWidth=Math.max(1.4,z*0.09);ctx.beginPath();const n=14;for(let j=0;j<=n;j++){const p=at(ease*j/n);if(j)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1]);}
+    ctx.strokeStyle=`rgba(${trail},${0.55*fade})`;ctx.stroke();}
+  if(t<ICPT_FLY){const p=at(ease);ctx.fillStyle=gold?'#fff1c4':'#ffffff';ctx.beginPath();ctx.arc(p[0],p[1],Math.max(1.8,z*0.12),0,Math.PI*2);ctx.fill();
+    if(t<0.12&&e.sys!=='orbit'){ctx.globalAlpha=1-t/0.12;ctx.fillStyle='#ffe2a0';ctx.beginPath();ctx.arc(bx,by,Math.max(3,z*0.3),0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+    if(e.boom&&nuke){const g=icptAt2D(e,e.f0+t/Math.max(0.5,e.dur)),gx=S(g.x),gy=T(g.y);ctx.fillStyle=e.hy?'#ff8a5e':'#ffb070';ctx.beginPath();ctx.arc(gx,gy,Math.max(2.4,z*0.16),0,Math.PI*2);ctx.fill();}
+  }else{const kk=Math.min(1,(t-ICPT_FLY)/(ICPT_D-ICPT_FLY));
+    if(e.boom){
+      if(gold){const tx=nuke?S(e.to%W+0.5):mx,ty=nuke?T(((e.to/W)|0)+0.5):my+40,R=Math.max(30,Math.hypot(mx-tx,my-ty));
+        ctx.globalAlpha=Math.max(0,0.75*(1-kk));ctx.strokeStyle='#ffd27a';ctx.lineWidth=Math.max(2,z*0.12)*(1-kk*0.6);ctx.beginPath();ctx.arc(tx,ty,R*(0.96+kk*0.08),Math.PI,0);ctx.stroke();
+        ctx.globalAlpha=Math.max(0,0.22*(1-kk));ctx.fillStyle='#f2c94c';ctx.beginPath();ctx.arc(tx,ty,R,Math.PI,0);ctx.closePath();ctx.fill();ctx.globalAlpha=1;}
+      boom2D(mx,my,Math.max(3,z*(e.hy?0.34:0.26)),kk,e.seed||0);
+    }else if(miss)boom2D(mx,my,Math.max(1.6,z*0.1),kk,e.seed||0);
+  }
+  ctx.restore();
+}
 /* a ship going down on the flat map: a big blast, then it lists, burns and fades under the waves, leaving an oil slick, bubbles and smoke */
 function drawWreck2D(e,sx,sy,z,f){
   const n=G.nations[e.o],len=Math.max(11,z*1.7),t=e.t,s=Math.max(2.4,z*0.17);
@@ -3709,9 +3780,10 @@ function draw(rdt){
     if(z>=2.2)outlined('RAIDER',sx,sy-len*0.45-8,`600 10px ${FN}`,TK.bad);
   }
   for(let k=fx.length-1;k>=0;k--){
-    const e=fx[k];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.wk?WRECK_T:2.6;
+    const e=fx[k];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.kind==='icpt'?ICPT_D+(e.dl||0):e.wk?WRECK_T:2.6;
     if(e.t>d){fx.splice(k,1);continue;}
     if(e.kind==='shot'){drawShot2D(e,S,T,z);continue;}
+    if(e.kind==='icpt'){drawIcpt2D(e,S,T,z);continue;}
     const f=e.t/d,sx=S(e.x),sy=T(e.y);
     if(e.wk){if(sx>-80&&sy>-80&&sx<cw+80&&sy<ch+80)drawWreck2D(e,sx,sy,z,f);continue;}
     if(e.kind==='ring'){ctx.globalAlpha=1-f;ctx.beginPath();ctx.arc(sx,sy,4+f*16,0,Math.PI*2);ctx.strokeStyle=TK.gold;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1;continue;}
@@ -3875,6 +3947,12 @@ function init3D(){
     for(let k=0;k<6;k++){const m=new THREE.Mesh(new THREE.SphereGeometry(1,24,14),new THREE.MeshBasicMaterial({color:0xffb070,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));m.visible=false;sc.add(m);V3.blasts.push(m);}
     /* sea battles: glowing shells, muzzle flashes and fires, white water spouts, and drifting gun smoke and battle smoke */
     V3.glow=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),640);
+    {const rm=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
+     rm.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vRim;varying float vBand;').replace('#include <project_vertex>',
+       '#include <project_vertex>\n{vec3 rn=normal;\n#ifdef USE_INSTANCING\nrn=mat3(instanceMatrix)*rn;\n#endif\nvec3 vn=normalize(normalMatrix*rn);vRim=1.0-abs(dot(vn,normalize(-mvPosition.xyz)));vBand=position.y;}');
+       sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vRim;varying float vBand;').replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+       'float rim=pow(clamp(vRim,0.0,1.0),2.6);float bd=0.55+0.45*pow(abs(sin(vBand*31.4)),6.0);gl_FragColor=vec4(outgoingLight*(0.06+0.94*rim)*bd,diffuseColor.a);');};
+     V3.ripple=inst(new THREE.SphereGeometry(1,48,16,0,Math.PI*2,0,Math.PI/2),rm,16);}
     V3.ring=inst(new THREE.RingGeometry(0.86,1,40).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}),64);
     V3.spout=inst(new THREE.CylinderGeometry(0.3,1,1,12,1,true).translate(0,0.5,0),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.75,depthWrite:false,side:THREE.DoubleSide}),96);
     V3.puff=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0.55,depthWrite:false,roughness:1,metalness:0}),720);
@@ -4397,10 +4475,11 @@ function fx3D(rdt){
     for(let j=0;j<5;j++){const a=hash(seed+j*7)*6.283,dd=(0.06+hash(seed*3+j)*0.16)*sz*(0.5+f),r=(0.12+f*0.36)*sz*(0.7+hash(seed+j*5)*0.6);glow(X+Math.cos(a)*dd,Y+0.08*sz+f*0.35*sz+hash(seed*11+j)*0.1*sz,Z+Math.sin(a)*dd,r,glowC(255,j%2?200:140,j%2?90:50,(1-f)*(j?0.8:1)));}
     for(let j=0;j<10;j++){const a=hash(seed*13+j)*6.283,v=(1.2+hash(seed*17+j)*1.8)*sz,up=(1+hash(seed*19+j)*1.6)*sz,tt=f*1.1,y=Y+up*tt-2.4*tt*tt*sz;if(y<0.03)continue;glow(X+Math.cos(a)*v*tt,y,Z+Math.sin(a)*v*tt,0.028*sz,glowC(255,215,140,1-f));}
     for(let j=0;j<3;j++){const ff=Math.max(0,f-0.12-j*0.07);if(ff>0)puff(X+(j-1)*0.08*sz+ff*0.15,Y+0.2*sz+ff*(0.9+j*0.25)*sz,Z,(0.1+ff*0.32)*sz,j?'#3d4046':'#26292d');}
-    if(RG&&c.r<62)put(RG,c.r++,X,0.12,Z,(0.15+f*1.2)*sz,1,(0.15+f*1.2)*sz,0,glowC(255,236,205,(1-f)*0.85));
+    if(RG&&c.r<62)put(RG,c.r++,X,Y>1?Y:0.12,Z,(0.15+f*1.2)*sz,1,(0.15+f*1.2)*sz,0,glowC(255,236,205,(1-f)*0.85));
   };
+  const RP=V3.ripple;let nrp=0;
   for(let j=fx.length-1;j>=0;j--){
-    const e=fx[j];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.wk?WRECK_T:2.6;
+    const e=fx[j];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.kind==='icpt'?ICPT_D+(e.dl||0):e.wk?WRECK_T:2.6;
     if(e.t>d){fx.splice(j,1);continue;}
     if(e.kind==='shot'&&GL){
       const X0=e.x0-W/2,Z0=e.y0-H/2,X1=e.x-W/2,Z1=e.y-H/2,t=e.t,dist=Math.hypot(X1-X0,Z1-Z0);
@@ -4413,6 +4492,25 @@ function fx3D(rdt){
         else{if(c.s<94)put(SP,c.s++,X1,0.02,Z1,0.06+f*0.1,Math.sin(Math.min(1,f*1.5)*Math.PI)*0.85+0.01,0.06+f*0.1,0,'#f2f9ff');puff(X1,0.05,Z1,(0.08+f*0.22)*(1-f*0.6),'#e8f2f8');}}
       continue;
     }
+    if(e.kind==='icpt'&&GL){const t=e.t-(e.dl||0);if(t>=0){
+      const nuke=e.from!=null,fm=nuke?Math.min(0.98,e.f0+ICPT_FLY/Math.max(0.5,e.dur)):0.8,gold=e.sys!=='iron',miss=!e.hit;
+      let M;if(nuke)M=nuke3({from:e.from,to:e.to},fm);else{const gh=Math.max(0.05,ghAt(e.ax,e.ay));M={x:e.ax-W/2,y:gh+(e.air===1?4.7:2.6),z:e.ay-H/2};}
+      if(miss){M={x:M.x+(e.k?-0.9:0.9),y:M.y+0.6,z:M.z+(e.k?0.5:-0.5)};}
+      let B,C;if(e.sys==='orbit'){B={x:M.x+(e.k?14:-14),y:M.y+60,z:M.z+(e.k?-9:9)};C={x:(B.x+M.x)/2,y:(B.y+M.y)/2,z:(B.z+M.z)/2};}
+      else{const bx=e.bt%W+0.5,by=((e.bt/W)|0)+0.5;B={x:bx-W/2+(e.k?0.15:-0.15),y:hAt(e.bt)+0.45,z:by-H/2};C={x:B.x+(M.x-B.x)*0.15,y:Math.max(B.y,M.y)+Math.hypot(M.x-B.x,M.z-B.z)*0.25,z:B.z+(M.z-B.z)*0.15};}
+      const at=u=>{const q=1-u;return [q*q*B.x+2*q*u*C.x+u*u*M.x,q*q*B.y+2*q*u*C.y+u*u*M.y,q*q*B.z+2*q*u*C.z+u*u*M.z];};
+      const u=Math.min(1,t/ICPT_FLY),ease=u*u*(1.6-0.6*u),fade=t<ICPT_FLY?1:Math.max(0,1-(t-ICPT_FLY)/1.4);
+      const len=Math.hypot(C.x-B.x,C.y-B.y,C.z-B.z)+Math.hypot(M.x-C.x,M.y-C.y,M.z-C.z),np=e.sys==='orbit'?12:Math.max(10,Math.min(26,Math.ceil(len*ease/0.55)));
+      if(fade>0)for(let j=e.sys==='orbit'?1:0;j<=np;j++){const p=at(ease*j/np);if(e.sys==='orbit')glow(p[0],p[1],p[2],0.07,glowC(255,214,120,fade*j/np));else puff(p[0],p[1],p[2],(0.11+(1-j/np)*0.14+(1-fade)*0.24),gold?'#f3e6c4':'#eef1f4');}
+      if(t<ICPT_FLY){const p=at(ease);glow(p[0],p[1],p[2],0.12,gold?'#ffe6a0':'#ffffff');
+        if(t<0.15&&e.sys!=='orbit')glow(B.x,B.y,B.z,0.4*(1-t/0.15),'#ffd27a');
+        if(e.boom&&nuke){const g=nuke3({from:e.from,to:e.to},Math.min(0.99,e.f0+t/Math.max(0.5,e.dur)));glow(g.x,g.y,g.z,0.3,e.hy?'#ff8a5e':'#ffb070');}}
+      else{const kk=Math.min(1,(t-ICPT_FLY)/(ICPT_D-ICPT_FLY));
+        if(e.boom){boom3(M.x,M.y,M.z,kk,e.seed||0,e.hy?3.2:2.4);
+          if(gold&&RP&&nrp<15){const tx=nuke?(e.to%W+0.5-W/2):M.x,tz=nuke?(((e.to/W)|0)+0.5-H/2):M.z,ty=nuke?hAt(e.to):M.y-3,R=Math.min(40,Math.max(4,Math.hypot(M.x-tx,M.y-ty,M.z-tz))),rs=R*(0.97+kk*0.06);
+            put(RP,nrp++,tx,ty,tz,rs,rs,rs,0,glowC(255,200,96,Math.pow(1-kk,1.5)*0.75));}}
+        else if(miss)boom3(M.x,M.y,M.z,kk,e.seed||0,0.7);}
+    }continue;}
     if(e.kind==='blast'&&e.wk&&GL){const f=e.t/d,X=e.x-W/2,Z=e.y-H/2,sy=0.02-1.2*Math.pow(f,1.3);
       if(e.t<1.2)boom3(X,0.3,Z,e.t/1.2,e.seed||0,1.8);
       if(f<0.7)for(let q=0;q<3;q++){const fl=0.6+0.4*Math.sin(lt*19+q*2.1+(e.seed||0)),ox=Math.cos(e.hd||0)*(q-1)*0.35,oz=Math.sin(e.hd||0)*(q-1)*0.35;glow(X+ox,Math.max(0.08,sy+0.32+q*0.04),Z+oz,0.16*fl*(1-f/0.7),'#ff8a3c');}
@@ -4426,7 +4524,7 @@ function fx3D(rdt){
   if(GL){for(const r of G.raids){if(!(r.hp<60)||r.sunk)continue;const p=pathPos(r.path,r.pos),X=p.x-W/2,Z=p.y-H/2,hp=r.hp/100,sd=(r.o*0.37)%1;
       for(let q=0;q<4;q++){const f=(lt*0.45+q/4+sd)%1;puff(X-f*0.35,0.42+f*1.3,Z+f*0.15,(0.08+f*0.3)*(f>0.85?(1-f)/0.15:1),hp<0.3?'#2e3136':'#8a9097');}
       if(hp<0.3){const fl=0.6+0.4*Math.sin(lt*18+r.o);glow(X,0.3,Z,0.13*fl,'#ff8a3c');}}
-    finish(GL,c.g);finish(SP,c.s);finish(PF,c.p);if(RG)finish(RG,c.r);}
+    finish(GL,c.g);finish(SP,c.s);finish(PF,c.p);if(RG)finish(RG,c.r);if(RP)finish(RP,nrp);}
 }
 function updateCam3D(){
   if(V3.walk){
@@ -6688,6 +6786,7 @@ function frame(now){
     while(G.fxQ.length){
       const e=G.fxQ.shift();
       /* sea battles: a shell flies from a warship's gun to its target; a ship going down blasts the water without shaking the screen */
+      if(e.icpt){if(fx.length<170)fx.push(Object.assign({},e,{kind:'icpt',t:0,seed:(Math.random()*1e6)|0}));continue;}
       if(e.shot){if(fx.length<160)fx.push({kind:'shot',x:e.x1,y:e.y1,x0:e.x0,y0:e.y0,hit:!!e.hit,t:0,seed:(Math.random()*1e6)|0});continue;}
       fx.push({kind:'blast',x:e.x,y:e.y,r:e.r,t:0,air:!!e.ic,sea:!!e.sea,wk:e.wk||0,o:e.o,hd:e.hd||0,seed:(Math.random()*1e6)|0});if(e.sea)continue;
       const sx=(e.x-cam.x)*cam.z+cw/2,sy=(e.y-cam.y)*cam.z+ch/2;
