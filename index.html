@@ -586,6 +586,11 @@ body.home #warBar{display:none}
 .wbtn[aria-pressed="true"]{border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad);color:#fff}
 .wbtn:disabled{opacity:.45;cursor:default}
 @media (max-width:760px){.wbtn{min-width:0;flex:1 1 0;padding:4px 2px;font-size:9.5px;letter-spacing:.02em}#warBar{flex-wrap:nowrap;width:100%;max-width:400px}}
+/* the war bar sits in the bottom row beside the Attack sliders, so it never covers the markets; on phones it has its own line above them */
+.dock-row>#warBar{flex:none;align-self:flex-end;flex-wrap:nowrap}
+@media (max-width:760px),(orientation:landscape) and (max-height:520px){.dock-row{flex-wrap:wrap}.dock-row>#warBar{order:-1;flex:1 1 100%;max-width:400px}}
+/* no zoom in / zoom out buttons: the mouse wheel, a trackpad or a pinch zooms the map */
+#zIn,#zOut{display:none!important}
 /* laptops and most monitors: the Panel and Markets buttons show just their icons, so the resources in the top bar keep their room */
 @media (min-width:761px) and (max-width:1799px){#panelBtn span,#mkBtn span{display:none}}
 /* fingers: no accidental page zoom from a pinch or double tap anywhere in the game (the map handles its own pinch) */
@@ -981,17 +986,17 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
         <div><b>Choose your capital.</b> <span id="spawnText">Tap open land away from rivals.</span></div>
         <button type="button" class="btn sm" id="spawnGo">Begin now</button>
       </div>
-      <div id="warBar" class="hudbox" role="toolbar" aria-label="War: bombs, aircraft and warships">
-        <button type="button" class="wbtn" data-w="atom" aria-pressed="false" title="Atom bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Atom</span><small></small></button>
-        <button type="button" class="wbtn" data-w="hydrogen" aria-pressed="false" title="Hydrogen bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Hydrogen</span><small></small></button>
-        <button type="button" class="wbtn" data-w="jet" aria-pressed="false" title="Jet strike: tap enemy land to bomb it"><canvas width="44" height="44"></canvas><span>Jet</span><small></small></button>
-        <button type="button" class="wbtn" data-w="heli" aria-pressed="false" title="Helicopters: tap land to fly your troops in"><canvas width="44" height="44"></canvas><span>Heli</span><small></small></button>
-        <button type="button" class="wbtn" data-w="raider" aria-pressed="false" title="Raider warship: hunts foreign trade ships"><canvas width="44" height="44"></canvas><span>Warship</span><small></small></button>
-      </div>
       <div class="dock-row">
         <div id="armyBar" class="hudbox">
           <div class="ab"><label for="atkR">Attack</label><b id="atkV">40%</b><input type="range" id="atkR" min="5" max="100" step="1" value="40"><small id="atkT">troops per order</small></div>
           <div class="ab"><label for="trpR">Army share</label><b id="trpV">45%</b><input type="range" id="trpR" min="10" max="90" step="1" value="45"><small id="trpT">rest work for gold</small></div>
+        </div>
+        <div id="warBar" class="hudbox" role="toolbar" aria-label="War: bombs, aircraft and warships">
+          <button type="button" class="wbtn" data-w="atom" aria-pressed="false" title="Atom bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Atom</span><small></small></button>
+          <button type="button" class="wbtn" data-w="hydrogen" aria-pressed="false" title="Hydrogen bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Hydrogen</span><small></small></button>
+          <button type="button" class="wbtn" data-w="jet" aria-pressed="false" title="Jet strike: tap enemy land to bomb it"><canvas width="44" height="44"></canvas><span>Jet</span><small></small></button>
+          <button type="button" class="wbtn" data-w="heli" aria-pressed="false" title="Helicopters: tap land to fly your troops in"><canvas width="44" height="44"></canvas><span>Heli</span><small></small></button>
+          <button type="button" class="wbtn" data-w="raider" aria-pressed="false" title="Raider warship: hunts foreign trade ships"><canvas width="44" height="44"></canvas><span>Warship</span><small></small></button>
         </div>
         <div class="zoom">
           <button type="button" id="zIn" class="zb" aria-label="Zoom in">+</button>
@@ -3737,12 +3742,15 @@ const SH_DR=7,SH_SHARD=1.8;
 let SHC=0,SHG=null,SHN=0,SHO=0;const SHD=new Map(),SHQ=[],SHARDS=[];
 function shH(L,d){return SHL[L.lay].H*Math.sqrt(Math.min(1,Math.max(0,d-1)/SH_DR));}
 function shDist(L,x,y){const tx=Math.floor(x)-L.x0,ty=Math.floor(y)-L.y0;if(tx<0||ty<0||tx>=L.bw||ty>=L.bh)return 1;const i=ty*L.bw+tx;return L.own[i]?L.dist[i]:1;}
-function shieldDrop(L){if(L.mesh&&V3.scene){V3.scene.remove(L.mesh);L.mesh.material.dispose();}L.mesh=null;}
+function shieldDrop(L){for(const M of L.meshes||[])if(V3.scene){V3.scene.remove(M);M.material.dispose();}L.meshes=[];L.mesh=null;}
+/* the bubble over the landmass a point belongs to (the nearest bubble, measured across each one) */
+function domeFor(L,x,y){const ds=L.domes;if(!ds||ds.length<2)return L.dome;let best=ds[0],bd=1e9;
+  for(const D of ds){const dx=x-D.cx,dz=y-D.cz,u=(dx*D.c+dz*D.s)/D.rx,v=(-dx*D.s+dz*D.c)/D.rz,d=u*u+v*v;if(d<bd){bd=d;best=D;}}return best;}
 /* a point of the map (tile coordinates) in the dome's own frame: x and z across the dome (1 at its rim), y its height there (0 outside) */
-function domeO(L,x,y){const D=L.dome,k=L.lay==='iron'?0.9:1,dx=x-D.cx,dz=y-D.cz,u=(dx*D.c+dz*D.s)/(D.rx*k),v=(-dx*D.s+dz*D.c)/(D.rz*k);return [u,Math.sqrt(Math.max(0,1-u*u-v*v)),v];}
-function domeY(L,x,y){return 0.08+domeO(L,x,y)[1]*L.dome.ry*(L.lay==='iron'?0.9:1);}
+function domeO(L,x,y,D0){const D=D0||domeFor(L,x,y),k=L.lay==='iron'?0.9:1,dx=x-D.cx,dz=y-D.cz,u=(dx*D.c+dz*D.s)/(D.rx*k),v=(-dx*D.s+dz*D.c)/(D.rz*k);return [u,Math.sqrt(Math.max(0,1-u*u-v*v)),v];}
+function domeY(L,x,y){const D=domeFor(L,x,y);return 0.08+domeO(L,x,y,D)[1]*D.ry*(L.lay==='iron'?0.9:1);}
 /* where a strike meets the dome (on its rim when the target lies outside it) */
-function shO(L,x,y){const o=domeO(L,x,y);if(o[1]<=0){const m=Math.hypot(o[0],o[2])||1;o[0]/=m;o[2]/=m;}return o;}
+function shO(L,x,y,D){const o=domeO(L,x,y,D);if(o[1]<=0){const m=Math.hypot(o[0],o[2])||1;o[0]/=m;o[2]/=m;}return o;}
 function shieldsTick(rdt){
   if(SHG!==G){for(const L of SHD.values())shieldDrop(L);SHD.clear();SHQ.length=0;SHARDS.length=0;SHG=G;SHN=0;}
   if(!G)return;
@@ -3777,11 +3785,25 @@ function shieldBase(L){
   for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){const i=y*bw+x;if(own[i])dist[i]=Math.min(dist[i],D(x-1,y)+1,D(x,y-1)+1,D(x-1,y-1)+1.414,D(x+1,y-1)+1.414);}
   for(let y=bh-1;y>=0;y--)for(let x=bw-1;x>=0;x--){const i=y*bw+x;if(own[i])dist[i]=Math.min(dist[i],D(x+1,y)+1,D(x,y+1)+1,D(x+1,y+1)+1.414,D(x-1,y+1)+1.414);}
   Object.assign(L,{x0,y0,bw,bh,own,dist,cells});
-  /* the 3D dome: an ellipse fitted round the country's land along its long and short axes */
-  let sx=0,sy=0;for(let y=0;y<bh;y++)for(let x=0;x<bw;x++)if(own[y*bw+x]){sx+=x;sy+=y;}
-  const mx=sx/cells,my=sy/cells;let ca=0,cb=0,cc=0;for(let y=0;y<bh;y++)for(let x=0;x<bw;x++)if(own[y*bw+x]){const dx=x-mx,dy=y-my;ca+=dx*dx;cb+=dx*dy;cc+=dy*dy;}ca/=cells;cb/=cells;cc/=cells;
-  const tr=ca+cc,dq=Math.sqrt(Math.max(0,tr*tr/4-(ca*cc-cb*cb))),th=0.5*Math.atan2(2*cb,ca-cc),rx=2.1*Math.sqrt(tr/2+dq)+1.5,rz=2.1*Math.sqrt(Math.max(0,tr/2-dq))+1.5;
-  L.dome={cx:x0+mx+0.5,cz:y0+my+0.5,rx,rz,ry:clamp(0.6*Math.sqrt(rx*rz),3,20),th,c:Math.cos(th),s:Math.sin(th)};
+  /* the 3D shield: one bubble over each landmass, so an island (or land cut off from the rest) has its own bubble instead of one
+     stretched over the sea; land a single tile of water apart counts as one. Each bubble is an ellipse fitted round its land along
+     its long and short axes; the whole country is still protected by the same shield */
+  const lab=new Int32Array(bw*bh).fill(-1),comps=[];
+  for(let i0=0;i0<bw*bh;i0++){if(!own[i0]||lab[i0]>=0)continue;const C={k:comps.length,cells:0,sx:0,sy:0,tiles:[]},q=[i0];lab[i0]=C.k;
+    while(q.length){const i=q.pop(),x=i%bw,y=(i/bw)|0;C.cells++;C.sx+=x;C.sy+=y;C.tiles.push(i);
+      for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=bw||yy>=bh)continue;const j=yy*bw+xx;if(own[j]&&lab[j]<0){lab[j]=C.k;q.push(j);}}}
+    comps.push(C);}
+  comps.sort((a,b)=>b.cells-a.cells);
+  const domes=[];
+  for(const C of comps.slice(0,24)){
+    const mx=C.sx/C.cells,my=C.sy/C.cells;let ca=0,cb=0,cc=0;for(const i of C.tiles){const dx=i%bw-mx,dy=((i/bw)|0)-my;ca+=dx*dx;cb+=dx*dy;cc+=dy*dy;}ca/=C.cells;cb/=C.cells;cc/=C.cells;
+    const tr=ca+cc,dq=Math.sqrt(Math.max(0,tr*tr/4-(ca*cc-cb*cb))),th=0.5*Math.atan2(2*cb,ca-cc),rx=2.1*Math.sqrt(tr/2+dq)+1.5,rz=2.1*Math.sqrt(Math.max(0,tr/2-dq))+1.5,gm=Math.sqrt(rx*rz);
+    domes.push({cx:x0+mx+0.5,cz:y0+my+0.5,rx,rz,ry:clamp(0.6*gm,domes.length?Math.min(3,0.75*gm):3,20),th,c:Math.cos(th),s:Math.sin(th),k:C.k,cells:C.cells,gens:[]});}
+  /* the domes standing on each landmass (an island with none of its own recharges from its middle) */
+  const byK=new Map(domes.map(D=>[D.k,D])),gl=new Map();
+  for(const t of L.gens){const tx=t%W-x0,ty=((t/W)|0)-y0;if(tx<0||ty<0||tx>=bw||ty>=bh)continue;const D=byK.get(lab[ty*bw+tx]);if(D){let a=gl.get(D);if(!a)gl.set(D,a=[]);a.push(t);}}
+  for(const [D,a] of gl){const st=Math.max(1,a.length/12);for(let k=0;k<a.length&&D.gens.length<12;k+=st)D.gens.push(a[Math.floor(k)]);}
+  L.domes=domes;L.dome=domes[0];
   const g=L.gens,st=Math.max(1,g.length/12),g12=[];for(let k=0;k<g.length&&g12.length<12;k+=st)g12.push(g[Math.floor(k)]);L.g12=g12;
   let mr=1;for(let y=0;y<bh;y+=2)for(let x=0;x<bw;x+=2){if(!own[y*bw+x])continue;let md=1e9;for(const t of g12){const dx=t%W+0.5-(x0+x+0.5),dy=((t/W)|0)-(y0+y);md=Math.min(md,dx*dx+dy*dy);}if(md>mr)mr=md;}
   L.maxR=Math.sqrt(mr)+2;
@@ -4007,6 +4029,50 @@ function drawWaves2D(ox,oy,z,nowS){
   w.globalCompositeOperation='destination-in';w.drawImage(waveMask,ox,oy,W*z,H*z);w.globalCompositeOperation='source-over';
   ctx.save();ctx.globalAlpha=clamp((z-1.6)/4,0.3,0.8);ctx.imageSmoothingEnabled=true;ctx.drawImage(waveCv,0,0,cw,ch);ctx.restore();
 }
+/* the free part of the map: the panels and buttons over it (markets, sliders, war bar, map buttons, messages) and the box left in the
+   middle once the bars along the bottom and the button column on the right are taken away */
+let HUDS={t:-1e9};
+function hudSafe(){
+  const now=performance.now();if(now-HUDS.t<300&&HUDS.cw===cw&&HUDS.ch===ch)return HUDS;
+  const cr=cvs.getBoundingClientRect(),R=[];let x1=cw,y1=ch;
+  const rect=el=>{if(!el||el.hidden||el.offsetParent===null)return null;const r=el.getBoundingClientRect();if(r.width<4||r.height<4)return null;
+    const a=[r.left-cr.left,r.top-cr.top,r.right-cr.left,r.bottom-cr.top];return a[2]<0||a[3]<0||a[0]>cw||a[1]>ch?null:a;};
+  for(const id of ['armyBar','warBar','walkPad','modeChip','asmChip','spawnBanner']){const a=rect($(id));if(a){R.push(a);if(a[1]>ch*0.4)y1=Math.min(y1,a[1]);}}
+  document.querySelectorAll('#dock .zb').forEach(el=>{const a=rect(el);if(a){R.push(a);if(a[0]>cw*0.6)x1=Math.min(x1,a[0]);}});
+  for(const el of [$('econ'),document.querySelector('.compass'),document.querySelector('#dock .zoom.open .ztray'),...document.querySelectorAll('#toasts .toast')]){const a=rect(el);if(a)R.push(a);}
+  const m=28;let box=[m,m,x1-m,y1-m];if(box[2]-box[0]<120||box[3]-box[1]<100)box=[m,m,cw-m,ch-m];
+  HUDS={t:now,cw,ch,R,box};return HUDS;
+}
+/* where to show a missile you cannot see (off the map, or under a panel or button): on the line from the middle of the free map
+   toward it, as far out as it can go without covering a button or panel; null when the missile is in plain view */
+function trackPt(mx,my){
+  const U=hudSafe(),m=28,pad=24,free=(x,y)=>{for(const a of U.R)if(x>a[0]-pad&&x<a[2]+pad&&y>a[1]-pad&&y<a[3]+pad)return false;return true;};
+  if(mx>=m&&my>=m&&mx<=cw-m&&my<=ch-m&&free(mx,my))return null;
+  const cx=(U.box[0]+U.box[2])/2,cy=(U.box[1]+U.box[3])/2,dx=mx-cx,dy=my-cy;let t=1;
+  if(dx>0)t=Math.min(t,(cw-m-cx)/dx);else if(dx<0)t=Math.min(t,(m-cx)/dx);
+  if(dy>0)t=Math.min(t,(ch-m-cy)/dy);else if(dy<0)t=Math.min(t,(m-cy)/dy);
+  t=Math.max(0,t);for(let k=0;k<70;k++){const x=cx+dx*t,y=cy+dy*t;if(free(x,y))return [x,y];t*=0.95;}
+  return [cx+dx*t,cy+dy*t];
+}
+/* Track missile: keep the missile itself in the middle of the free map, clear of the panels and buttons; in 3D that is the missile up
+   in the sky, not the ground under it, so a high arc no longer runs off the top of the screen */
+function trackNuke(nk,rdt){
+  if(V3.walk)return;
+  /* the same smooth catch-up at any frame rate (about what 0.12 a frame gives at 60 frames a second) */
+  const dt=Math.min(0.25,rdt||1/60),f=Math.min(1,nk.t/nk.dur),U=hudSafe(),sx=(U.box[0]+U.box[2])/2,sy=(U.box[1]+U.box[3])/2,p=nukePos(nk,f),k=1-Math.exp(-dt*7.7);
+  if(!V3.on){const z=cam.z,tx=p.x-(sx-cw/2)/z,ty=p.y-(sy-ch/2)/z;cam.x+=(tx-cam.x)*k;cam.y+=(ty-cam.y)*k;return;}
+  /* 3D: the ground under the missile sits low in the free box, and the view zooms out just enough to keep the missile itself (which can
+     climb very high on a long flight) below the top of the box, then back in toward your zoom as it comes down */
+  if(follow.z0==null)follow.z0=cam.z;
+  const gh=V3.heights?hAt(Math.round(clamp(p.gy,0,H-1))*W+Math.round(clamp(p.gx,0,W-1))):0,gx=p.gx-W/2,gz=p.gy-H/2;
+  const pg=proj(gx,gh,gz),px=pg&&proj(gx+1,gh,gz),pz=pg&&proj(gx,gh,gz+1),ty=U.box[1]+(U.box[3]-U.box[1])*0.72;
+  if(pg&&px&&pz){const a=px.x-pg.x,b=pz.x-pg.x,c=px.y-pg.y,d=pz.y-pg.y,det=a*d-b*c;
+    if(Math.abs(det)>1e-6){const ex=pg.x-sx,ey=pg.y-ty;cam.x+=(d*ex-b*ey)/det*k;cam.y+=(-c*ex+a*ey)/det*k;}}
+  else{cam.x+=(p.gx-cam.x)*k;cam.y+=(p.gy-cam.y)*k;}
+  const q=nuke3(nk,f),pm=proj(q.x,q.y,q.z),zMin=fitZ()*0.7,top=U.box[1]+12;
+  if(!pm||pm.y<top||pm.x<U.box[0]||pm.x>U.box[2])cam.z=Math.max(zMin,cam.z*Math.exp(-dt*3));
+  else if(pm.y>top+(U.box[3]-U.box[1])*0.3&&cam.z<follow.z0)cam.z=Math.min(follow.z0,cam.z*Math.exp(dt*1.2));
+}
 function drawNukes(S,T,z,nowS){
   for(const nk of G.nukes){
     if(nk.t<0)continue;const lead=!(nk.bg>0);
@@ -4022,9 +4088,9 @@ function drawNukes(S,T,z,nowS){
     const mx=S(p.x),my=T(p.y),g=ctx.createRadialGradient(mx,my,0,mx,my,18);
     g.addColorStop(0,'rgba(255,248,226,1)');g.addColorStop(0.28,'rgba(255,150,80,.9)');g.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(mx,my,18,0,Math.PI*2);ctx.fill();
-    const m=28;
-    if(lead&&(mx<m||my<m||mx>cw-m||my>ch-m)){
-      const cx=clamp(mx,m,cw-m),cy=clamp(my,m,ch-m),ang=Math.atan2(my-cy,mx-cx);
+    const tp=lead?trackPt(mx,my):null;
+    if(tp){
+      const cx=tp[0],cy=tp[1],ang=Math.atan2(my-cy,mx-cx);
       ctx.save();ctx.translate(cx,cy);ctx.fillStyle=TK.ink;ctx.strokeStyle=TK.bad;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.rotate(ang);ctx.fillStyle=TK.bad;ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(14,-6);ctx.lineTo(14,6);ctx.closePath();ctx.fill();ctx.restore();
       outlined(Math.ceil(left)+'s',cx,cy,`600 11px ${FN}`,TK.bad);
@@ -4983,27 +5049,38 @@ void main(){
 }`;
 function shieldMesh3D(L){
   if(!V3.shGeo)V3.shGeo=new THREE.SphereGeometry(1,72,24,0,Math.PI*2,0,Math.PI/2);
-  if(!L.mesh){const c=SHL[L.lay].col;
-    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,vertexShader:SH_VS,fragmentShader:SH_FS,
-      uniforms:{uCol:{value:new THREE.Vector3(c[0]/255,c[1]/255,c[2]/255)},uTime:{value:0},uStr:{value:1},uSeed:{value:L.id*1.37+(L.lay==='gold'?0.5:0)},uShT:{value:-1},uDown:{value:1},uRec:{value:4},uMaxR:{value:1},uNG:{value:0},
-        uA:{value:L.lay==='gold'?0.62:0.5},uImp:{value:new THREE.Vector3()},uGen:{value:Array.from({length:12},()=>new THREE.Vector3())},uHit:{value:Array.from({length:4},()=>new THREE.Vector4(0,0,0,-1))}}});
-    L.mesh=new THREE.Mesh(V3.shGeo,m);L.mesh.renderOrder=3;V3.scene.add(L.mesh);}
-  const D=L.dome,k=L.lay==='iron'?0.9:1;L.mesh.position.set(D.cx-W/2,0.08,D.cz-H/2);L.mesh.rotation.set(0,-D.th,0);L.mesh.scale.set(D.rx*k,D.ry*k,D.rz*k);
-  /* how far across the dome the recharge must spread from the nearest dome */
-  let mr=0.2;const go=L.g12.map(g=>domeO(L,g%W+0.5,((g/W)|0)+0.5));
-  for(let i=-10;i<=10;i++)for(let j=-10;j<=10;j++){const u=i/10,v=j/10;if(u*u+v*v>1)continue;let md=9;for(const o of go)md=Math.min(md,Math.hypot(u-o[0],v-o[2]));if(md>mr)mr=md;}
-  L.maxRo=mr;L.gO=go;L.mesh.visible=true;
+  L.meshes=L.meshes||[];
+  while(L.meshes.length>L.domes.length){const M=L.meshes.pop();V3.scene.remove(M);M.material.dispose();}
+  const c=SHL[L.lay].col,k=L.lay==='iron'?0.9:1;
+  L.domes.forEach((D,i)=>{
+    let M=L.meshes[i];
+    if(!M){const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,vertexShader:SH_VS,fragmentShader:SH_FS,
+        uniforms:{uCol:{value:new THREE.Vector3(c[0]/255,c[1]/255,c[2]/255)},uTime:{value:0},uStr:{value:1},uSeed:{value:L.id*1.37+(L.lay==='gold'?0.5:0)+i*0.71},uShT:{value:-1},uDown:{value:1},uRec:{value:4},uMaxR:{value:1},uNG:{value:0},
+          uA:{value:L.lay==='gold'?0.62:0.5},uImp:{value:new THREE.Vector3()},uGen:{value:Array.from({length:12},()=>new THREE.Vector3())},uHit:{value:Array.from({length:4},()=>new THREE.Vector4(0,0,0,-1))}}});
+      M=new THREE.Mesh(V3.shGeo,m);M.renderOrder=3;V3.scene.add(M);L.meshes[i]=M;}
+    M.position.set(D.cx-W/2,0.08,D.cz-H/2);M.rotation.set(0,-D.th,0);M.scale.set(D.rx*k,D.ry*k,D.rz*k);
+    /* how far across the bubble the recharge must spread from the nearest dome */
+    let go=D.gens.map(g=>domeO(L,g%W+0.5,((g/W)|0)+0.5,D));if(!go.length)go=[[0,1,0]];
+    let mr=0.2;for(let a=-10;a<=10;a++)for(let b=-10;b<=10;b++){const u=a/10,v=b/10;if(u*u+v*v>1)continue;let md=9;for(const o of go)md=Math.min(md,Math.hypot(u-o[0],v-o[2]));if(md>mr)mr=md;}
+    D.maxRo=mr;D.gO=go;D.mesh=M;M.visible=true;});
+  L.mesh=L.meshes[0]||null;
 }
 function shields3D(){
   if(!V3.scene||!V3.heights)return;
   for(const L of SHD.values()){
-    if(!L.own||!L.dome){if(L.mesh)L.mesh.visible=false;continue;}
-    if(L.dirty3||!L.mesh){shieldMesh3D(L);L.dirty3=false;}
-    const u=L.mesh.material.uniforms,cfg=SHL[L.lay];
-    u.uTime.value=SHC;u.uStr.value=L.s;u.uDown.value=cfg.down;u.uRec.value=cfg.rec;u.uMaxR.value=L.maxRo;u.uNG.value=L.gO.length;
-    L.gO.forEach((o,i)=>u.uGen.value[i].set(o[0],0,o[2]));
-    if(L.sh&&SHC>=L.sh.t0){u.uShT.value=SHC-L.sh.t0;const o=shO(L,L.sh.x,L.sh.y);u.uImp.value.set(o[0],o[1],o[2]);}else u.uShT.value=-1;
-    for(let i=0;i<4;i++){const h=L.hits[L.hits.length-1-i],v=u.uHit.value[i];v.w=-1;if(h){const t=SHC-h.t0;if(t>=0&&t<1.3){const o=shO(L,h.x,h.y);v.set(o[0],o[1],o[2],t);}}}
+    if(!L.own||!L.domes||!L.domes.length){for(const M of L.meshes||[])M.visible=false;continue;}
+    if(L.dirty3||!L.meshes||L.meshes.length!==L.domes.length){shieldMesh3D(L);L.dirty3=false;}
+    const cfg=SHL[L.lay],shT=L.sh&&SHC>=L.sh.t0?SHC-L.sh.t0:-1,hd=L.hits.map(h=>domeFor(L,h.x,h.y));
+    for(const D of L.domes){
+      const u=D.mesh.material.uniforms;
+      u.uTime.value=SHC;u.uStr.value=L.s;u.uDown.value=cfg.down;u.uRec.value=cfg.rec;u.uMaxR.value=D.maxRo;u.uNG.value=D.gO.length;
+      D.gO.forEach((o,i)=>u.uGen.value[i].set(o[0],0,o[2]));
+      /* a shattered shield breaks on every bubble at once, each cracking from the side facing the hit */
+      if(shT>=0){u.uShT.value=shT;const o=shO(L,L.sh.x,L.sh.y,D);u.uImp.value.set(o[0],o[1],o[2]);}else u.uShT.value=-1;
+      /* a strike ripples across the bubble it landed on */
+      for(let i=0;i<4;i++)u.uHit.value[i].w=-1;
+      let n=0;for(let i=L.hits.length-1;i>=0&&n<4;i--){if(hd[i]!==D)continue;const h=L.hits[i],t=SHC-h.t0;if(t>=0&&t<1.3){const o=shO(L,h.x,h.y,D);u.uHit.value[n++].set(o[0],o[1],o[2],t);}}
+    }
   }
   const SP=V3.shard;if(!SP)return;let ns=0;
   for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0||t>SH_SHARD||ns>=520)continue;const f=t/SH_SHARD,c=SHL[p.lay].col,x=p.x+p.vx*t,y=p.y+p.vy*t,h=Math.max(0.05,p.h+p.vh*t-4.5*t*t),sz=p.s*(1-f*0.3);
@@ -5232,9 +5309,9 @@ function overlay3D(nowS){
     if(nk.t<0||nk.bg>0)continue;
     const f=Math.min(1,nk.t/nk.dur),q=nuke3(nk,f),left=Math.max(0,nk.dur-nk.t),b=tileXY(nk.to);
     const pt=proj(b.x+0.5-W/2,hAt(nk.to)+0.2,b.y+0.5-H/2);if(pt)outlined(`IMPACT ${left.toFixed(1)}s`,pt.x,pt.y-24,`600 12px ${FN}`,TK.bad);
-    const pm=proj(q.x,q.y,q.z),m=28;
-    if(!pm||pm.x<m||pm.y<m||pm.x>cw-m||pm.y>ch-m){
-      const mx=pm?pm.x:cw/2,my=pm?pm.y:-100,cx=clamp(mx,m,cw-m),cy=clamp(my,m,ch-m),ang=Math.atan2(my-cy,mx-cx);
+    const pm=proj(q.x,q.y,q.z),mx=pm?pm.x:cw/2,my=pm?pm.y:-100,tp=trackPt(mx,my);
+    if(tp){
+      const cx=tp[0],cy=tp[1],ang=Math.atan2(my-cy,mx-cx);
       ctx.save();ctx.translate(cx,cy);ctx.fillStyle=TK.ink;ctx.strokeStyle=TK.bad;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.rotate(ang);ctx.fillStyle=TK.bad;ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(14,-6);ctx.lineTo(14,6);ctx.closePath();ctx.fill();ctx.restore();
       outlined(Math.ceil(left)+'s',cx,cy,`600 11px ${FN}`,TK.bad);
@@ -7632,7 +7709,7 @@ function frame(now){
       const sx=(e.x-cam.x)*cam.z+cw/2,sy=(e.y-cam.y)*cam.z+ch/2;
       if(!G.demo&&sx>-80&&sy>-80&&sx<cw+80&&sy<ch+80){shakeT=0.7;flashT=0.24;}
     }
-    if(follow){if(G.nukes.includes(follow)){const p=nukePos(follow,Math.min(1,follow.t/follow.dur));const fx_=V3.on?p.gx:p.x,fy_=V3.on?p.gy:p.y;cam.x+=(fx_-cam.x)*0.12;cam.y+=(fy_-cam.y)*0.12;}else follow=null;}
+    if(follow){if(G.nukes.includes(follow))trackNuke(follow,rdt);else follow=null;}
     if(shakeT>0)shakeT=Math.max(0,shakeT-rdt);
     if(flashT>0)flashT=Math.max(0,flashT-rdt);
     if(G.dirty){paintMap();G.dirty=false;SHO++;}
