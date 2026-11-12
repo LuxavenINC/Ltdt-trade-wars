@@ -865,6 +865,14 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
 /* accounts, rejoin codes */
 .acc-bar{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--chrome)}
 .acc-bar span{flex:1 1 260px;min-width:0}
+.acc-chk{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--chrome);cursor:pointer;line-height:1.4}
+.acc-chk input{width:16px;height:16px;margin:1px 0 0;flex:none;accent-color:var(--gold)}
+.prof-form .acc-chk{grid-column:1/-1}
+.mem-list{max-height:460px;overflow:auto}
+.mem-list li{align-items:flex-start;padding:8px 0;border-top:1px solid var(--rule)}
+.mem-list a{color:var(--gold-hi);word-break:break-all}
+.mem-list .mem-tags{flex:1 1 240px;font-size:12.5px;color:var(--muted)}
+.mem-list .ok{color:var(--good);font-weight:600}
 .acc-info{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px 18px}
 .acc-sec{display:flex;flex-direction:column;gap:4px;min-width:0}
 .acc-sec>b{font-weight:600;font-size:14px}
@@ -6478,7 +6486,7 @@ function withTO(p,ms){return Promise.race([p,new Promise((_,no)=>setTimeout(()=>
 async function accDb(){
   if(!accCloud())return null;if(ACC.db)return ACC.db;
   await fbLoad();const fb=window.firebase;if(!fb||!fb.database)throw new Error('offline');
-  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp({databaseURL:FB_URL});ACC.db=app.database();return ACC.db;
+  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp(FB_CFG);ACC.db=app.database();return ACC.db;
 }
 /* Where accounts live online. The game's database may only allow the places online play already writes to,
    so if the accounts section is refused, accounts go next to the online rooms, stored the same way the rooms
@@ -6561,6 +6569,8 @@ async function accSignIn(key,rec){
   renderProfile();refreshHome();
 }
 function accSignOut(){
+  if(ACC.cur&&ACC.cur.fb&&window.firebase&&window.firebase.auth)try{window.firebase.auth().signOut().catch(()=>{});}catch(e){}
+  ACC.fbU=null;ACC.creator=false;ACC.mem=null;
   const key=ACC.cur&&ACC.cur.key;ACC.cur=null;ACC.view=null;try{localStorage.removeItem('ltdt-acct');}catch(e){}
   PROF.list=PROF.list.filter(x=>x.acct!==key);const g=PROF.list[0]||null;PROF.cur=g?g.id:null;saveProfiles();if(g)useProfile(g);
   renderProfile();refreshHome();toast('Logged out. Your account keeps your profile, saved war and servers.','info');
@@ -6568,7 +6578,7 @@ function accSignOut(){
 /* keep the account in step with the profile (stats, server history) */
 function accSync(){
   const p=curProfile();if(!ACC.cur||!p||p.acct!==ACC.cur.key)return;
-  clearTimeout(ACC.syncT);ACC.syncT=setTimeout(()=>{accPatch(ACC.cur.key,{p:{cmd:p.cmd,emp:p.emp,motto:p.motto||'',col:p.col,played:p.played||0,wins:p.wins||0,best:p.best||0},hs:(p.hs||[]).slice(0,8)}).catch(()=>{});},1200);
+  clearTimeout(ACC.syncT);ACC.syncT=setTimeout(()=>{accPatch(ACC.cur.key,{p:{cmd:p.cmd,emp:p.emp,motto:p.motto||'',col:p.col,played:p.played||0,wins:p.wins||0,best:p.best||0},hs:(p.hs||[]).slice(0,8)}).catch(()=>{});if(ACC.cur&&ACC.cur.fb)memberTouch();},1200);
 }
 function accSaveSoon(){if(!ACC.cur||!accCloud())return;clearTimeout(ACC.upT);ACC.upT=setTimeout(accUploadSave,1500);}
 async function accUploadSave(){
@@ -6589,25 +6599,31 @@ function accInfoHTML(p){
   return `<div class="acc-info"><div class="acc-sec"><span class="flabel">Saved war${ACC.cur&&accCloud()?' · online':''}</span><b>${sv}</b></div><div class="acc-sec"><span class="flabel">Servers played</span>${rows?`<ul class="acc-hs">${rows}</ul>`:'<b>None yet</b>'}</div></div>`;
 }
 function accBarHTML(){
-  if(ACC.cur)return `<div class="acc-bar"><span>Signed in as <b>${esc(ACC.cur.u)}</b> · ${accCloud()?'profile, saved war and servers kept online':'kept on this device (inside Claude accounts stay on the device; on the website they work on every device)'}</span><button type="button" class="btn sm ghost" data-acc="logout">Log out</button></div>`;
-  return `<div class="acc-bar"><span>${accCloud()?'Log in to keep your profile, saved war and servers on every device.':'Make an account to keep your profile, saved war and servers under a username.'}</span><button type="button" class="btn sm" data-acc="login">Log in</button><button type="button" class="btn sm ghost" data-acc="create">Create account</button></div>`;
+  const fbx=accCloud();
+  if(ACC.cur)return `<div class="acc-bar"><span>Signed in as <b>${esc(ACC.cur.u)}</b>${fbx&&ACC.cur.fb?(ACC.cur.via==='google'?' with Google':' with email'):''} · ${accCloud()?'profile, saved war and servers kept online':'kept on this device (inside Claude accounts stay on the device; on the website they work on every device)'}</span>${fbx&&ACC.cur.fb?`<label class="acc-chk"><input type="checkbox" id="acMkt" ${ACC.cur.mkt?'checked':''}>Email me LTDT news and offers</label>`:''}${fbx&&ACC.creator?'<button type="button" class="btn sm" data-acc="members">Sign-ups</button>':''}<button type="button" class="btn sm ghost" data-acc="logout">Log out</button></div>`;
+  return `<div class="acc-bar"><span>${accCloud()?'Log in to keep your profile, saved war and servers on every device.':'Make an account to keep your profile, saved war and servers under a username.'}</span>${fbx?`<button type="button" class="btn sm" data-acc="google" ${ACC.busy?'disabled':''}>Continue with Google</button>`:''}<button type="button" class="btn sm${fbx?' ghost':''}" data-acc="login">Log in</button><button type="button" class="btn sm ghost" data-acc="create">Create account</button></div>`;
 }
 function renderAccForm(body){
+  if(ACC.view==='members'){renderMembers(body);return;}
   const cr=ACC.view==='create',p=curProfile(),col=ACC.col||(p&&p.col)||PROF_COLS[0];
+  /* on the website: create with an email (or a username), log in with either, or use Google */
+  const fbx=accCloud(),em=fbx&&cr&&ACC.mode!=='user',both=fbx&&!cr;
   $('profCap').textContent=cr?'Create an account':'Log in';
   body.innerHTML=`<div class="prof-form acc-form">
-      <div class="field"><label class="flabel" for="acU">Username</label><input id="acU" type="text" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="3 to 20 letters or digits" value="${esc(ACC.f.acU||'')}"></div>
+      <div class="field"><label class="flabel" for="acU">${em?'Email':both?'Email or username':'Username'}</label><input id="acU" type="text" maxlength="${em||both?120:20}" autocomplete="${em?'email':'username'}"${em||both?' inputmode="email"':''} autocapitalize="off" spellcheck="false" placeholder="${em?'you@example.com':both?'you@example.com or your username':'3 to 20 letters or digits'}" value="${esc(ACC.f.acU||'')}"></div>
       <div class="field"><label class="flabel" for="acP">Password</label><input id="acP" type="password" maxlength="64" autocomplete="${cr?'new-password':'current-password'}" placeholder="${cr?'At least 6 characters':''}"></div>
       ${cr?`<div class="field"><label class="flabel" for="acC">Commander name</label><input id="acC" type="text" maxlength="20" autocomplete="off" value="${esc(ACC.f.acC!=null?ACC.f.acC:p&&!p.acct?p.cmd:'')}" placeholder="Your name"></div>
       <div class="field"><label class="flabel" for="acE">Empire name</label><input id="acE" type="text" maxlength="18" autocomplete="off" value="${esc(ACC.f.acE!=null?ACC.f.acE:p&&!p.acct?p.emp:'')}" placeholder="e.g. LTDT Empire"></div>
       <div class="field"><span class="flabel">Badge colour</span><div class="prof-sw" role="group" aria-label="Badge colour">${PROF_COLS.map(c=>`<button type="button" data-acol="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${c===col}"></button>`).join('')}</div></div>`:''}
+      ${em?`<label class="acc-chk"><input type="checkbox" id="acMk" ${ACC.f.acMk?'checked':''}>${esc(MKT_TXT)}</label>`:''}
     </div>
-    <div class="prof-acts"><button type="button" class="btn" data-acc="${cr?'docreate':'dologin'}" ${ACC.busy?'disabled':''}>${ACC.busy?'One moment…':cr?'Create account':'Log in'}</button><button type="button" class="btn ghost" data-acc="cancel">Cancel</button><button type="button" class="btn sm ghost" data-acc="${cr?'login':'create'}">${cr?'I have an account':'Create an account instead'}</button></div>
-    <p class="hint">${cr?`Your account keeps your profile, your saved solo war and the servers you played${accCloud()?', on any device you log in from':''}. Use a password only for this game.${p&&!p.acct?' Your current profile\'s wars and wins carry over.':''}`:'Log in to load your profile, your saved war and the servers you played.'}</p>`;
+    <div class="prof-acts"><button type="button" class="btn" data-acc="${cr?'docreate':'dologin'}" ${ACC.busy?'disabled':''}>${ACC.busy?'One moment…':cr?'Create account':'Log in'}</button>${fbx?`<button type="button" class="btn ghost" data-acc="google" ${ACC.busy?'disabled':''}>Continue with Google</button>`:''}<button type="button" class="btn ghost" data-acc="cancel">Cancel</button><button type="button" class="btn sm ghost" data-acc="${cr?'login':'create'}">${cr?'I have an account':'Create an account instead'}</button>${fbx&&cr?`<button type="button" class="btn sm ghost" data-acc="${em?'mode-user':'mode-email'}">${em?'Use a username instead (no email)':'Use an email instead'}</button>`:''}${both?'<button type="button" class="btn sm ghost" data-acc="reset">Forgot password?</button>':''}</div>
+    <p class="hint">${cr?`Your account keeps your profile, your saved solo war and the servers you played${accCloud()?', on any device you log in from':''}. Use a password only for this game.${p&&!p.acct?' Your current profile\'s wars and wins carry over.':''}${em?' Your email signs you in; we only send you news and offers if you tick the box.':''}`:'Log in to load your profile, your saved war and the servers you played.'}</p>`;
   ACC.col=col;
 }
 async function accSubmit(create){
   if(ACC.busy)return;
+  if(accCloud()&&(create?ACC.mode!=='user':/@/.test($('acU').value||'')))return accSubmitFb(create);
   const u=accName($('acU').value),pw=$('acP').value||'',key=accKey(u);
   if(!key){toast('Usernames are 3 to 20 letters, digits, dots, dashes or underscores.','warn');$('acU').focus();return;}
   if(pw.length<(create?6:1)){toast(create?'Use a password of at least 6 characters.':'Enter your password.','warn');$('acP').focus();return;}
@@ -6633,6 +6649,152 @@ async function accSubmit(create){
     }
   }catch(e){ACC.busy=false;renderProfile();console.error('account',e);toast(!accCloud()?'Could not save the account on this device.':accDenied(e)?'The game\'s online database refused to save accounts. Its security rules need to allow it.':/timeout/i.test(String(e&&e.message))?'The account server took too long to answer. Check your connection and try again.':`Could not reach the account server (${String(e&&(e.code||e.message)||e).slice(0,80)}). Try again in a moment.`,'warn',null,8000);}
 }
+/* ---------- Google and email sign-in (public website only), with Firebase Authentication ----------
+   The email stays in Firebase Authentication and, once the database rules protect it, in members/<uid>, which
+   only that player and the creator can read. The open game data (profile, saved war) lives under
+   ltdt/v1/acct/fb-<uid> like any other account, with no email in it. Marketing emails are opt-in only. */
+const MKT_TXT='Email me news, updates and offers about LTDT Trade Wars. I can unsubscribe at any time.';
+async function fbAuth(){
+  await fbLoad();const fb=window.firebase;if(!fb)throw new Error('offline');
+  if(!fb.auth)await loadScript(FB_SDK+'firebase-auth-compat.js');
+  if(!fb.apps.length)fb.initializeApp(FB_CFG);
+  ACC.auth=fb.auth();return ACC.auth;
+}
+function fbErrText(e){const c=String(e&&e.code||'');
+  if(/popup-closed|cancelled-popup|user-cancelled/.test(c))return '';
+  return c==='auth/email-already-in-use'?'That email already has an account. Log in instead, or use Forgot password.':
+    c==='auth/invalid-email'?'That email address does not look right.':
+    c==='auth/weak-password'?'Use a password of at least 6 characters.':
+    /auth\/(wrong-password|user-not-found|invalid-credential|invalid-login-credentials)/.test(c)?'That email or password is not right.':
+    c==='auth/account-exists-with-different-credential'?'That email already signs in another way. Log in with your email and password.':
+    c==='auth/too-many-requests'?'Too many tries. Wait a few minutes and try again.':
+    c==='auth/operation-not-allowed'?'This way of signing in is not switched on in Firebase yet.':
+    c==='auth/unauthorized-domain'?'This website is not on Firebase\'s list of authorized domains yet.':
+    c==='auth/network-request-failed'||/timeout|offline/i.test(String(e&&e.message))?'Could not reach the sign-in server. Check your connection and try again.':
+    /^auth\//.test(c)?`Sign-in failed (${c.slice(5)}).`:
+    accDenied(e)?'The game\'s online database refused to save accounts. Its security rules need to allow it.':
+    `Could not reach the account server (${String(e&&(e.code||e.message)||e).slice(0,80)}). Try again in a moment.`;}
+function accCurSave(){try{if(ACC.cur)localStorage.setItem('ltdt-acct',JSON.stringify(ACC.cur));}catch(e){}}
+/* a Firebase user becomes a game account: the same profile, saved war and servers as username accounts */
+async function accFbEnter(user,o){
+  o=o||{};const key='fb-'+user.uid;ACC.fbU=user;profEdit=null;
+  await accDb();let rec=await accGet(key),fresh=false;
+  if(!rec){
+    const g=curProfile()&&!curProfile().acct?curProfile():null;
+    const cmd=String(o.cmd||(g&&g.cmd)||user.displayName||(user.email||'').split('@')[0]||'Commander').replace(/\s+/g,' ').trim().slice(0,20)||'Commander';
+    rec={u:cmd,fb:1,made:Date.now(),p:{cmd,emp:o.emp||(g&&g.emp)||'LTDT Empire',motto:g?g.motto||'':'',col:o.col||(g&&g.col)||PROF_COLS[0],played:g?g.played||0:0,wins:g?g.wins||0:0,best:g?g.best||0:0},hs:g&&g.hs?g.hs.slice(0,8):[]};
+    if(await accCreate(key,rec)){fresh=true;
+      try{const raw=localStorage.getItem(SAVE_KEY);if(raw&&!localStorage.getItem(SAVE_KEY+':'+key)){localStorage.setItem(SAVE_KEY+':'+key,raw);const mt=localStorage.getItem(SAVE_KEY+':meta');if(mt)localStorage.setItem(SAVE_KEY+':'+key+':meta',mt);}}catch(e){}}
+    else rec=await accGet(key)||rec;
+  }
+  await accSignIn(key,rec);
+  Object.assign(ACC.cur,{fb:1,via:o.via||'email'});if(o.mkt!=null){ACC.cur.mkt=!!o.mkt;ACC.cur.mktSet=1;}
+  accCurSave();if(fresh)accUploadSave();
+  renderProfile();memberTouch().then(creatorCheck);
+  return {rec,fresh};
+}
+/* is members/ private? members_lock can never be read once the rules are in place */
+async function memberRules(){
+  if(ACC.rules!=null)return ACC.rules;
+  try{await accRead('members_lock',8000);ACC.rules=false;}catch(e){if(accDenied(e))ACC.rules=true;}
+  return !!ACC.rules;
+}
+async function memberTouch(){
+  const u=ACC.fbU,c=ACC.cur;if(!u||!c||!c.fb||!accCloud()||c.key!=='fb-'+u.uid)return;
+  try{
+    await accDb();if(!await memberRules())return;
+    const ref=ACC.db.ref('members/'+u.uid),TS=window.firebase.database.ServerValue.TIMESTAMP;
+    const cur=(await withTO(ref.once('value'),10000)).val()||{},p=curProfile()||{};
+    const up={name:String(p.cmd||c.u||'').slice(0,40),emp:String(p.emp||'').slice(0,40),email:u.email||'',via:c.via||'email',ver:!!u.emailVerified,wins:p.wins||0,last:TS};
+    if(!cur.joined)up.joined=TS;
+    if(c.mktSet){up.mkt=!!c.mkt;if(c.mkt){up.mktAt=TS;up.mktTxt=MKT_TXT;}else up.mktOff=TS;}
+    else if(c.mkt!==!!cur.mkt){c.mkt=!!cur.mkt;accCurSave();if(!ACC.view)renderProfile();}
+    await withTO(ref.update(up),10000);
+    if(c.mktSet){delete c.mktSet;accCurSave();}
+  }catch(e){console.warn('member record',e);}
+}
+async function creatorCheck(){
+  const was=!!ACC.creator;ACC.creator=false;
+  if(ACC.fbU&&accCloud())try{if(await memberRules()){await withTO(ACC.db.ref('members').limitToFirst(1).once('value'),10000);ACC.creator=true;}}catch(e){}
+  if(was!==ACC.creator&&!ACC.view)renderProfile();
+  return ACC.creator;
+}
+function accGoogle(){
+  if(ACC.busy||!accCloud())return;
+  /* open the Google window straight from the tap, so phones do not block it */
+  const go=a=>{const pv=new window.firebase.auth.GoogleAuthProvider();pv.setCustomParameters({prompt:'select_account'});
+    return a.signInWithPopup(pv).catch(e=>{if(/popup-blocked|operation-not-supported/.test(String(e&&e.code))){try{localStorage.setItem('ltdt-fb-redirect','1');}catch(_){}return a.signInWithRedirect(pv).then(()=>null);}throw e;});};
+  const pr=ACC.auth?go(ACC.auth):fbAuth().then(go);
+  ACC.busy=true;renderProfile();
+  pr.then(async r=>{if(!r||!r.user){ACC.busy=false;renderProfile();return;}
+      const x=await accFbEnter(r.user,{via:'google'});ACC.busy=false;renderProfile();
+      toast(x.fresh?`Account created. Welcome, ${(x.rec.p&&x.rec.p.cmd)||x.rec.u}. Tap Edit to rename your commander or empire.`:`Welcome back, ${(x.rec.p&&x.rec.p.cmd)||x.rec.u}.`,'good',null,6000);})
+    .catch(e=>{ACC.busy=false;if(ACC.fbU&&!(ACC.cur&&ACC.cur.fb)){ACC.fbU=null;try{window.firebase.auth().signOut();}catch(_){}}renderProfile();const t=fbErrText(e);if(t)toast(t,'warn',null,8000);});
+}
+async function accSubmitFb(create){
+  if(ACC.busy)return;
+  const email=String($('acU').value||'').trim(),pw=$('acP').value||'';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){toast('Enter a valid email address.','warn');$('acU').focus();return;}
+  if(pw.length<(create?6:1)){toast(create?'Use a password of at least 6 characters.':'Enter your password.','warn');$('acP').focus();return;}
+  let cmd='',emp='',mkt=false;
+  if(create){cmd=($('acC').value||'').replace(/\s+/g,' ').trim().slice(0,20);emp=cleanName($('acE').value||'');mkt=!!($('acMk')&&$('acMk').checked);
+    if(!cmd){toast('Give your commander a name.','warn');$('acC').focus();return;}if(!($('acE').value||'').trim()){toast('Name your empire.','warn');$('acE').focus();return;}}
+  ACC.busy=true;renderProfile();
+  try{
+    const a=await fbAuth();
+    if(create){
+      const r=await a.createUserWithEmailAndPassword(email,pw);try{r.user.sendEmailVerification().catch(()=>{});}catch(e){}
+      await accFbEnter(r.user,{via:'email',cmd,emp,col:ACC.col,mkt});ACC.busy=false;ACC.f={};renderProfile();
+      toast(`Account created. Welcome, ${cmd}. We sent a link to ${email} to confirm your email.`,'good',null,8000);
+    }else{
+      const r=await a.signInWithEmailAndPassword(email,pw),x=await accFbEnter(r.user,{via:'email'});ACC.busy=false;ACC.f={};renderProfile();
+      toast(`Welcome back, ${(x.rec.p&&x.rec.p.cmd)||x.rec.u}.`,'good');
+    }
+  }catch(e){ACC.busy=false;console.error('account',e);
+    if(ACC.fbU&&!(ACC.cur&&ACC.cur.fb)){ACC.fbU=null;try{window.firebase.auth().signOut();}catch(_){}}
+    renderProfile();const t=fbErrText(e);if(t)toast(t,'warn',null,8000);}
+}
+async function accReset(){
+  const email=String(($('acU')&&$('acU').value)||'').trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){toast('Type your email above, then tap Forgot password.','warn');if($('acU'))$('acU').focus();return;}
+  try{const a=await fbAuth();await a.sendPasswordResetEmail(email);toast(`If ${email} has an account, a link to reset the password is on its way.`,'good',null,7000);}
+  catch(e){const t=fbErrText(e);if(t)toast(t,'warn',null,7000);}
+}
+/* ---------- Creator view: who signed up, and who agreed to marketing emails ---------- */
+function memDate(t){return t?new Date(t).toISOString().slice(0,10):'';}
+function renderMembers(body){
+  $('profCap').textContent='Sign-ups';const L=ACC.mem;
+  if(!L){body.innerHTML=`<p class="hint">Loading sign-ups…</p><div class="prof-acts"><button type="button" class="btn ghost" data-acc="cancel">Back</button></div>`;return;}
+  const mk=L.filter(m=>m.mkt&&m.email).length,VIA={google:'Google',email:'Email',username:'Username'};
+  const rows=L.map(m=>`<li><span><b>${esc(m.name||'Unnamed')}</b>${m.emp?' · '+esc(m.emp):''}<br>${m.email?`<a href="mailto:${esc(m.email)}">${esc(m.email)}</a>`:'<i>Username account, no email</i>'}</span><span class="mem-tags">${VIA[m.via]||esc(m.via||'')}${m.email&&m.via==='email'&&!m.ver?' (not confirmed)':''} · ${m.mkt?'<b class="ok">Marketing: yes</b>':'Marketing: no'} · joined ${memDate(m.joined)||'?'}${m.last?' · seen '+memDate(m.last):''} · ${m.wins||0} win${(m.wins||0)===1?'':'s'}</span></li>`).join('');
+  body.innerHTML=`<p class="hint">${L.length} account${L.length===1?'':'s'} · ${mk} agreed to marketing emails. Only send marketing to people marked yes, and every marketing email must say who it is from and include a way to unsubscribe.</p>
+    <div class="prof-acts"><button type="button" class="btn sm" data-acc="mcopy" ${mk?'':'disabled'}>Copy marketing emails (${mk})</button><button type="button" class="btn sm ghost" data-acc="mcsv" ${L.length?'':'disabled'}>Download list (CSV)</button><button type="button" class="btn sm ghost" data-acc="mload">Refresh</button><button type="button" class="btn sm ghost" data-acc="cancel">Back</button></div>
+    <ul class="acc-hs mem-list">${rows||'<li><span>No sign-ups yet.</span></li>'}</ul>`;
+}
+async function memLoad(){
+  ACC.mem=null;renderProfile();
+  try{
+    await accDb();const v=(await withTO(ACC.db.ref('members').once('value'),20000)).val()||{};
+    const L=Object.keys(v).map(k=>Object.assign({uid:k},v[k]));
+    /* username accounts have no email; list them from the open account records */
+    for(const P of ACC_P){try{const a=await accRead(P[0],20000)||{};for(const k in a){if(/^fb-/.test(k))continue;const r=accDec(a[k])||{},p=r.p||{};L.push({name:p.cmd||r.u||k,emp:p.emp||'',via:'username',joined:r.made||0,wins:p.wins||0});}}catch(e){}}
+    L.sort((a,b)=>(b.joined||0)-(a.joined||0));ACC.mem=L;
+  }catch(e){ACC.mem=[];toast(accDenied(e)?'Only the creator account can see sign-ups.':'Could not load sign-ups. Try again.','warn');}
+  if(ACC.view==='members')renderProfile();
+}
+function memCopy(){
+  const em=(ACC.mem||[]).filter(m=>m.mkt&&m.email).map(m=>m.email),txt=em.join(', ');if(!em.length)return;
+  const ok=()=>toast(`Copied ${em.length} marketing email${em.length===1?'':'s'}. Paste them into the BCC field so people do not see each other's addresses.`,'good',null,7000);
+  const old=()=>{const t=document.createElement('textarea');t.value=txt;t.style.cssText='position:fixed;left:-9999px';document.body.appendChild(t);t.select();let r=false;try{r=document.execCommand('copy');}catch(e){}t.remove();r?ok():toast('Could not copy. Use Download list instead.','warn');};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok,old);else old();
+}
+function memCSV(){
+  const L=ACC.mem||[],cell=x=>{let t=String(x==null?'':x);if(/^[=+\-@\t\r]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';};
+  const rows=[['name','empire','email','signed_up_with','email_confirmed','marketing_ok','marketing_ok_since','joined','last_seen','wins']]
+    .concat(L.map(m=>[m.name,m.emp,m.email||'',m.via,m.email?(m.ver||m.via==='google'?'yes':'no'):'',m.mkt?'yes':'no',memDate(m.mkt?m.mktAt:0),memDate(m.joined),memDate(m.last),m.wins||0]));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+rows.map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv'}));
+  a.download='ltdt-sign-ups-'+memDate(Date.now())+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+}
 function bindAccounts(){
   try{const a=JSON.parse(localStorage.getItem('ltdt-acct')||'null');if(a&&a.key&&PROF.list.some(x=>x.acct===a.key)){ACC.cur=a;ACC.base=a.b||0;}}catch(e){}
   if(ACC.cur){const q=PROF.list.find(x=>x.acct===ACC.cur.key);if(q&&PROF.cur!==q.id){PROF.cur=q.id;saveProfiles();}}
@@ -6648,7 +6810,29 @@ function bindAccounts(){
     else if(act==='dologin')accSubmit(false);
     else if(act==='docreate')accSubmit(true);
     else if(act==='logout')accSignOut();
+    else if(act==='google')accGoogle();
+    else if(act==='reset')accReset();
+    else if(act==='mode-user'||act==='mode-email'){ACC.mode=act==='mode-user'?'user':'email';renderProfile();setTimeout(()=>{const i=$('acU');if(i)i.focus();},50);}
+    else if(act==='members'){ACC.view='members';profEdit=null;memLoad();}
+    else if(act==='mload')memLoad();
+    else if(act==='mcopy')memCopy();
+    else if(act==='mcsv')memCSV();
   });
+  body.addEventListener('change',e=>{
+    if(e.target.id==='acMk')ACC.f.acMk=e.target.checked;
+    if(e.target.id==='acMkt'&&ACC.cur&&ACC.cur.fb){ACC.cur.mkt=e.target.checked;ACC.cur.mktSet=1;accCurSave();memberTouch();
+      toast(ACC.cur.mkt?'Thanks. You will get LTDT news and offers by email. Untick the box any time to stop.':'Done. You will not get marketing emails from LTDT.','good');}
+  });
+  /* website: get the sign-in ready, and pick the Google account back up after a page reload */
+  if(accCloud()){
+    let rd=null;try{rd=localStorage.getItem('ltdt-fb-redirect');}catch(e){}
+    const warm=()=>fbAuth().then(a=>{
+      a.onAuthStateChanged(u=>{if(u&&ACC.cur&&ACC.cur.fb&&ACC.cur.key==='fb-'+u.uid&&!ACC.fbU){ACC.fbU=u;memberTouch().then(creatorCheck);}});
+      if(rd){try{localStorage.removeItem('ltdt-fb-redirect');}catch(e){}
+        a.getRedirectResult().then(r=>{if(r&&r.user&&!(ACC.cur&&ACC.cur.key==='fb-'+r.user.uid))return accFbEnter(r.user,{via:'google'}).then(x=>toast(`Welcome, ${(x.rec.p&&x.rec.p.cmd)||x.rec.u}.`,'good'));}).catch(e=>{const t=fbErrText(e);if(t)toast(t,'warn',null,8000);});}
+    }).catch(()=>{});
+    if(rd||(ACC.cur&&ACC.cur.fb))warm();else setTimeout(()=>(window.requestIdleCallback||(f=>f()))(warm,{timeout:4000}),2500);
+  }
   body.addEventListener('keydown',e=>{if(e.key==='Enter'&&ACC.view&&e.target.matches('input')){e.preventDefault();accSubmit(ACC.view==='create');}});
   body.addEventListener('input',e=>{if(ACC.view&&/^ac[UCE]$/.test(e.target.id))ACC.f[e.target.id]=e.target.value;});
   /* signed-in players' solo wars save themselves every two minutes, and when the tab closes */
@@ -6760,13 +6944,15 @@ const NET={r:null,srv:null,srvName:'',match:null,slot:-1,host:false,hostPeer:nul
    join, leave) on top of a Firebase Realtime Database. Each open tab is one peer; its presence fields are stored
    as JSON text under ltdt/v1/lobby/<peer> (or ltdt/v1/rooms/<server>/<peer>) and removed when the tab closes. */
 const FB_URL='https://ltdt-trade-wars-default-rtdb.firebaseio.com',FB_SDK='https://www.gstatic.com/firebasejs/10.12.2/';
+/* the game's Firebase web app (these values are public: the database rules are what protect the data) */
+const FB_CFG={apiKey:'AIzaSyATgJeU5crCp3-xDLuWM1JWXFDIFNRxXao',authDomain:'ltdt-trade-wars.firebaseapp.com',databaseURL:FB_URL,projectId:'ltdt-trade-wars',storageBucket:'ltdt-trade-wars.firebasestorage.app',messagingSenderId:'25116776893',appId:'1:25116776893:web:bd06160baa3e3aafeadad4'};
 function loadScript(src){return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;sc.async=false;sc.onload=()=>ok();sc.onerror=()=>no(new Error('load '+src));document.head.appendChild(sc);});}
 let FB_LOAD=null;
-function fbLoad(){return FB_LOAD||(FB_LOAD=(async()=>{if(!window.firebase){await loadScript(FB_SDK+'firebase-app-compat.js');await loadScript(FB_SDK+'firebase-database-compat.js');}})().catch(e=>{FB_LOAD=null;throw e;}));}
+function fbLoad(){return FB_LOAD||(FB_LOAD=(async()=>{if(!window.firebase){await loadScript(FB_SDK+'firebase-app-compat.js');try{await loadScript(FB_SDK+'firebase-auth-compat.js');}catch(e){}await loadScript(FB_SDK+'firebase-database-compat.js');}})().catch(e=>{FB_LOAD=null;throw e;}));}
 async function fbRoom(){
   await fbLoad();
   const fb=window.firebase;if(!fb||!fb.database)throw new Error('no firebase');
-  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp({databaseURL:FB_URL});
+  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp(FB_CFG);
   const db=app.database(),base=db.ref('ltdt/v1'),TS=fb.database.ServerValue.TIMESTAMP;
   const myId=('p'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,8)).slice(0,16);
   let offset=0,online=false;
