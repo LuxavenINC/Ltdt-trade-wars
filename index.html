@@ -1350,10 +1350,11 @@ const CARDS=[
   {id:'frontier',cat:'Military',name:'Frontier Spirit',text:'Unclaimed land costs 30% fewer troops.',fx:n=>{n.mods.wildCost*=0.7;}},
   {id:'navy',cat:'Military',name:'Navy Yards',text:'Transport boats sail 50% faster and one more can be at sea.',fx:n=>{n.mods.boatSpeed*=1.5;n.mods.boatCap+=1;}}
 ];
+/* ramp: how much more aggressive AIs get every 15 minutes of war; nkA, nkH: atom and hydrogen bombs each AI fires in every 25 minutes of war */
 const DIFF={
-  easy:{ai:0.85,thresh:2.0,aggr:0.6,bias:0.75,nuke:0},
-  normal:{ai:1,thresh:1.45,aggr:1,bias:1,nuke:0.015},
-  hard:{ai:1.15,thresh:1.15,aggr:1.4,bias:1.3,nuke:0.03}
+  easy:{ai:0.85,thresh:2.0,aggr:0.6,bias:0.75,nuke:0,ramp:0,nkA:0,nkH:0},
+  normal:{ai:1,thresh:1.45,aggr:1,bias:1,nuke:0.015,ramp:0.1,nkA:10,nkH:1},
+  hard:{ai:1.15,thresh:1.15,aggr:1.4,bias:1.3,nuke:0.03,ramp:0.2,nkA:20,nkH:5}
 };
 const NAMES=['Aurum League','Sterling Crown','Yen Shogunate','Rand Republic','Peso Federation','Franc Union','Dinar Caliphate','Krona Realm','Rupee Raj','Won Dynasty','Lira Signoria','Ruble Tsardom','Drachma Isles','Real Empire','Ducat Republic'];
 const COLORS=[[208,74,74],[74,128,214],[156,92,204],[52,176,170],[232,124,56],[214,92,160],[96,190,96],[120,104,224],[164,112,72],[64,196,224],[186,60,120],[140,170,60],[200,140,200],[110,150,170]];
@@ -2622,6 +2623,40 @@ function aiBuild(n){
   const tile=pick==='port'||(pick==='oilrig'&&n.coastSample>=0)?n.coastSample:n.sample;
   if(tile>=0)build(n,pick,tile);
 }
+/* AIs grow more aggressive the longer the war runs: every 15 minutes after the peace treaty ends, Medium AIs get 10% more aggressive and Hard
+   AIs 20% (up to double on Medium and triple on Hard) */
+const AGGR_STEP=900,AGGR_STEPS=10;
+function aiRamp(){const D=G.diff;if(!D.ramp||G.time<G.peaceT)return 1;return 1+D.ramp*Math.min(AGGR_STEPS,Math.floor((G.time-G.peaceT)/AGGR_STEP));}
+/* an AI short of money sells just enough gold to cover a purchase */
+function aiCash(n,amt){
+  if(n.money>=amt)return true;if(n.locked)return false;
+  const px=goldPrice(n)*0.98,need=Math.ceil((amt-n.money)/Math.max(1e-9,px));if(need<1||need>n.reserve*0.6)return false;
+  n.reserve-=need;n.money+=need*px;mv(n,'sg',`sold ${fmt(need)} gold bars for ${fmt(need*px)} ${n.cur}`,'warn');return true;
+}
+function aiBuy(n,type){
+  if(n.sample<0||canBuildAt(n,type,n.sample))return false;
+  const c=bldCost(n,type);for(const r in c)if(r!=='money'&&(n[r]||0)<c[r])return false;
+  if(!aiCash(n,c.money||0))return false;return !build(n,type,n.sample);
+}
+/* AIs guard themselves with Iron Domes (never Golden ones), working up to the 40 that give their white shield full power */
+const AI_DOME_P=0.06;
+function aiDome(n){if(n.era>=2&&(n.b.irondome||0)<IRON_FULL&&R()<AI_DOME_P)aiBuy(n,'irondome');}
+/* the nuclear plan: on Medium every AI fires 10 atom bombs and 1 hydrogen bomb in every 25 minutes of war, on Hard 20 and 5. It keeps a
+   silo, sells gold when short of money, spreads the launches through the 25 minutes and aims at whoever it is most hostile to */
+const NUKE_WIN=1500;
+function aiNukes(n,peace,held){
+  const D=G.diff;if(!(D.nkA||D.nkH)||peace||held||n.era<3)return;
+  const el=G.time-G.peaceT,w=Math.floor(el/NUKE_WIN),e=el-w*NUKE_WIN;
+  if(n.nkW!==w){n.nkW=w;n.nkA=0;n.nkH=0;}
+  const dueA=Math.min(D.nkA,Math.floor(D.nkA*e/NUKE_WIN)+1),dueH=D.nkH?Math.min(D.nkH,Math.floor(D.nkH*e/NUKE_WIN)+1):0;
+  const kind=n.nkH<dueH?'hydrogen':n.nkA<dueA?'atom':null;if(!kind)return;
+  if(n.b.silo<1){aiBuy(n,'silo');return;}
+  if(!aiCash(n,wpnCost(n,kind)))return;
+  let tg=-1,bs=-1e9;
+  for(const Q of G.nations){if(!Q.alive||Q.id===n.id||Q.tiles<1||isAllied(n.id,Q.id)||truceOn(n.id,Q.id))continue;let sc=-rel(n.id,Q.id)+Q.tiles/40;if(hasAttack(n.id,Q.id)||hasAttack(Q.id,n.id))sc+=60;if(sc>bs){bs=sc;tg=Q.id;}}
+  if(tg<0)return;const Q=G.nations[tg],t=Q.sample>=0&&G.owner[Q.sample]===Q.id?Q.sample:Q.capital;
+  if(!launchNuke(n,kind,t)){if(kind==='hydrogen')n.nkH++;else n.nkA++;}
+}
 function aiThink(n,iv){
   const D=G.diff,NN=G.NN,peace=inPeace();
   n.asked-=iv;
@@ -2638,6 +2673,7 @@ function aiThink(n,iv){
   if(n.irate!==was[4])mv(n,'ir',`set its interest rate to ${Math.round(n.irate*100)}%`,'pol');
   if(n.era<3&&canAfford(n,eraCost(n))&&R()<0.6)advanceEra(n);
   else aiBuild(n);
+  aiDome(n);
   /* monetary policy: the reserve nation prints freely, others print when broke and hoard gold when rich */
   const top=G.top===n.id;
   if(top&&n.manipCd<=0&&R()<0.2){
@@ -2682,8 +2718,9 @@ function aiThink(n,iv){
   if(!peace&&(n.emoT==null||n.emoT<G.time-25)){let H=null;for(const x of G.attacks){const X=G.nations[x.a];if(x.t===n.id&&x.a!==n.id&&X&&X.human&&X.alive){H=X;break;}}
     if(H&&R()<0.15){const lose=H.troops>n.troops*1.1;sendEmoji(n,H,lose?(n.troops<H.troops*0.4?3:(R()<0.5?2:0)):(R()<0.6?6:7));}}
   /* military */
-  const held=n.asmSan&&!n.asmWar;
-  if(!peace&&!held&&n.era>=1&&n.b.port>0&&raidsOf(n.id)<raidCap(n)&&n.money>raidCost(n)*2&&R()<0.05*D.aggr*(0.5+n.pers.aggr)){
+  const held=n.asmSan&&!n.asmWar,ag=aiRamp();
+  aiNukes(n,peace,held);
+  if(!peace&&!held&&n.era>=1&&n.b.port>0&&raidsOf(n.id)<raidCap(n)&&n.money>raidCost(n)*2&&R()<0.05*D.aggr*ag*(0.5+n.pers.aggr)){
     let tg=-1,lo=-15;for(const sh of G.ships){if(sh.o===n.id||isAllied(n.id,sh.o))continue;const r=rel(n.id,sh.o);if(r<lo){lo=r;tg=sh.o;}}
     if(tg>=0)launchRaider(n,tg);
   }
@@ -2700,10 +2737,10 @@ function aiThink(n,iv){
       let sc=n.troops/(Q.troops+50)/defMult(Q);if(Q.human)sc*=D.bias;sc*=1-rel(n.id,q)/200;if(Q.asmWar)sc*=3;
       if(sc>bs){bs=sc;best=q;}
     }
-    const thr=D.thresh*(1.25-n.pers.aggr*0.5);
-    if(best>=0&&bs>thr&&full>0.45&&R()<D.aggr*0.6){launchAttack(n,best,n.troops*(0.4+n.pers.aggr*0.25));return;}
+    const thr=D.thresh*(1.25-n.pers.aggr*0.5)/Math.sqrt(ag);
+    if(best>=0&&bs>thr&&full>0.45&&R()<D.aggr*ag*0.6){launchAttack(n,best,n.troops*(0.4+n.pers.aggr*0.25));return;}
   }
-  if(wild===0&&n.coastTiles>0&&boatsOf(n.id)===0&&n.troops>500&&R()<0.25*D.aggr){
+  if(wild===0&&n.coastTiles>0&&boatsOf(n.id)===0&&n.troops>500&&R()<0.25*D.aggr*ag){
     for(let k=0;k<25;k++){
       const t=G.coastList[(R()*G.coastList.length)|0],o=G.owner[t];
       if(o===n.id)continue;
@@ -2711,7 +2748,7 @@ function aiThink(n,iv){
       if(sendBoat(n,t)===null)break;
     }
   }
-  if(!peace&&!held&&n.era>=3&&n.b.silo>0&&R()<D.nuke&&n.money>wpnCost(n,'atom')*1.1){
+  if(!(D.nkA||D.nkH)&&!peace&&!held&&n.era>=3&&n.b.silo>0&&R()<D.nuke&&n.money>wpnCost(n,'atom')*1.1){
     let tg=-1,tt=0;
     for(const Q of G.nations){if(!Q.alive||Q.id===n.id||isAllied(n.id,Q.id)||truceOn(n.id,Q.id)||rel(n.id,Q.id)>-30)continue;if(Q.tiles>tt&&Q.tiles>n.tiles*0.5){tt=Q.tiles;tg=Q.id;}}
     if(tg>=0){const Q=G.nations[tg];launchNuke(n,'atom',Q.sample>=0?Q.sample:Q.capital);}
