@@ -554,6 +554,31 @@ body.fullmap .zoom{margin-left:auto}
   body.panel-off #app{grid-template-columns:minmax(0,1fr)}
   body.panel-off #toasts{right:16px;width:min(380px,calc(100% - 32px))}
 }
+/* laptops and desktops: the panel (Realm, Treasury, Build, Nations, Chronicle) sits along the bottom of the screen, its cards in columns;
+   the arrow on the tab row folds it down to just the tabs */
+@media (min-width:761px) and (min-height:521px){
+  #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
+  #ledger{grid-column:1;grid-row:3;height:clamp(220px,34vh,380px);border-left:0;border-top:1px solid var(--rule-hi)}
+  .ltoggle{display:block;flex:none;padding:0 10px}
+  #ledger.collapsed{height:auto}
+  #ledger.collapsed .pane{display:none}
+  #ledger.collapsed .ltoggle svg{transform:rotate(180deg)}
+  #ledger .pane{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));align-content:start;align-items:start;column-gap:24px;row-gap:16px}
+  #ledger .pane>:not(.block){grid-column:1/-1}
+  #ledger .blist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px}
+  #toasts{right:16px;width:min(380px,calc(100% - 32px))}
+}
+/* the war bar: when the panel is out of sight, quick buttons for bomb barrages, jets, helicopters and warships */
+#warBar{display:none;gap:4px;padding:5px;pointer-events:auto;flex-wrap:wrap}
+body.panel-off #warBar,body.fullmap #warBar,body.ledger-min #warBar{display:flex}
+body.home #warBar{display:none}
+.wbtn{display:grid;grid-template-rows:22px auto auto;justify-items:center;align-content:center;gap:1px;min-width:58px;min-height:54px;padding:4px 6px;background:var(--panel-2);border:1px solid var(--rule);border-radius:4px;color:var(--paper);font:600 10.5px var(--f-ui);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.wbtn canvas{width:22px;height:22px}
+.wbtn small{font:500 10px var(--f-num);color:var(--muted);text-transform:none;letter-spacing:0;white-space:nowrap}
+.wbtn:hover:not(:disabled){border-color:var(--rule-hi);color:#fff}
+.wbtn[aria-pressed="true"]{border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad);color:#fff}
+.wbtn:disabled{opacity:.45;cursor:default}
+@media (max-width:760px){.wbtn{min-width:0;flex:1 1 0;padding:4px 2px;font-size:9.5px;letter-spacing:.02em}#warBar{flex-wrap:nowrap;width:100%;max-width:400px}}
 /* laptops and most monitors: the Panel and Markets buttons show just their icons, so the resources in the top bar keep their room */
 @media (min-width:761px) and (max-width:1799px){#panelBtn span,#mkBtn span{display:none}}
 /* fingers: no accidental page zoom from a pinch or double tap anywhere in the game (the map handles its own pinch) */
@@ -941,6 +966,13 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
         <div><b>Choose your capital.</b> <span id="spawnText">Tap open land away from rivals.</span></div>
         <button type="button" class="btn sm" id="spawnGo">Begin now</button>
       </div>
+      <div id="warBar" class="hudbox" role="toolbar" aria-label="War: bombs, aircraft and warships">
+        <button type="button" class="wbtn" data-w="atom" aria-pressed="false" title="Atom bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Atom</span><small></small></button>
+        <button type="button" class="wbtn" data-w="hydrogen" aria-pressed="false" title="Hydrogen bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Hydrogen</span><small></small></button>
+        <button type="button" class="wbtn" data-w="jet" aria-pressed="false" title="Jet strike: tap enemy land to bomb it"><canvas width="44" height="44"></canvas><span>Jet</span><small></small></button>
+        <button type="button" class="wbtn" data-w="heli" aria-pressed="false" title="Helicopters: tap land to fly your troops in"><canvas width="44" height="44"></canvas><span>Heli</span><small></small></button>
+        <button type="button" class="wbtn" data-w="raider" aria-pressed="false" title="Raider warship: hunts foreign trade ships"><canvas width="44" height="44"></canvas><span>Warship</span><small></small></button>
+      </div>
       <div class="dock-row">
         <div id="armyBar" class="hudbox">
           <div class="ab"><label for="atkR">Attack</label><b id="atkV">40%</b><input type="range" id="atkR" min="5" max="100" step="1" value="40"><small id="atkT">troops per order</small></div>
@@ -1151,6 +1183,14 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
         <div class="eyebrow">Strategic weapons</div>
         <div class="blist" id="wlist"></div>
       </div>
+      <div class="block" id="siloBlock" hidden>
+        <div class="eyebrow">Missile silos <b id="siloCnt"></b></div>
+        <div id="siloList"></div>
+      </div>
+      <div class="block" id="shBlock" hidden>
+        <div class="eyebrow">Energy shields</div>
+        <dl class="kv" id="shList"></dl>
+      </div>
       <div class="block">
         <div class="eyebrow">Air force <b id="airCnt"></b></div>
         <div class="blist" id="alist"></div>
@@ -1321,11 +1361,11 @@ const BLD={
   factory:{name:'Factory',era:2,cost:{stone:220,money:600},desc:'+30% taxes and markets, +8 money/s'},
   oilrig:{name:'Oil Rig',era:2,cost:{stone:140,money:350},desc:'Desert or coast. Pumps +1.2 oil per second. Stores up to 30,000 oil to back your currency; oil beyond that is exported'},
   carplant:{name:'Car Plant',era:2,cost:{stone:220,money:600},desc:'Turns 0.6 oil/s into electric hover-cars: +9 money/s, +2 happiness'},
-  silo:{name:'Missile Silo',era:3,cost:{stone:600,money:100000},desc:'Unlocks atom and hydrogen bombs. The first silo costs 100,000, the next 250,000, then 500,000, 1M, 2.5M and so on'},
+  silo:{name:'Missile Silo',era:3,cost:{stone:600,money:100000},desc:'Unlocks atom and hydrogen bombs. Each launch fires a barrage of 10 bombs per silo level; upgrade a silo up to level 5 for 50. The first silo costs 100,000, the next 250,000, then 500,000, 1M, 2.5M and so on'},
   goldmine:{name:'Gold Mine',era:1,cost:{stone:300,money:1000000},desc:'Digs 100 gold bars every second. The first mine costs 1M, the next 2.5M, then 5M, 10M, 25M and so on'},
   gov:{name:'Government',era:1,cost:{stone:400,money:20000},desc:'Your seat of government, built in the style of the land it stands on: the White House in the United States, the European Parliament in Europe, a national parliament anywhere else. One per nation: +150 gold bars every second, +10 happiness, +15% taxes, and it shields your currency from 15% of war losses. Every 4 years the World Assembly meets in its courtroom'},
-  irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Powers the white energy shield over your whole country. Every Iron Dome adds strength; with 40 it is at full power and shoots down 3 in 4 enemy jets, helicopters and atom bombs and half of hydrogen bombs aimed at any of your land. With fewer, gaps let more through. Costs 50 million'},
-  goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'Powers the golden energy shield over your whole country; 5 give it full power. At full power it shoots down every hydrogen bomb and 19 in 20 enemy jets and helicopters aimed at any of your land. A barrage of atom bombs can overwhelm it: 1 to 3 get through, then it seals against atom bombs for 5 minutes. With fewer than 5, gaps let some through. Up to 5 per nation. Costs 500 million'}
+  irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Powers the white energy shield over your whole country. Every Iron Dome adds strength; with 40 it is at full power and shoots down 3 in 4 enemy jets, helicopters and atom bombs and half of hydrogen bombs aimed at any of your land. With fewer, gaps let more through. Hits wear the shield down; once it loses 20% of its power it only recovers when you build more Iron Domes. Costs 50 million'},
+  goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'Powers the golden energy shield over your whole country; 5 give it full power. At full power it shoots down every hydrogen bomb and 19 in 20 enemy jets and helicopters aimed at any of your land. A barrage of atom bombs can overwhelm it: 1 to 3 get through, then it seals against atom bombs for 5 minutes. With fewer than 5, gaps let some through. Hits wear the shield down; once it loses 20% of its power it only recovers when you build more Golden Domes. Up to 5 per nation, more while the shield is worn. Costs 500 million'}
 };
 /* Iron Dome reach in tiles */
 const IRON_R=22;
@@ -1333,6 +1373,17 @@ const IRON_R=22;
 const GOLD_SEAL=300;
 /* the domes power one energy shield over the whole country: 40 Iron Domes give the white shield full power, 5 Golden Domes the golden one */
 const IRON_FULL=40,GOLD_FULL=5;
+/* hits wear the energy shields down: a little power for every bomb or aircraft that meets them. Below 20% wear a shield recharges by itself;
+   once it has lost 20% it stays down until new domes are built, each new dome repairing its share of the shield (1/40 or 1/5) */
+const SH_BREAK=0.2,SH_WEAR={gold:{atom:0.01,hydrogen:0.02,air:0.003},iron:{atom:0.02,hydrogen:0.04,air:0.006}},SH_REGEN={gold:0.002,iron:0.003};
+function shWear(D,lay,kind){
+  if(!D)return;const f=lay==='gold'?'wG':'wI',b=D[f]||0,w=Math.min(1,Math.round((b+SH_WEAR[lay][kind==='atom'||kind==='hydrogen'?kind:'air'])*1e6)/1e6);D[f]=w;
+  if(b<SH_BREAK&&w>=SH_BREAK&&D.human)log(D.id,`Your ${lay==='gold'?'golden':'white'} shield has lost ${Math.round(w*100)}% of its power to hits and will not recover until you build more ${lay==='gold'?'Golden':'Iron'} Domes.`,null,'bad');
+}
+/* missile silos grow from level 1 to 5: each launch fires a barrage of 10 bombs per level from your highest-level silo */
+const SILO_MAX=5,BARRAGE=10;
+function siloLvl(b){return b.lvl||1;}
+function siloUpCost(n,b){const L=siloLvl(b);return {stone:600*(L+1),money:stepPrice(L+1)};}
 const BLD_KEYS=Object.keys(BLD);
 const WEAPONS={atom:{name:'Atom Bomb',cost:6000,radius:7},hydrogen:{name:'Hydrogen Bomb',cost:15000,radius:13}};
 const CARDS=[
@@ -1648,7 +1699,7 @@ function canBuildAt(n,type,i){
   if(type==='farm'&&G.terr[i]===MOUNT)return 'Farms cannot go on mountains.';
   if(type==='oilrig'&&G.terr[i]!==DESERT&&!G.coast[i])return 'Oil rigs need desert or coastline.';
   if(type==='gov'&&n.b.gov>0)return 'You already have a seat of government.';
-  if(type==='goldendome'&&n.b.goldendome>=GOLD_FULL)return `Your ${GOLD_FULL} Golden Domes already give your golden shield full power.`;
+  if(type==='goldendome'&&n.b.goldendome>=GOLD_FULL&&!((n.wG||0)>0))return `Your ${GOLD_FULL} Golden Domes already give your golden shield full power.`;
   if(G.bld[i]>=0)return 'There is already a building here.';
   /* buildings can sit right next to each other; a city fills the 3x3 block around its centre tile */
   const x=i%W,y=(i/W)|0,rr=type==='city'?2:1;
@@ -1670,8 +1721,10 @@ function build(n,type,i){
   G.buildings.push(nb);G.bld[i]=G.buildings.length-1;n.b[type]++;
   layRoad(n,i);
   mv(n,'bd'+type,type==='silo'?`built Missile Silo no. ${n.b.silo} for ${fmt(cost.money)} ${n.cur}`:`built ${article(BLD[type].name)} ${BLD[type].name}`,type==='silo'?'warn':'mv');
-  if(n.human&&(type==='irondome'||type==='goldendome')){const F=type==='irondome'?IRON_FULL:GOLD_FULL,k=n.b[type];
-    log(n.id,`Your ${type==='irondome'?'white':'golden'} shield is at ${Math.round(Math.min(1,k/F)*100)}% power: ${Math.min(k,F)} of the ${F} ${BLD[type].name}s it needs${k>=F?'. It now covers your whole country with no gaps.':'.'}`,null,'good');}
+  if(type==='irondome'&&n.wI>0)n.wI=Math.max(0,Math.round((n.wI-1/IRON_FULL)*1e6)/1e6);
+  if(type==='goldendome'&&n.wG>0)n.wG=Math.max(0,Math.round((n.wG-1/GOLD_FULL)*1e6)/1e6);
+  if(n.human&&(type==='irondome'||type==='goldendome')){const F=type==='irondome'?IRON_FULL:GOLD_FULL,k=n.b[type],wr=(type==='irondome'?n.wI:n.wG)||0,pw=Math.max(0,Math.min(1,k/F)-wr);
+    log(n.id,`Your ${type==='irondome'?'white':'golden'} shield is at ${Math.round(pw*100)}% power: ${Math.min(k,F)} of the ${F} ${BLD[type].name}s it needs${wr>0.0005?`, worn ${Math.round(wr*100)}% by hits`:''}${k>=F&&wr<=0.0005?'. It now covers your whole country with no gaps.':'.'}`,null,'good');}
   return null;
 }
 /* pathways: every new building is joined by road to the nearest building (or the capital) on your own land */
@@ -2039,7 +2092,7 @@ function domeGuards(A,t){
     const dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty,d=dx*dx+dy*dy;
     if(b.type==='goldendome'){out.ng++;if(!out.gold||d<gd){out.gold=b;gd=d;}}else ir.push([d,b]);
   }
-  ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);out.ni=ir.length;out.gs=Math.min(1,out.ng/GOLD_FULL);out.is=Math.min(1,out.ni/IRON_FULL);return out;
+  const D=G.nations[T];ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);out.ni=ir.length;out.gs=Math.max(0,Math.min(1,out.ng/GOLD_FULL)-(D.wG||0));out.is=Math.max(0,Math.min(1,out.ni/IRON_FULL)-(D.wI||0));return out;
 }
 /* a bomb meets the shields. A golden shield short of full power has gaps the bomb may fall through; where it covers, it stops every
    hydrogen bomb, and atom bombs can saturate it, so 1 to 3 slip through before it seals for 5 minutes. The white shield, where its gaps
@@ -2053,6 +2106,7 @@ function nukeDefence(A,nk){
     else{if(S.gleak==null||(S.gleak<=0&&G.time>=(S.gleakT||0)))S.gleak=1+Math.floor(R()*3);
       if(S.gleak>0){S.gleak--;leak=S.gleak;if(S.gleak<=0)S.gleakT=G.time+GOLD_SEAL;}else{stop=true;by='gold';}}}
   if(!stop&&g.irons.length){if(g.is<1&&R()>=g.is)g.irons=[];else if(R()<(nk.kind==='hydrogen'?0.5:0.75)){stop=true;by='iron';}}
+  const D=G.nations[g.T];if(g.gold)shWear(D,'gold',nk.kind);if(g.irons.length&&(by==='iron'||!stop))shWear(D,'iron',nk.kind);
   return {stop,by,leak,g};
 }
 /* the interceptors that rise to meet a strike, for the screen: the Golden Dome fires from its site and from orbit, each Iron Dome battery in range fires two */
@@ -2116,7 +2170,7 @@ function processAir(dt){
     const a=G.air[k],A=G.nations[a.o];
     if(!A||!A.alive){G.air.splice(k,1);continue;}
     a.d+=AIR[a.kind].speed*dt;
-    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to),by=st?(g.gold?'gold':'iron'):'';icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},by);shieldFx(g,a.to%W+0.5,((a.to/W)|0)+0.5,by,a.kind,0);
+    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to),by=st?(g.gold?'gold':'iron'):'';icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},by);if(by)shWear(G.nations[g.T],by,a.kind);shieldFx(g,a.to%W+0.5,((a.to/W)|0)+0.5,by,a.kind,0);
       if(st){G.air.splice(k,1);shotDown(A,a.to,a.kind==='jet'?'jet':'helicopter',q.x,q.y,g.gold?'Golden Dome':'Iron Dome',true);continue;}}}
     if(a.d<a.dist)continue;
     G.air.splice(k,1);
@@ -2125,6 +2179,44 @@ function processAir(dt){
 }
 
 /* ---------- Nukes ---------- */
+function upgradeSilo(A,t){
+  const bi=t>=0&&t<N?G.bld[t]:-1,b=bi>=0?G.buildings[bi]:null;
+  if(!b||b.dead||b.type!=='silo'||b.owner!==A.id)return 'Pick one of your missile silos.';
+  if(siloLvl(b)>=SILO_MAX)return `This silo is already level ${SILO_MAX}.`;
+  const c=siloUpCost(A,b);if(!canAfford(A,c))return `Not enough ${missing(A,c).join(' and ')}.`;
+  pay(A,c);b.lvl=siloLvl(b)+1;mv(A,'su',`upgraded a missile silo to level ${b.lvl}`,'warn');return null;
+}
+/* the silo that fires: the highest level one, the nearest of those */
+function bestSilo(A,t){let s=null,bl=0,bd=1e18;const tx=t%W,ty=(t/W)|0;for(const b of G.buildings)if(!b.dead&&b.type==='silo'&&b.owner===A.id){const L=siloLvl(b),dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty,d=dx*dx+dy*dy;if(L>bl||(L===bl&&d<bd)){s=b;bl=L;bd=d;}}return s;}
+/* a commander's launch: a barrage of 10 bombs per silo level (as many as the treasury pays for), raining down around the target one after another */
+function launchBarrage(A,kind,t){
+  const w=WEAPONS[kind];
+  if(A.era<3)return 'Nuclear weapons need the Modern era.';
+  if(inPeace())return `The peace treaty bans launches for another ${mmss(peaceLeft())}.`;
+  if(t<0||t>=N)return 'Pick a target on the map.';
+  const silo=bestSilo(A,t);if(!silo)return 'Build a Missile Silo first.';
+  const T=G.owner[t];
+  if(T===A.id)return 'That target is inside your own land.';
+  if(T>=0&&isAllied(A.id,T))return `You are allied with ${G.nations[T].name}.`;
+  const cost=wpnCost(A,kind),cnt=Math.min(BARRAGE*siloLvl(silo),Math.floor(A.money/cost));
+  if(cnt<1)return `${article(w.name)==='an'?'An':'A'} ${w.name} costs ${fmt(cost)} ${A.cur}.`;
+  A.money-=cost*cnt;
+  const rs=w.radius*0.8*Math.sqrt(cnt)/1.77,sx=silo.tile%W,sy=(silo.tile/W)|0,hit=new Set();let first=null;
+  for(let i=0;i<cnt;i++){
+    let to=t;
+    if(i>0)for(let k=0;k<4;k++){const r=rs*Math.sqrt(R()),a=R()*Math.PI*2,x=clamp(Math.round(t%W+Math.cos(a)*r),0,W-1),y=clamp(Math.round(((t/W)|0)+Math.sin(a)*r),0,H-1),c=y*W+x,o=G.owner[c];if(o!==A.id&&!(o>=0&&isAllied(A.id,o))){to=c;break;}}
+    const dx=to%W-sx,dy=((to/W)|0)-sy,nk={o:A.id,kind,from:silo.tile,to,t:-i*0.12,dur:3+Math.sqrt(dx*dx+dy*dy)/22,bg:i};
+    G.nukes.push(nk);if(!first)first=nk;const o=G.owner[to];if(o>=0&&o!==A.id)hit.add(o);
+  }
+  for(const n of G.nations)if(n.id!==A.id&&n.alive)relAdd(A.id,n.id,-12);
+  for(const o of hit)relAdd(A.id,o,-40);
+  asmHostile(A,30,T>=0?G.nations[T]:null);
+  const tn=T>=0?' at '+G.nations[T].name:'',what=cnt>1?`a barrage of ${cnt} ${w.name}s`:`${article(w.name)} ${w.name}`;
+  log(A.id,`You launch ${what}${tn}!`,`${A.name} launches ${what}${tn}!`,'bad',false,A.id);
+  for(const o of hit)if(G.nations[o].human)log(o,`Incoming ${cnt>1?`barrage of ${cnt} ${w.name}s`:w.name} from ${A.name}!`,null,'bad');
+  HOOK.nuke(first);
+  return null;
+}
 function launchNuke(A,kind,t){
   const w=WEAPONS[kind];
   if(A.era<3)return 'Nuclear weapons need the Modern era.';
@@ -2531,7 +2623,8 @@ function applyCmd(s,type,a){
     case 'go':if(G.phase==='spawn'&&s===0)G.spawnLeft=0;break;
     case 'at':r=orderAt(A,a[0]|0);break;
     case 'bd':if(BLD[a[0]]&&G.phase==='play'&&A.alive){const t=a[1]|0,e=build(A,a[0],t);r=e?{msg:e,kind:'warn'}:{msg:`${BLD[a[0]].name} built.`,kind:'good',silent:true,tile:t};}break;
-    case 'nk':if(WEAPONS[a[0]]&&G.phase==='play'&&A.alive){const e=launchNuke(A,a[0],a[1]|0);if(e)r={msg:e,kind:'warn'};}break;
+    case 'nk':if(WEAPONS[a[0]]&&G.phase==='play'&&A.alive){const e=launchBarrage(A,a[0],a[1]|0);if(e)r={msg:e,kind:'warn'};}break;
+    case 'su':if(A.alive&&G.phase==='play'){const t=a[0]|0,e=upgradeSilo(A,t);r=e?{msg:e,kind:'warn'}:{msg:`Missile silo upgraded to level ${G.buildings[G.bld[t]].lvl}: each launch now fires up to ${BARRAGE*G.buildings[G.bld[t]].lvl} bombs.`,kind:'good',tile:t};}break;
     case 'vote':{const S=G.asm,t=a[0]|0,B=G.nations[t];if(S&&!S.done&&A.alive&&S.members.includes(A.id)&&B&&B.alive&&t!==A.id&&S.members.includes(t)){S.vt[A.id]=t;S.va[A.id]=G.time;mv(A,'vote',`voted in the World Assembly to sanction ${B.name}`,'pol');r={msg:`Your vote: sanction ${B.name}.`,kind:'info',silent:true};}break;}
     case 'air':if(AIR[a[0]]&&G.phase==='play'&&A.alive){const e=launchAir(A,a[0],a[1]|0);r=e?{msg:e,kind:'warn'}:{msg:a[0]==='jet'?'Jet strike on its way.':'Helicopters on their way.',kind:'good'};}break;
     case 'era':if(A.alive){const e=advanceEra(A);if(e)r={msg:e,kind:'warn'};}break;
@@ -2640,7 +2733,7 @@ function aiBuy(n,type){
 }
 /* AIs guard themselves with Iron Domes (never Golden ones), working up to the 40 that give their white shield full power */
 const AI_DOME_P=0.06;
-function aiDome(n){if(n.era>=2&&(n.b.irondome||0)<IRON_FULL&&R()<AI_DOME_P)aiBuy(n,'irondome');}
+function aiDome(n){if(n.era>=2&&((n.b.irondome||0)<IRON_FULL||(n.wI||0)>=SH_BREAK)&&R()<AI_DOME_P)aiBuy(n,'irondome');}
 /* the nuclear plan: on Medium every AI fires 10 atom bombs and 1 hydrogen bomb in every 25 minutes of war, on Hard 20 and 5. It keeps a
    silo, sells gold when short of money, spreads the launches through the 25 minutes and aims at whoever it is most hostile to */
 const NUKE_WIN=1500;
@@ -2758,6 +2851,7 @@ function aiThink(n,iv){
 /* ---------- Clock ---------- */
 function secondly(){
   const NN=G.NN,ns=G.nations;
+  for(const n of ns){if(n.wG>0&&n.wG<SH_BREAK)n.wG=Math.max(0,Math.round((n.wG-SH_REGEN.gold)*1e6)/1e6);if(n.wI>0&&n.wI<SH_BREAK)n.wI=Math.max(0,Math.round((n.wI-SH_REGEN.iron)*1e6)/1e6);}
   for(let a=0;a<NN;a++)for(let b=a+1;b<NN;b++){const k=a*NN+b,tg=G.ally[k]?40:(ns[a].asmWar||ns[b].asmWar)?-100:0,v=G.rel[k]+(tg-G.rel[k])*0.02;G.rel[k]=v;G.rel[b*NN+a]=v;}
   for(const n of ns)if(n.hos)n.hos=n.hos>0.05?n.hos*0.996:0;
   if(G.reqs.length)G.reqs=G.reqs.filter(r=>r.exp>=G.tick);
@@ -3574,7 +3668,9 @@ function boom2D(x,y,s,f,seed){
 }
 /* the mushroom cloud of an atom or hydrogen bomb: the fireball climbs and cools into a rolling cap of smoke on a dusty stem,
    a condensation ring flashes round the stem, a ring of dust (the base surge) races out along the ground, then the wind drifts it all away and it thins out */
-const BLAST_D=2.6;
+const BLAST_D=2.6,MUSH_CAP=24;let MUSH_K=1;
+/* fewer puffs per cloud when many clouds are up at once (a barrage) */
+function mushDet(){return clamp(6/Math.max(1,MUSH_K),0.25,1);}
 function mushD(e){return e.nk===2?16:13;}
 function mushShape(e){const t=e.t,D=mushD(e),sc=e.nk===2?1.75:1,out=Math.max(0,(t-0.55*D)/(0.45*D));
   return {t,D,sc,out,A:Math.pow(1-out,1.2),fire:clamp(1-t/3.6,0,1),h:8.5*sc*(1-Math.exp(-t/2.4))+0.06*t*sc,capR:3*sc*(0.3+0.7*(1-Math.exp(-t/2.6)))*(1+out*0.35),wd:0.012*t*t*sc,
@@ -3591,18 +3687,19 @@ function drawMush2D(e,S,T,z){
   const blob=(p,r,c,a)=>{if(a<=0.01)return;r=Math.max(1.2,r);ctx.globalAlpha=Math.min(1,a);ctx.drawImage(mushSpr(c),p[0]-r,p[1]-r,r*2,r*2);};
   ctx.save();
   /* the base surge: dust thrown out along the ground */
-  const As=m.A*m.As;if(As>0.01)for(let i=0;i<26;i++){const a=i/26*6.283+hash(seed+i*3)*0.3,rr=m.rs*(0.82+0.3*hash(seed*3+i));blob(P(Math.cos(a)*rr+m.wd*0.2,Math.sin(a)*rr*0.5,0),1.05*m.sc*(1+m.t*0.08)*pz,[138,120,98],As);}
+  const dt=mushDet(),nS=Math.ceil(26*dt),nT=Math.ceil(12*dt),nR=Math.ceil(20*dt),nD=Math.ceil(5*dt);
+  const As=m.A*m.As;if(As>0.01)for(let i=0;i<nS;i++){const a=i/nS*6.283+hash(seed+i*3)*0.3,rr=m.rs*(0.82+0.3*hash(seed*3+i));blob(P(Math.cos(a)*rr+m.wd*0.2,Math.sin(a)*rr*0.5,0),1.05*m.sc*(1+m.t*0.08)*pz,[138,120,98],As);}
   /* the condensation ring round the stem in the first moments */
   if(m.t>0.15&&m.t<1.8){const k2=(m.t-0.15)/1.65,c=P(0,0,m.h*0.55);ctx.globalAlpha=0.55*(1-k2);ctx.strokeStyle='#f4f7fa';ctx.lineWidth=Math.max(1,0.4*m.sc*pz*(1-k2));ctx.beginPath();ctx.ellipse(c[0],c[1],(1+k2*3.5)*m.sc*pz,(1+k2*3.5)*m.sc*pz*0.42,0,0,Math.PI*2);ctx.stroke();}
   /* the stem, wide and dusty at the foot */
   const top=Math.max(0.2,m.h-m.capR*0.35),sa=m.A*0.85*Math.min(1,m.t/0.4);
-  for(let i=0;i<12;i++){const q=i/11,w=m.capR*0.2*(1+(1-q)*0.9),dx=Math.sin(m.t*1.1+i*1.7+seed)*0.12*m.sc+m.wd*q;blob(P(dx,0,q*top),w*pz*1.15,mushRGB(m.fire*q,true),sa);}
+  for(let i=0;i<nT;i++){const q=i/Math.max(1,nT-1),w=m.capR*0.2*(1+(1-q)*0.9),dx=Math.sin(m.t*1.1+i*1.7+seed)*0.12*m.sc+m.wd*q;blob(P(dx,0,q*top),w*pz*1.15,mushRGB(m.fire*q,true),sa);}
   /* the cap: a ring of cloud rolling in on itself, under a dome; the back of the ring first, the front last */
   const Rm=m.capR*0.58,rm=m.capR*0.42,ring=[];
-  for(let i=0;i<20;i++){const th=i/20*6.283+hash(seed+i)*0.3,ph=hash(seed*5+i)*6.283+m.t*0.55,rr=Rm+rm*Math.cos(ph)*0.8;ring.push({s:Math.sin(th),p:P(m.wd+Math.cos(th)*rr,Math.sin(th)*rr*0.42,m.h+rm*Math.sin(ph)*0.75),r:rm*(0.85+0.35*hash(seed*7+i))*pz*1.1,c:mushRGB(m.fire*(0.55+0.45*Math.max(0,-Math.sin(ph))),false)});}
+  for(let i=0;i<nR;i++){const th=i/nR*6.283+hash(seed+i)*0.3,ph=hash(seed*5+i)*6.283+m.t*0.55,rr=Rm+rm*Math.cos(ph)*0.8;ring.push({s:Math.sin(th),p:P(m.wd+Math.cos(th)*rr,Math.sin(th)*rr*0.42,m.h+rm*Math.sin(ph)*0.75),r:rm*(0.85+0.35*hash(seed*7+i))*pz*1.1,c:mushRGB(m.fire*(0.55+0.45*Math.max(0,-Math.sin(ph))),false)});}
   ring.sort((a,b)=>a.s-b.s);const ca=m.A*0.92;
   for(const q of ring)if(q.s<0)blob(q.p,q.r,q.c,ca);
-  for(let j=0;j<5;j++){const a=j/5*6.283+seed,dd=j?m.capR*0.22:0;blob(P(m.wd+Math.cos(a)*dd,Math.sin(a)*dd*0.42,m.h+rm*0.75),m.capR*0.5*pz,mushRGB(m.fire*0.4,false),ca);}
+  for(let j=0;j<nD;j++){const a=j/nD*6.283+seed,dd=j?m.capR*0.22:0;blob(P(m.wd+Math.cos(a)*dd,Math.sin(a)*dd*0.42,m.h+rm*0.75),m.capR*0.5*pz,mushRGB(m.fire*0.4,false),ca);}
   for(const q of ring)if(q.s>=0)blob(q.p,q.r,q.c,ca);
   /* the fireball glowing through the smoke while it is still hot */
   if(m.fire>0){const c=P(m.wd,0,m.h),R=m.capR*pz*1.15;ctx.globalCompositeOperation='lighter';ctx.globalAlpha=1;
@@ -3643,8 +3740,8 @@ function shieldsScan(now){
   for(const [k,L] of SHD){const n=G.nations[L.id];if(!cnt.has(k)||!n||!n.alive){shieldDrop(L);SHD.delete(k);}}
   for(const [k,tiles] of cnt){const id=+k.split(':')[0],lay=k.split(':')[1],n=G.nations[id];if(!n||!n.alive||n.tiles<1)continue;
     let L=SHD.get(k);if(!L){L={id,lay,hits:[],sh:null,ver:-1,s:-1,gk:'',bt:0,own:null};SHD.set(k,L);}
-    const s=Math.min(1,tiles.length/SHL[lay].full),gk=tiles.join(',');
-    if(!L.own||L.s!==s||L.gk!==gk||(L.ver!==SHO&&now-L.bt>1500)){L.s=s;L.gk=gk;L.ver=SHO;L.bt=now;L.gens=tiles;shieldBase(L);L.dirty2=L.dirty3=true;}}
+    const s=Math.max(0,Math.min(1,tiles.length/SHL[lay].full)-((lay==='gold'?n.wG:n.wI)||0)),s2=Math.round(s*20)/20,gk=tiles.join(',');L.s=s;
+    if(!L.own||L.s2!==s2||L.gk!==gk||(L.ver!==SHO&&now-L.bt>1500)){L.s2=s2;L.gk=gk;L.ver=SHO;L.bt=now;L.gens=tiles;shieldBase(L);L.dirty2=L.dirty3=true;}}
 }
 /* the shape of a country's shield: its land, how far each tile lies from the border (the shield rises from the border like a dome),
    up to 12 domes the recharge spreads from, and how far it has to spread */
@@ -3684,7 +3781,7 @@ function shieldTex2D(L){
   x.clearRect(0,0,cv.width,cv.height);x.lineWidth=1.2;x.strokeStyle=`rgba(${c},0.55)`;x.fillStyle=`rgba(${c},0.07)`;
   const r0=Math.floor(L.y0/(1.5*R))-1,r1=Math.ceil((L.y0+bh)/(1.5*R))+1;
   for(let r=r0;r<=r1;r++){const cy=r*1.5*R,off=(r&1)?hw/2:0,q0=Math.floor((L.x0-off)/hw)-1,q1=Math.ceil((L.x0+bw-off)/hw)+1;
-    for(let q=q0;q<=q1;q++){if(hash(sd+q*7919+r*104729)>=L.s)continue;const cx=q*hw+off;x.beginPath();
+    for(let q=q0;q<=q1;q++){if(hash(sd+q*7919+r*104729)>=L.s2)continue;const cx=q*hw+off;x.beginPath();
       for(let k=0;k<6;k++){const a=Math.PI/6+k*Math.PI/3,px=(cx+Math.cos(a)*R*0.94-L.x0)*P,py=(cy+Math.sin(a)*R*0.94-L.y0)*P;if(k)x.lineTo(px,py);else x.moveTo(px,py);}
       x.closePath();x.fill();x.stroke();}}
   const m=document.createElement('canvas');m.width=bw;m.height=bh;const mx=m.getContext('2d'),id=mx.createImageData(bw,bh),dd=id.data;
@@ -3891,20 +3988,21 @@ function drawWaves2D(ox,oy,z,nowS){
 }
 function drawNukes(S,T,z,nowS){
   for(const nk of G.nukes){
+    if(nk.t<0)continue;const lead=!(nk.bg>0);
     const f=Math.min(1,nk.t/nk.dur),p=nukePos(nk,f),left=Math.max(0,nk.dur-nk.t);
-    ctx.save();ctx.setLineDash([4,6]);ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,107,94,.4)';ctx.beginPath();ctx.moveTo(S(p.ax),T(p.ay));ctx.quadraticCurveTo(S(p.mx),T(p.my),S(p.bx),T(p.by));ctx.stroke();ctx.restore();
+    if(lead){ctx.save();ctx.setLineDash([4,6]);ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,107,94,.4)';ctx.beginPath();ctx.moveTo(S(p.ax),T(p.ay));ctx.quadraticCurveTo(S(p.mx),T(p.my),S(p.bx),T(p.by));ctx.stroke();ctx.restore();
     const bx=S(p.bx),by=T(p.by),rr=WEAPONS[nk.kind].radius*z,pulse=(nowS*1.4)%1;
     ctx.strokeStyle=TK.bad;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(bx,by,rr,0,Math.PI*2);ctx.stroke();
     ctx.globalAlpha=1-pulse;ctx.beginPath();ctx.arc(bx,by,Math.max(2,rr*pulse),0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
     ctx.beginPath();ctx.moveTo(bx-9,by);ctx.lineTo(bx+9,by);ctx.moveTo(bx,by-9);ctx.lineTo(bx,by+9);ctx.stroke();
-    outlined(`IMPACT ${left.toFixed(1)}s`,bx,by-rr-12,`600 12px ${FN}`,TK.bad);
+    outlined(`IMPACT ${left.toFixed(1)}s`,bx,by-rr-12,`600 12px ${FN}`,TK.bad);}
     ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(S(p.gx),T(p.gy),6,3,0,0,Math.PI*2);ctx.fill();
     for(let k=34;k>=1;k--){const ff=f-k*0.01;if(ff<0)continue;const q=nukePos(nk,ff),a=1-k/34;ctx.fillStyle=k<5?`rgba(255,196,120,${a*0.8})`:`rgba(228,224,216,${a*0.42})`;ctx.beginPath();ctx.arc(S(q.x),T(q.y),1.6+k*0.24,0,Math.PI*2);ctx.fill();}
     const mx=S(p.x),my=T(p.y),g=ctx.createRadialGradient(mx,my,0,mx,my,18);
     g.addColorStop(0,'rgba(255,248,226,1)');g.addColorStop(0.28,'rgba(255,150,80,.9)');g.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(mx,my,18,0,Math.PI*2);ctx.fill();
     const m=28;
-    if(mx<m||my<m||mx>cw-m||my>ch-m){
+    if(lead&&(mx<m||my<m||mx>cw-m||my>ch-m)){
       const cx=clamp(mx,m,cw-m),cy=clamp(my,m,ch-m),ang=Math.atan2(my-cy,mx-cx);
       ctx.save();ctx.translate(cx,cy);ctx.fillStyle=TK.ink;ctx.strokeStyle=TK.bad;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.rotate(ang);ctx.fillStyle=TK.bad;ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(14,-6);ctx.lineTo(14,6);ctx.closePath();ctx.fill();ctx.restore();
@@ -3995,6 +4093,7 @@ function draw(rdt){
     if(z>=2.2)outlined('RAIDER',sx,sy-len*0.45-8,`600 10px ${FN}`,TK.bad);
   }
   drawShields2D(S,T,z);
+  MUSH_K=fx.reduce((c,f)=>c+(f.nk?1:0),0);
   for(let k=fx.length-1;k>=0;k--){
     const e=fx[k];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.kind==='icpt'?ICPT_D+(e.dl||0):e.wk?WRECK_T:e.nk?mushD(e):2.6;
     if(e.t>d){fx.splice(k,1);continue;}
@@ -4223,6 +4322,8 @@ function init3D(){
       for(const o of [head,glow,trail,ring]){o.visible=false;o.frustumCulled=false;sc.add(o);}
       V3.nk.push({head,glow,trail,ring});
     }
+    V3.nkX=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff}),160);
+    V3.nkXg=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.45,depthWrite:false,blending:THREE.AdditiveBlending}),160);
     V3.ok=true;
   }catch(err){console.warn('3D view unavailable',err);V3.ok=false;}
 }
@@ -4665,8 +4766,9 @@ function vessels3D(){
 }
 function nuke3(nk,f){const a=tileXY(nk.from),b=tileXY(nk.to),ax=a.x+0.5,ay=a.y+0.5,bx=b.x+0.5,by=b.y+0.5,d=Math.hypot(bx-ax,by-ay);return {x:ax+(bx-ax)*f-W/2,y:1+Math.sin(Math.PI*f)*Math.max(14,d*0.5),z:ay+(by-ay)*f-H/2};}
 function nukes3D(nowS){
+  const fl=G.nukes.filter(nk=>nk.t>=0);
   V3.nk.forEach((o,k)=>{
-    const nk=G.nukes[k],vis=!!nk;o.head.visible=o.glow.visible=o.trail.visible=o.ring.visible=vis;if(!vis)return;
+    const nk=fl[k],vis=!!nk;o.head.visible=o.glow.visible=o.trail.visible=vis;o.ring.visible=vis&&!(nk.bg>0);if(!vis)return;
     const f=Math.min(1,nk.t/nk.dur),p=nuke3(nk,f);
     o.head.position.set(p.x,p.y,p.z);o.glow.position.set(p.x,p.y,p.z);o.glow.scale.setScalar(1+0.25*Math.sin(nowS*14));
     const arr=o.trail.geometry.attributes.position.array;
@@ -4675,6 +4777,8 @@ function nukes3D(nowS){
     const b=tileXY(nk.to),r=WEAPONS[nk.kind].radius,pulse=0.85+0.15*Math.sin(nowS*6);
     o.ring.position.set(b.x+0.5-W/2,hAt(nk.to)+0.15,b.y+0.5-H/2);o.ring.scale.set(r*pulse,1,r*pulse);
   });
+  /* the rest of a barrage: glowing warheads streaking in */
+  const XH=V3.nkX,XG=V3.nkXg;if(XH){let n=0;for(let k=V3.nk.length;k<fl.length&&n<160;k++){const nk=fl[k],p=nuke3(nk,Math.min(1,nk.t/nk.dur)),gs=1.2+0.2*Math.sin(nowS*14+k);put(XH,n,p.x,p.y,p.z,0.5,0.5,0.5,0,'#fff2d8');put(XG,n,p.x,p.y,p.z,gs,gs,gs,0,'#ff7a40');n++;}finish(XH,n);finish(XG,n);}
 }
 function air3D(nowS){
   let j=0,h=0;
@@ -4693,7 +4797,7 @@ function air3D(nowS){
   for(;h<V3.helis.length;h++)V3.helis[h].g.visible=false;
 }
 /* an additive glow colour faded toward black (which reads as transparent) */
-const MUSH_N=360;
+const MUSH_N=640;
 function glowC(r,g,b,a){a=Math.round(clamp(a,0,1)*16)/16;return `rgb(${Math.round(r*a)},${Math.round(g*a)},${Math.round(b*a)})`;}
 /* the shields in 3D: a see-through energy dome over each country, glowing at its rim and where it meets the ground, with faint bands
    drifting up it; the white one sits inside the golden one. Short of power, patches of it are missing. A strike sends a ring of light
@@ -4769,15 +4873,17 @@ function fx3D(rdt){
   const MU=V3.mush;let nmu=0;
   const mpuff=(x,y,z,r,rgb,a,fl)=>{if(MU&&nmu<MUSH_N&&a>0.01){put(MU,nmu,x,y,z,r,r*(fl||0.86),r,0,`rgb(${rgb})`);MU.geometry.attributes.aAlpha.array[nmu]=Math.min(1,a);nmu++;}};
   const mush3=e=>{const m=mushShape(e),seed=e.seed||0,X=e.x-W/2,Z=e.y-H/2,Y0=Math.max(0.05,hAt(Math.floor(e.y)*W+Math.floor(e.x)));
-    const As=m.A*m.As;if(As>0.01)for(let i=0;i<26;i++){const a=i/26*6.283+hash(seed+i*3)*0.3,rr=m.rs*(0.82+0.3*hash(seed*3+i));mpuff(X+Math.cos(a)*rr+m.wd*0.2,Y0+0.2*m.sc,Z+Math.sin(a)*rr,1.05*m.sc*(1+m.t*0.08),[138,120,98],As,0.5);}
+    const dt=mushDet(),nS=Math.ceil(26*dt),nT=Math.ceil(12*dt),nR=Math.ceil(20*dt),nD=Math.ceil(5*dt);
+    const As=m.A*m.As;if(As>0.01)for(let i=0;i<nS;i++){const a=i/nS*6.283+hash(seed+i*3)*0.3,rr=m.rs*(0.82+0.3*hash(seed*3+i));mpuff(X+Math.cos(a)*rr+m.wd*0.2,Y0+0.2*m.sc,Z+Math.sin(a)*rr,1.05*m.sc*(1+m.t*0.08),[138,120,98],As,0.5);}
     const top=Math.max(0.2,m.h-m.capR*0.35),sa=m.A*0.85*Math.min(1,m.t/0.4);
-    for(let i=0;i<12;i++){const q=i/11,w=m.capR*0.2*(1+(1-q)*0.9);mpuff(X+Math.sin(m.t*1.1+i*1.7+seed)*0.12*m.sc+m.wd*q,Y0+q*top,Z+Math.cos(m.t*0.9+i*2.3)*0.1*m.sc,w,mushRGB(m.fire*q,true),sa);}
+    for(let i=0;i<nT;i++){const q=i/Math.max(1,nT-1),w=m.capR*0.2*(1+(1-q)*0.9);mpuff(X+Math.sin(m.t*1.1+i*1.7+seed)*0.12*m.sc+m.wd*q,Y0+q*top,Z+Math.cos(m.t*0.9+i*2.3)*0.1*m.sc,w,mushRGB(m.fire*q,true),sa);}
     const cx=X+m.wd,cy=Y0+m.h,Rm=m.capR*0.58,rm=m.capR*0.42,ca=m.A*0.92;
-    for(let i=0;i<20;i++){const th=i/20*6.283+hash(seed+i)*0.3,ph=hash(seed*5+i)*6.283+m.t*0.55,rr=Rm+rm*Math.cos(ph)*0.8;mpuff(cx+Math.cos(th)*rr,cy+rm*Math.sin(ph)*0.75,Z+Math.sin(th)*rr,rm*(0.85+0.35*hash(seed*7+i)),mushRGB(m.fire*(0.55+0.45*Math.max(0,-Math.sin(ph))),false),ca);}
-    for(let j=0;j<5;j++){const a=j/5*6.283+seed,dd=j?m.capR*0.22:0;mpuff(cx+Math.cos(a)*dd,cy+rm*0.75,Z+Math.sin(a)*dd,m.capR*0.48,mushRGB(m.fire*0.4,false),ca);}
+    for(let i=0;i<nR;i++){const th=i/nR*6.283+hash(seed+i)*0.3,ph=hash(seed*5+i)*6.283+m.t*0.55,rr=Rm+rm*Math.cos(ph)*0.8;mpuff(cx+Math.cos(th)*rr,cy+rm*Math.sin(ph)*0.75,Z+Math.sin(th)*rr,rm*(0.85+0.35*hash(seed*7+i)),mushRGB(m.fire*(0.55+0.45*Math.max(0,-Math.sin(ph))),false),ca);}
+    for(let j=0;j<nD;j++){const a=j/nD*6.283+seed,dd=j?m.capR*0.22:0;mpuff(cx+Math.cos(a)*dd,cy+rm*0.75,Z+Math.sin(a)*dd,m.capR*0.48,mushRGB(m.fire*0.4,false),ca);}
     if(m.fire>0){glow(cx,cy,Z,m.capR*(0.8+0.3*(1-m.fire)),glowC(255,150,70,m.fire*0.7));if(m.t<0.8)glow(cx,cy,Z,m.capR*0.7,glowC(255,245,210,1-m.t/0.8));}
     if(RG&&m.t>0.15&&m.t<1.8&&c.r<62){const k2=(m.t-0.15)/1.65,rr=(1+k2*3.5)*m.sc;put(RG,c.r++,X,Y0+m.h*0.55,Z,rr,1,rr,0,glowC(235,240,245,(1-k2)*0.5));}
   };
+  MUSH_K=fx.reduce((c,f)=>c+(f.nk?1:0),0);
   for(let j=fx.length-1;j>=0;j--){
     const e=fx[j];e.t+=rdt;const d=e.kind==='ring'?0.7:e.kind==='shot'?SHOT_D:e.kind==='icpt'?ICPT_D+(e.dl||0):e.wk?WRECK_T:e.nk?mushD(e):2.6;
     if(e.t>d){fx.splice(j,1);continue;}
@@ -4924,6 +5030,7 @@ function overlay3D(nowS){
   }
   drawEmoBubbles(n=>{let lx=n.lx,ly=n.ly;const ti=Math.round(ly)*W+Math.round(lx);if(G.owner[ti]!==n.id){lx=n.capital%W;ly=(n.capital/W)|0;}const p=proj(lx+0.5-W/2,hAt(Math.round(ly)*W+Math.round(lx))+(z>=8?3:1.5),ly+0.5-H/2);return p&&p.x>-60&&p.y>-60&&p.x<cw+60&&p.y<ch+80?{x:p.x,y:p.y-14}:null;});
   for(const nk of G.nukes){
+    if(nk.t<0||nk.bg>0)continue;
     const f=Math.min(1,nk.t/nk.dur),q=nuke3(nk,f),left=Math.max(0,nk.dur-nk.t),b=tileXY(nk.to);
     const pt=proj(b.x+0.5-W/2,hAt(nk.to)+0.2,b.y+0.5-H/2);if(pt)outlined(`IMPACT ${left.toFixed(1)}s`,pt.x,pt.y-24,`600 12px ${FN}`,TK.bad);
     const pm=proj(q.x,q.y,q.z),m=28;
@@ -5631,6 +5738,10 @@ function buildStaticUI(){
   document.querySelectorAll('#fxDumpAmt [data-d]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.d===fxDumpPct));b.onclick=()=>{fxDumpPct=+b.dataset.d;document.querySelectorAll('#fxDumpAmt [data-d]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-fxdump',String(fxDumpPct));}catch(e){}updateUI();};});
   $('fxList').onclick=e=>{const b=e.target.closest('[data-fx]');if(!b)return;const id=+b.closest('.fxrow').dataset.id,f=b.dataset.fx;if(f==='b')issue('fb',id,fxPct);else if(f==='d')issue('fd',id,fxDumpPct);else issue('mm',id,f==='p'?1:-1);};
   $('cityList').onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const t=+b.closest('.crow').dataset.t;if(b.dataset.act==='up')issue('cu',t);else focusTile(t);};
+  $('siloList').onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const t=+b.closest('.crow').dataset.t;if(b.dataset.act==='up')issue('su',t);else focusTile(t);};
+  document.querySelectorAll('#warBar .wbtn').forEach(b=>{const k=b.dataset.w,x=b.querySelector('canvas').getContext('2d');x.setTransform(44/34,0,0,44/34,0,0);drawIcon(x,k,17,17,30,TK.bad);
+    b.onclick=()=>{if(k==='raider'){issue('rs',-1);return;}if(k==='jet'||k==='heli')setMode(mode.k==='air'&&mode.kind===k?{k:'attack'}:{k:'air',kind:k});else setMode(mode.k==='nuke'&&mode.kind===k?{k:'attack'}:{k:'nuke',kind:k});};});
+  new MutationObserver(()=>document.body.classList.toggle('ledger-min',$('ledger').classList.contains('collapsed'))).observe($('ledger'),{attributes:true,attributeFilter:['class']});
   try{const v=+localStorage.getItem('ltdt-printpct');if([0,25,50,100].includes(v))printPct=v;}catch(e){}
   document.querySelectorAll('#prAmt [data-pp]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.pp===printPct));b.onclick=()=>{printPct=+b.dataset.pp;document.querySelectorAll('#prAmt [data-pp]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-printpct',String(printPct));}catch(e){}updateUI();};});
   $('btnPrint').onclick=()=>issue('pm',printPct);$('btnBuyG').onclick=()=>issue('bg');$('btnSellG').onclick=()=>issue('sg');$('btnBuyCur').onclick=()=>issue('bc');
@@ -5729,9 +5840,10 @@ function setMode(m){
   document.querySelectorAll('#alist .bld,#qbAir .bld').forEach(b=>b.setAttribute('aria-pressed',String(m.k==='air'&&m.kind===b.dataset.air)));
   document.querySelectorAll('#blist .bld,#qbList .bld').forEach(b=>b.setAttribute('aria-pressed',String(m.k==='build'&&m.type===b.dataset.type)));
   document.querySelectorAll('#wlist .bld').forEach(b=>b.setAttribute('aria-pressed',String(m.k==='nuke'&&m.kind===b.dataset.weapon)));
+  document.querySelectorAll('#warBar .wbtn').forEach(b=>b.setAttribute('aria-pressed',String((m.k==='nuke'||m.k==='air')&&m.kind===b.dataset.w)));
   const chip=$('modeChip');
   if(m.k==='attack')chip.hidden=true;
-  else{chip.hidden=false;$('modeText').textContent=m.k==='build'?`Placing ${BLD[m.type].name}. Tap your land.`:m.k==='air'?(m.kind==='jet'?'Jet strike: tap enemy land to bomb it.':'Helicopters: tap land to fly your troops in.'):`Targeting with ${WEAPONS[m.kind].name}. Tap anywhere.`;}
+  else{chip.hidden=false;$('modeText').textContent=m.k==='build'?`Placing ${BLD[m.type].name}. Tap your land.`:m.k==='air'?(m.kind==='jet'?'Jet strike: tap enemy land to bomb it.':'Helicopters: tap land to fly your troops in.'):`${WEAPONS[m.kind].name} barrage armed: each tap fires up to ${myBarrage()||BARRAGE}. Keep tapping targets, or Cancel.`;}
 }
 function zoomBy(f){cam.z=clampZ(cam.z*f);clampCam();}
 /* ---------- Markets screen: the market chart moves in here while it is open, and back onto the map afterwards ---------- */
@@ -5861,7 +5973,7 @@ function clickTile(t){
   if(G.phase==='spawn'){issue('sp',t);return;}
   if(G.phase!=='play'||!P.alive)return;
   if(mode.k==='build'){issue('bd',mode.type,t);return;}
-  if(mode.k==='nuke'){if(!asmGuard(t))return;issue('nk',mode.kind,t);setMode({k:'attack'});return;}
+  if(mode.k==='nuke'){if(!asmGuard(t))return;issue('nk',mode.kind,t);return;}
   if(mode.k==='air'){if(!asmGuard(t))return;issue('air',mode.kind,t);setMode({k:'attack'});return;}
   if(G.terr[t]===WATER||G.owner[t]===ME)return;
   if(!asmGuard(t))return;
@@ -6197,6 +6309,34 @@ function updateTreasury(){
   $('iUrban').textContent=inc.urban.toFixed(1);$('iCars').textContent=(inc.cars||0).toFixed(1);$('iOil').textContent=(inc.oil||0).toFixed(1);updateForex(P);updateLoans(P);
   updateReserves(P);$('iTrade').textContent=P.tradeRate.toFixed(1);$('iTotal').textContent=P.rate.money.toFixed(1);$('iRes').textContent=P.rate.reserve.toFixed(2);
 }
+/* bombs per launch: 10 per level of your best silo */
+function myBarrage(){let L=0;if(G)for(const b of G.buildings)if(!b.dead&&b.type==='silo'&&b.owner===ME)L=Math.max(L,siloLvl(b));return L*BARRAGE;}
+let siloKey='';
+function updateSilos(P){
+  const list=G.buildings.filter(b=>!b.dead&&b.type==='silo'&&b.owner===ME).sort((a,b)=>a.tile-b.tile),box=$('siloList'),key=list.map(b=>b.tile).join(',');
+  $('siloBlock').hidden=!list.length;if(!list.length)return;
+  if(key!==siloKey){siloKey=key;box.innerHTML=list.map((b,i)=>`<div class="crow" data-t="${b.tile}"><button type="button" class="cname" data-act="loc">Silo ${i+1}</button><span class="cinfo"></span><button type="button" class="btn ghost sm" data-act="up">Upgrade</button></div>`).join('');}
+  for(const b of list){const row=box.querySelector(`[data-t="${b.tile}"]`);if(!row)continue;const L=siloLvl(b),bt=row.querySelector('[data-act="up"]'),info=row.querySelector('.cinfo');
+    if(L>=SILO_MAX){info.textContent=`Level ${L} · ${BARRAGE*L} bombs per launch · top level`;bt.textContent=`Level ${SILO_MAX} max`;bt.disabled=true;}
+    else{const c=siloUpCost(P,b);info.textContent=`Level ${L} · ${BARRAGE*L} bombs per launch · next ${fmt(c.money)} ${P.cur}, ${fmt(c.stone)} stone`;bt.textContent=`Upgrade to level ${L+1}`;bt.disabled=!canAfford(P,c)||G.phase!=='play';}}
+  $('siloCnt').textContent=`×${myBarrage()} per launch`;
+}
+/* how much power your energy shields have, and what hits have worn away */
+function updateShields(P){
+  const rows=[];
+  for(const [nm,type,F,w] of [['Golden shield','goldendome',GOLD_FULL,P.wG||0],['White shield','irondome',IRON_FULL,P.wI||0]]){const k=P.b[type]||0;if(!k)continue;const pw=Math.max(0,Math.min(1,k/F)-w);
+    rows.push(`<dt>${nm}</dt><dd>${Math.round(pw*100)}%${w>0.0005?` · worn ${Math.round(w*100)}%${w>=SH_BREAK?` · build ${BLD[type].name}s to repair`:' · recharging'}`:''}</dd>`);}
+  $('shBlock').hidden=!rows.length;if(rows.length)$('shList').innerHTML=rows.join('');
+}
+function updateWarBar(P){
+  const wb=$('warBar');if(!wb||wb.offsetParent===null)return;
+  const silo=P.era>=3&&P.b.silo>0,bs=myBarrage();
+  for(const b of wb.querySelectorAll('.wbtn')){const k=b.dataset.w,sm=b.querySelector('small');let ok,t;
+    if(k==='atom'||k==='hydrogen'){ok=silo;t=P.era<3?'Modern era':!silo?'No silo':`×${bs} · ${fmt(wpnCost(P,k))}`;}
+    else if(k==='raider'){ok=P.era>=1&&P.b.port>0;t=ok?`${raidsOf(ME)}/${raidCap(P)} at sea`:'Needs port';}
+    else{ok=P.era>=2;t=ok?fmt(airCost(P,k)):'Industrial';}
+    if(b.disabled===ok)b.disabled=!ok;if(sm.textContent!==t)sm.textContent=t;}
+}
 function updateBuild(){
   const P=me();
   document.querySelectorAll('#blist .bld').forEach(b=>{
@@ -6206,8 +6346,9 @@ function updateBuild(){
   });
   document.querySelectorAll('#wlist .bld').forEach(b=>{
     const cost=wpnCost(P,b.dataset.weapon),ready=P.era>=3&&P.b.silo>0;b.disabled=!ready;
-    b.querySelector('.cost').innerHTML=ready?`<span class="${P.money<cost?'short':''}">${fmt(cost)} ${esc(P.cur)}</span>`:`<span>${P.era<3?'Modern era':'Needs silo'}</span>`;
+    b.querySelector('.cost').innerHTML=ready?`<span class="${P.money<cost?'short':''}">${fmt(cost)} ${esc(P.cur)}</span><span>×${myBarrage()} per launch</span>`:`<span>${P.era<3?'Modern era':'Needs silo'}</span>`;
   });
+  updateSilos(P);updateShields(P);
   updateAirBtns(P);
   {const rb=$('btnRaid'),cost=raidCost(P),ok=P.era>=1&&P.b.port>0;rb.disabled=!ok;
    rb.querySelector('.cost').innerHTML=ok?`<span class="${P.money<cost?'short':''}">${fmt(cost)} ${esc(P.cur)}</span><span>${raidsOf(ME)} / ${raidCap(P)} at sea</span>`:`<span>${P.era<1?'Renaissance':'Needs port'}</span>`;
@@ -6225,6 +6366,7 @@ function updateArmy(){
 function updateUI(){
   if(!G||G.demo||!me())return;
   updateHUD();updateArmy();
+  updateWarBar(me());
   if(activeTab==='realm')updateRealm();else if(activeTab==='treasury')updateTreasury();else if(activeTab==='build')updateBuild();else if(activeTab==='nations'){updateNations();updateInspector();}
   if(!$('qBuild').hidden)updateQuickBuild();
   if(G.phase==='spawn'){
@@ -7094,7 +7236,7 @@ function frame(now){
       if(e.shield){if(SHQ.length<60)SHQ.push({n:e.n,lay:e.lay,x:e.x,y:e.y,fx:e.fx,at:SHC+(e.dl<0?ICPT_FLY:e.dl/Math.max(1,speed))});continue;}
       if(e.icpt){if(fx.length<170)fx.push(Object.assign({},e,{kind:'icpt',t:0,seed:(Math.random()*1e6)|0}));continue;}
       if(e.shot){if(fx.length<160)fx.push({kind:'shot',x:e.x1,y:e.y1,x0:e.x0,y0:e.y0,hit:!!e.hit,t:0,seed:(Math.random()*1e6)|0});continue;}
-      fx.push({kind:'blast',x:e.x,y:e.y,r:e.r,t:0,air:!!e.ic,sea:!!e.sea,wk:e.wk||0,nk:e.nk||0,o:e.o,hd:e.hd||0,seed:(Math.random()*1e6)|0});if(e.sea)continue;
+      fx.push({kind:'blast',x:e.x,y:e.y,r:e.r,t:0,air:!!e.ic,sea:!!e.sea,wk:e.wk||0,nk:e.nk&&fx.reduce((c,f)=>c+(f.nk?1:0),0)<MUSH_CAP?e.nk:0,o:e.o,hd:e.hd||0,seed:(Math.random()*1e6)|0});if(e.sea)continue;
       const sx=(e.x-cam.x)*cam.z+cw/2,sy=(e.y-cam.y)*cam.z+ch/2;
       if(!G.demo&&sx>-80&&sy>-80&&sx<cw+80&&sy<ch+80){shakeT=0.7;flashT=0.24;}
     }
