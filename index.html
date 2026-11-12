@@ -143,6 +143,7 @@ input[type=range]{width:100%;accent-color:var(--gold);margin:0}
 .tab[aria-selected="true"]{color:var(--gold);border-bottom-color:var(--gold);text-shadow:0 0 12px rgba(226,180,79,.45)}
 .badge{position:absolute;top:8px;right:0;width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
 .ltoggle{display:none;margin-left:auto;background:none;border:0;color:var(--muted);cursor:pointer;padding:0 4px}
+#ledgerGrip{display:none}
 .ltoggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .2s}
 .pane{flex:1;min-height:0;overflow-y:auto;padding-block:16px 22px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
 .block{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -558,15 +559,21 @@ body.fullmap .zoom{margin-left:auto}
    the arrow on the tab row folds it down to just the tabs */
 @media (min-width:761px) and (min-height:521px){
   #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
-  #ledger{grid-column:1;grid-row:3;height:clamp(220px,34vh,380px);border-left:0;border-top:1px solid var(--rule-hi)}
+  #ledger{grid-column:1;grid-row:3;position:relative;height:var(--ledger-h,clamp(220px,34vh,380px));max-height:calc(100vh - 180px);border-left:0;border-top:1px solid var(--rule-hi)}
   .ltoggle{display:block;flex:none;padding:0 10px}
+  #ledgerGrip{display:block;position:absolute;left:0;right:0;top:-7px;height:14px;cursor:ns-resize;z-index:6;touch-action:none}
+  #ledgerGrip::after{content:"";position:absolute;left:50%;top:5px;width:48px;height:4px;margin-left:-24px;border-radius:2px;background:var(--rule-hi);transition:background .15s}
+  #ledgerGrip:hover::after,#ledgerGrip:focus-visible::after,#ledgerGrip.drag::after{background:var(--gold)}
+  #ledger.collapsed #ledgerGrip{display:none}
   #ledger.collapsed{height:auto}
   #ledger.collapsed .pane{display:none}
   #ledger.collapsed .ltoggle svg{transform:rotate(180deg)}
-  #ledger .pane{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));align-content:start;align-items:start;column-gap:24px;row-gap:16px}
+  #ledger .pane{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));grid-auto-rows:max-content;align-content:start;align-items:start;column-gap:24px;row-gap:16px}
   #ledger .pane>:not(.block){grid-column:1/-1}
   #ledger .blist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px}
   #toasts{right:16px;width:min(380px,calc(100% - 32px))}
+  /* the markets box scrolls rather than covering the Attack sliders when the map is short */
+  #stage>#econ{max-height:max(40px,calc(100% - var(--dockH,110px) - 24px));overflow-y:auto}
 }
 /* the war bar: when the panel is out of sight, quick buttons for bomb barrages, jets, helicopters and warships */
 #warBar{display:none;gap:4px;padding:5px;pointer-events:auto;flex-wrap:wrap}
@@ -1008,6 +1015,7 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
   </main>
 
   <aside id="ledger">
+    <div id="ledgerGrip" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Panel height: drag, or use the up and down arrow keys" title="Drag to make the panel taller or shorter · double-click to reset"></div>
     <div class="tabs" role="tablist" aria-label="Realm ledger">
       <button type="button" role="tab" class="tab" data-tab="realm" aria-selected="true">Realm<span class="badge" id="bRealm" hidden></span></button>
       <button type="button" role="tab" class="tab" data-tab="treasury" aria-selected="false">Treasury</button>
@@ -5707,6 +5715,21 @@ function buildStaticUI(){
     $('ledger').classList.remove('collapsed');openTab(b.dataset.tab);requestAnimationFrame(resize);
   });
   $('ledgerToggle').onclick=()=>{$('ledger').classList.toggle('collapsed');requestAnimationFrame(resize);};
+  /* room left for the markets box: everything above the Attack sliders */
+  if(window.ResizeObserver){const ro=new ResizeObserver(()=>{const a=$('armyBar'),sb=stage.getBoundingClientRect().bottom,t=(a&&a.offsetParent?a:$('dock')).getBoundingClientRect().top;stage.style.setProperty('--dockH',Math.max(0,Math.round(sb-t))+'px');});
+    ro.observe($('dock'));ro.observe(stage);if($('armyBar'))ro.observe($('armyBar'));}
+  /* laptops and desktops: drag the top edge of the bottom panel to make it taller or shorter; remembered on this device */
+  {const g=$('ledgerGrip'),L=$('ledger'),lim=h=>Math.round(Math.max(150,Math.min(h,innerHeight-180)));
+   const set=(h,save)=>{if(h==null)L.style.removeProperty('--ledger-h');else L.style.setProperty('--ledger-h',lim(h)+'px');
+     if(save)try{if(h==null)localStorage.removeItem('ltdt-ledger-h');else localStorage.setItem('ltdt-ledger-h',String(lim(h)));}catch(e){}};
+   try{const v=+localStorage.getItem('ltdt-ledger-h');if(v>0)set(v);}catch(e){}
+   let y0=0,h0=0,pid=null;
+   g.addEventListener('pointerdown',e=>{if(e.button)return;pid=e.pointerId;y0=e.clientY;h0=L.getBoundingClientRect().height;try{g.setPointerCapture(pid);}catch(_){}g.classList.add('drag');e.preventDefault();});
+   g.addEventListener('pointermove',e=>{if(e.pointerId===pid)set(h0+(y0-e.clientY));});
+   const end=e=>{if(e.pointerId!==pid)return;pid=null;g.classList.remove('drag');set(L.getBoundingClientRect().height,true);};
+   g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
+   g.addEventListener('dblclick',()=>set(null,true));
+   g.addEventListener('keydown',e=>{if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;e.preventDefault();e.stopPropagation();set(L.getBoundingClientRect().height+(e.key==='ArrowUp'?40:-40),true);});}
   const bl=$('blist');
   for(const k of BLD_KEYS){
     const b=document.createElement('button');b.type='button';b.className='bld';b.dataset.type=k;b.setAttribute('aria-pressed','false');
