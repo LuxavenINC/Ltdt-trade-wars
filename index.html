@@ -1406,6 +1406,30 @@ const IRON_FULL=40,GOLD_FULL=5;
 /* the most power an AI's shields reach: 70% golden, 80% white. Players' shields go to 100% */
 const AI_GOLD_CAP=0.7,AI_IRON_CAP=0.8;
 function shCap(n,lay){return n&&!n.human?(lay==='gold'?AI_GOLD_CAP:AI_IRON_CAP):1;}
+/* how much power a nation's golden or white shield has now */
+function shPow(n,lay){const F=lay==='gold'?GOLD_FULL:IRON_FULL,k=(n.b&&n.b[lay==='gold'?'goldendome':'irondome'])||0;return Math.max(0,Math.min(shCap(n,lay),k/F)-((lay==='gold'?n.wG:n.wI)||0));}
+/* when a player's golden or white shield reaches full power, AIs on Normal and Hard aim their bombs at that player until the shield
+   is worn down to 35% (hG, hI = 1). Then they hold their bombs against that player (= 2), leaving the rest of the shield standing,
+   until a shield is brought back to full power (hunted again) or its last dome is gone */
+const SH_HUNT=0.35;
+function shHunt(n){
+  if(!n.human||!n.alive||!(G.diff.nkA||G.diff.nkH))return;
+  for(const lay of ['gold','iron']){const f=lay==='gold'?'hG':'hI',p=shPow(n,lay),nm=lay==='gold'?'golden':'white',k=n.b[lay==='gold'?'goldendome':'irondome']||0;
+    if(!k){n[f]=0;continue;}
+    if(p>=0.999&&n[f]!==1){n[f]=1;log(n.id,`Your ${nm} shield is at full power, so the AIs will aim their bombs at you until they wear it down to ${Math.round(SH_HUNT*100)}%.`,null,'warn');}
+    else if(n[f]===1&&p<=SH_HUNT+1e-9){n[f]=2;const o=lay==='gold'?'hI':'hG';
+      log(n.id,`The AIs wore your ${nm} shield down to ${Math.round(p*100)}%.${n[o]===1?` They keep aiming at your ${lay==='gold'?'white':'golden'} shield until it is down to ${Math.round(SH_HUNT*100)}% too.`:' They have stopped aiming their bombs at you while it stays below full power.'}`,null,'warn');}}
+}
+/* how a player's shields steer AI bombs: 'hunt' while a full-power shield is being worn down (and the bombs already on their way will
+   not finish the job), 'held' once the AIs have worn it down to 35%, '' otherwise */
+function shAim(Q){
+  if(Q.hG===1||Q.hI===1){
+    let fl=0;for(const nk of G.nukes)if(!nk.ic&&G.owner[nk.to]===Q.id)fl++;
+    const gs=shPow(Q,'gold'),wear={gold:SH_WEAR.gold.atom,iron:SH_WEAR.iron.atom*((Q.b.goldendome||0)>0?Math.max(0.25,1-gs):1)};
+    for(const lay of ['gold','iron'])if(Q[lay==='gold'?'hG':'hI']===1&&shPow(Q,lay)-fl*wear[lay]>SH_HUNT)return 'hunt';
+    return 'held';}
+  return Q.hG===2||Q.hI===2?'held':'';
+}
 /* hits wear the energy shields down: a little power for every bomb or aircraft that meets them. Below 20% wear a shield recharges by itself;
    once it has lost 20% it stays down until new domes are built, each new dome repairing its share of the shield (1/40 or 1/5) */
 const SH_BREAK=0.2,SH_WEAR={gold:{atom:0.01,hydrogen:0.02,air:0.003},iron:{atom:0.02,hydrogen:0.04,air:0.006}},SH_REGEN={gold:0.002,iron:0.003};
@@ -1436,7 +1460,8 @@ const CARDS=[
   /* proposed by the council as soon as you reach the Modern era, and in every offer after that until you pass it */
   {id:'deepgold',cat:'Treasury',name:'Deep Gold Shafts',era:3,must:true,text:'Every gold mine digs 200 gold bars a second instead of 100.',fx:n=>{n.mods.goldMine=200;}}
 ];
-/* ramp: how much more aggressive AIs get every 15 minutes of war; nkA, nkH: atom and hydrogen bombs each AI fires in every 25 minutes of war */
+/* ramp: how much more aggressive AIs get every 15 minutes of war; nkA, nkH: whether AIs follow the nuclear plan (atom bombs every year)
+   and how many hydrogen bombs each AI fires in every 25 minutes of war */
 const DIFF={
   easy:{ai:0.85,thresh:2.0,aggr:0.6,bias:0.75,nuke:0,ramp:0,nkA:0,nkH:0},
   normal:{ai:1,thresh:1.45,aggr:1,bias:1,nuke:0.015,ramp:0.1,nkA:10,nkH:1},
@@ -2819,21 +2844,40 @@ function aiDome(n){
   if(wantG&&aiBuy(n,'goldendome'))return;
   if(wantI)aiBuy(n,'irondome');
 }
-/* the nuclear plan: on Medium every AI fires 10 atom bombs and 1 hydrogen bomb in every 25 minutes of war, on Hard 20 and 5. It keeps a
-   silo, sells gold when short of money, spreads the launches through the 25 minutes and aims at whoever it is most hostile to */
-const NUKE_WIN=1500;
+/* the nuclear plan (Normal and Hard): in the Modern era every AI fires 20 atom bombs every year of war (one every 6 seconds), plus
+   1 hydrogen bomb in every 25 minutes on Normal and 5 on Hard. It keeps a silo, sells gold when short of money and aims at whoever it
+   is most hostile to, except that a player whose golden or white shield is at full power draws its bombs until that shield is down to
+   35%, and is then left alone by its bombs until a shield is back at full power */
+const NUKE_WIN=1500,YEAR_LEN=SEASON_LEN*4,AI_ATOM_YR=20;
 function aiNukes(n,peace,held){
   const D=G.diff;if(!(D.nkA||D.nkH)||peace||held||n.era<3)return;
-  const el=G.time-G.peaceT,w=Math.floor(el/NUKE_WIN),e=el-w*NUKE_WIN;
-  if(n.nkW!==w){n.nkW=w;n.nkA=0;n.nkH=0;}
-  const dueA=Math.min(D.nkA,Math.floor(D.nkA*e/NUKE_WIN)+1),dueH=D.nkH?Math.min(D.nkH,Math.floor(D.nkH*e/NUKE_WIN)+1):0;
+  const el=G.time-G.peaceT,w=Math.floor(el/NUKE_WIN),e=el-w*NUKE_WIN,y=Math.floor(el/YEAR_LEN),ey=el-y*YEAR_LEN;
+  if(n.nkW!==w){n.nkW=w;n.nkH=0;}
+  if(n.nkY!==y){n.nkY=y;n.nkA=0;}
+  const dueA=Math.min(AI_ATOM_YR,Math.floor(AI_ATOM_YR*ey/YEAR_LEN)+1),dueH=D.nkH?Math.min(D.nkH,Math.floor(D.nkH*e/NUKE_WIN)+1):0;
   const kind=n.nkH<dueH?'hydrogen':n.nkA<dueA?'atom':null;if(!kind)return;
   if(n.b.silo<1){aiBuy(n,'silo');return;}
   if(!aiCash(n,wpnCost(n,kind)))return;
   let tg=-1,bs=-1e9;
-  for(const Q of G.nations){if(!Q.alive||Q.id===n.id||Q.tiles<1||isAllied(n.id,Q.id)||truceOn(n.id,Q.id))continue;let sc=-rel(n.id,Q.id)+Q.tiles/40;if(hasAttack(n.id,Q.id)||hasAttack(Q.id,n.id))sc+=60;if(sc>bs){bs=sc;tg=Q.id;}}
+  const aim=G.nations.map(Q=>Q.human&&Q.alive?shAim(Q):'');
+  for(const Q of G.nations){if(aim[Q.id]!=='hunt'||Q.id===n.id||Q.tiles<1||isAllied(n.id,Q.id)||truceOn(n.id,Q.id))continue;const sc=-rel(n.id,Q.id);if(sc>bs){bs=sc;tg=Q.id;}}
+  if(tg<0)for(const Q of G.nations){if(!Q.alive||aim[Q.id]||Q.id===n.id||Q.tiles<1||isAllied(n.id,Q.id)||truceOn(n.id,Q.id))continue;let sc=-rel(n.id,Q.id)+Q.tiles/40;if(hasAttack(n.id,Q.id)||hasAttack(Q.id,n.id))sc+=60;if(sc>bs){bs=sc;tg=Q.id;}}
   if(tg<0)return;const Q=G.nations[tg],t=Q.sample>=0&&G.owner[Q.sample]===Q.id?Q.sample:Q.capital;
   if(!launchNuke(n,kind,t)){if(kind==='hydrogen')n.nkH++;else n.nkA++;}
+}
+/* every 4 years of war (8 minutes) each AI on Normal and Hard throws 15% of its army at a player: by land where it borders one, by sea
+   otherwise; the player it is most hostile to first. Allies and a truce are spared */
+const AI_WAVE_YRS=4,AI_WAVE_ARMY=0.15;
+function aiWave(n,peace,held){
+  const D=G.diff;if(!(D.nkA||D.nkH)||peace||held)return;
+  const k=Math.floor((G.time-G.peaceT)/(AI_WAVE_YRS*YEAR_LEN));if(k<1||n.wvK===k)return;
+  n.wvK=k;const NN=G.NN,tr=Math.floor(n.troops*AI_WAVE_ARMY);if(tr<20)return;
+  const hs=G.nations.filter(Q=>Q.human&&Q.alive&&Q.tiles>0&&Q.id!==n.id&&!isAllied(n.id,Q.id)&&!truceOn(n.id,Q.id)).sort((p,q)=>rel(n.id,p.id)-rel(n.id,q.id)||p.id-q.id);
+  for(const Q of hs){
+    if(G.adj[n.id*(NN+1)+Q.id]>0){const ex=hasAttack(n.id,Q.id);if(!launchAttack(n,Q.id,tr)){if(ex)log(Q.id,`${n.name} sent ${fmt(tr)} more troops against you, 15% of its army.`,null,'bad');return;}}
+    if(n.coastTiles>0&&boatsOf(n.id)<boatCap(n)){const t=Q.sample>=0&&G.owner[Q.sample]===Q.id?Q.sample:Q.capital,ar=n.attackRatio;n.attackRatio=AI_WAVE_ARMY;const e=sendBoat(n,t);n.attackRatio=ar;
+      if(!e){log(Q.id,`${n.name} set sail for your coast with ${fmt(G.boats[G.boats.length-1].troops)} troops, 15% of its army.`,null,'bad');return;}}
+  }
 }
 function aiThink(n,iv){
   const D=G.diff,NN=G.NN,peace=inPeace();
@@ -2898,6 +2942,7 @@ function aiThink(n,iv){
   /* military */
   const held=n.asmSan&&!n.asmWar,ag=aiRamp();
   aiNukes(n,peace,held);
+  aiWave(n,peace,held);
   if(!peace&&!held&&n.era>=1&&n.b.port>0&&raidsOf(n.id)<raidCap(n)&&n.money>raidCost(n)*2&&R()<0.05*D.aggr*ag*(0.5+n.pers.aggr)){
     let tg=-1,lo=-15;for(const sh of G.ships){if(sh.o===n.id||isAllied(n.id,sh.o))continue;const r=rel(n.id,sh.o);if(r<lo){lo=r;tg=sh.o;}}
     if(tg>=0)launchRaider(n,tg);
@@ -2939,6 +2984,7 @@ function secondly(){
   for(const n of ns){if(n.wG>0&&n.wG<SH_BREAK)n.wG=Math.max(0,Math.round((n.wG-SH_REGEN.gold)*1e6)/1e6);if(n.wI>0&&n.wI<SH_BREAK)n.wI=Math.max(0,Math.round((n.wI-SH_REGEN.iron)*1e6)/1e6);}
   for(let a=0;a<NN;a++)for(let b=a+1;b<NN;b++){const k=a*NN+b,tg=G.ally[k]?40:(ns[a].asmWar||ns[b].asmWar)?-100:0,v=G.rel[k]+(tg-G.rel[k])*0.02;G.rel[k]=v;G.rel[b*NN+a]=v;}
   for(const n of ns)if(n.hos)n.hos=n.hos>0.05?n.hos*0.996:0;
+  for(const n of ns)shHunt(n);
   if(G.reqs.length)G.reqs=G.reqs.filter(r=>r.exp>=G.tick);
   for(const n of ns){
     if(!n.alive)continue;
