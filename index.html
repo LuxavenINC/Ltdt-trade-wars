@@ -134,6 +134,7 @@ body.home #walkPad{display:none}
 .ab b{font:500 13px var(--f-num);color:var(--gold);justify-self:end}
 .ab input{grid-column:1/-1}
 .ab small{grid-column:1/-1;font:12px var(--f-num);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ab[hidden]{display:none}
 .zoom{display:flex;flex-direction:column;gap:6px;flex:none}
 .zb{width:38px;height:38px;display:grid;place-items:center;cursor:pointer;font:500 20px/1 var(--f-num);color:var(--paper);padding:0;background:var(--panel-a);border:1px solid var(--rule-hi);border-radius:3px}
 .zb:hover{border-color:var(--gold);color:var(--gold)}
@@ -999,6 +1000,7 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
           <div class="ab"><label for="atkR">Attack</label><b id="atkV">40%</b><input type="range" id="atkR" min="5" max="100" step="1" value="40"><small id="atkT">troops per order</small></div>
           <div id="frontList" class="fronts" hidden></div>
           <div class="ab"><label for="trpR">Army share</label><b id="trpV">45%</b><input type="range" id="trpR" min="10" max="90" step="1" value="45"><small id="trpT">rest work for gold</small></div>
+          <div class="ab" id="shpBox" hidden title="How many ships sail when you tap land across the sea: the order's troops split between them and they land on beaches side by side"><label for="shpR">Ships</label><b id="shpV">1</b><input type="range" id="shpR" min="1" max="4" step="1" value="1"><small id="shpT">per landing</small></div>
         </div>
         <div id="warBar" class="hudbox" role="toolbar" aria-label="War: bombs, aircraft and warships">
           <button type="button" class="wbtn" data-w="atom" aria-pressed="false" title="Atom bomb barrage: tap targets on the map"><canvas width="44" height="44"></canvas><span>Atom</span><small></small></button>
@@ -1704,7 +1706,9 @@ function scan(){
   const NN=G.NN,ns=G.nations,own=G.owner,terr=G.terr,coast=G.coast,adj=G.adj,atkIdx=G.atkIdx,atks=G.attacks;
   for(const n of ns){n.tiles=0;n.cnt.fill(0);n.coastTiles=0;n.sx=0;n.sy=0;n._s=0;n._c=0;}
   adj.fill(0);atkIdx.fill(-1);
-  for(let k=0;k<atks.length;k++){const a=atks[k];atkIdx[a.a*(NN+1)+(a.t<0?NN:a.t)]=k;a.cands.length=0;a.score.length=0;}
+  let lmIdx=null;
+  for(let k=0;k<atks.length;k++){const a=atks[k],pk=a.a*(NN+1)+(a.t<0?NN:a.t);if(a.lm!=null){(lmIdx||(lmIdx=new Map())).set(pk*100000+a.lm,k);}else atkIdx[pk]=k;a.cands.length=0;a.score.length=0;}
+  if(lmIdx)landOf(0);
   const hasAtk=atks.length>0,fallTick=G.fallN>0&&G.tick%4===0;let fell=false;
   let i=0;
   for(let y=0;y<H;y++)for(let x=0;x<W;x++,i++){
@@ -1719,7 +1723,7 @@ function scan(){
       if(terr[j]===WATER)continue;
       const q=own[j];if(q===o)continue;
       if(o>=0)adj[o*(NN+1)+(q<0?NN:q)]++;
-      if(hasAtk&&q>=0){const ai=atkIdx[q*(NN+1)+col];if(ai>=0){if(ai===a1)c1++;else if(a1<0){a1=ai;c1=1;}else if(ai===a2)c2++;else if(a2<0){a2=ai;c2=1;}}}
+      if(hasAtk&&q>=0){let ai=atkIdx[q*(NN+1)+col];if(lmIdx){const li=lmIdx.get((q*(NN+1)+col)*100000+LMA[i]);if(li!==undefined)ai=li;}if(ai>=0){if(ai===a1)c1++;else if(a1<0){a1=ai;c1=1;}else if(ai===a2)c2++;else if(a2<0){a2=ai;c2=1;}}}
     }
     if(a1>=0){atks[a1].cands.push(i);atks[a1].score.push(c1+R()*1.6);}
     if(a2>=0){atks[a2].cands.push(i);atks[a2].score.push(c2+R()*1.6);}
@@ -1824,16 +1828,16 @@ function tileCost(A,t,i){
   return c;
 }
 function hasAttack(a,t){return G.attacks.some(x=>x.a===a&&x.t===t);}
-function launchAttack(A,t,troops,fromBoat){
+function launchAttack(A,t,troops,fromBoat,lm){
   troops=Math.floor(troops);
   if(t===A.id)return null;
   if(t>=0&&isAllied(A.id,t))return `You are allied with ${G.nations[t].name}.`;
   if(t>=0&&inPeace())return `The peace treaty forbids attacks on nations for another ${mmss(peaceLeft())}.`;
   if(!fromBoat){troops=Math.min(troops,Math.floor(A.troops));if(troops<1)return 'Not enough troops.';A.troops-=troops;}
-  const ex=G.attacks.find(a=>a.a===A.id&&a.t===t);
+  const lv=lm!=null&&lm>=0?lm:-1,ex=G.attacks.find(a=>a.a===A.id&&a.t===t&&(a.lm!=null?a.lm:-1)===lv);
   if(ex)ex.troops+=troops;
   else{
-    G.attacks.push({a:A.id,t,troops,idle:0,cands:[],score:[]});
+    const na={a:A.id,t,troops,idle:0,cands:[],score:[]};if(lv>=0)na.lm=lv;G.attacks.push(na);
     if(t>=0&&!fromBoat&&G.nations[t].human)log(t,`${A.name} is attacking you with ${fmt(troops)} troops!`,null,'bad');
   }
   if(t>=0){relAdd(A.id,t,-20);warFx(A,G.nations[t],troops);reserveWarHit(A,G.nations[t]);asmHostile(A,4,G.nations[t]);}
@@ -1875,14 +1879,14 @@ function orderAt(A,t){
   if(o>=0&&isAllied(A.id,o))return {msg:`You are allied with ${G.nations[o].name}. Break the alliance in Nations before attacking.`,kind:'warn'};
   if(o>=0&&inPeace())return {msg:`Peace treaty: no attacks on nations for another ${mmss(peaceLeft())}. Claim open land and build your economy.`,kind:'warn'};
   const target=o<0?'unclaimed land':G.nations[o].name;
-  if(G.adj[A.id*(G.NN+1)+(o<0?G.NN:o)]>0){
+  if(G.adj[A.id*(G.NN+1)+(o<0?G.NN:o)]>0&&ownsOn(A,landOf(t))){
     const tr=Math.floor(A.troops*A.attackRatio);
     if(tr<10)return {msg:'Not enough troops. Raise the Attack share or wait for recruits.',kind:'warn'};
     const e=launchAttack(A,o,tr);
     return e?{msg:e,kind:'warn'}:{msg:`${fmt(tr)} troops march on ${target}.`,kind:'info'};
   }
-  const e=sendBoat(A,t);
-  return e?{msg:e,kind:'warn'}:{msg:`A boat sets sail for ${target}.`,kind:'info'};
+  const b0=G.boats.length,e=sendBoat(A,t,A.fleetN||1),ns=G.boats.length-b0;
+  return e?{msg:e,kind:'warn'}:{msg:ns>1?`A fleet of ${ns} ships sets sail for ${target}.`:`A boat sets sail for ${target}.`,kind:'info'};
 }
 
 /* ---------- Sea: boats, trade ships ---------- */
@@ -1899,10 +1903,26 @@ function bfsWater(starts,goal){
   }
   return null;
 }
+/* which landmass each land tile belongs to (-1 for water): land joined edge to edge is one landmass */
+let LMA=null,LMT=null;
+function landOf(i){
+  if(LMT!==G.terr){LMT=G.terr;LMA=new Int32Array(N).fill(-1);const q=new Int32Array(N);let k=0;
+    for(let s0=0;s0<N;s0++){if(G.terr[s0]===WATER||LMA[s0]>=0)continue;let h=0,t=0;q[t++]=s0;LMA[s0]=k;
+      while(h<t){const c=q[h++],x=c%W;
+        if(x>0&&G.terr[c-1]!==WATER&&LMA[c-1]<0){LMA[c-1]=k;q[t++]=c-1;}
+        if(x<W-1&&G.terr[c+1]!==WATER&&LMA[c+1]<0){LMA[c+1]=k;q[t++]=c+1;}
+        if(c>=W&&G.terr[c-W]!==WATER&&LMA[c-W]<0){LMA[c-W]=k;q[t++]=c-W;}
+        if(c<N-W&&G.terr[c+W]!==WATER&&LMA[c+W]<0){LMA[c+W]=k;q[t++]=c+W;}}
+      k++;}}
+  return i>=0?LMA[i]:-1;
+}
+/* does the nation hold any land on that landmass */
+function ownsOn(n,lm){landOf(0);for(let i=0;i<N;i++)if(G.owner[i]===n.id&&LMA[i]===lm)return true;return false;}
 function waterNb(i){const x=i%W,o=[];if(x>0&&G.terr[i-1]===WATER)o.push(i-1);if(x<W-1&&G.terr[i+1]===WATER)o.push(i+1);if(i>=W&&G.terr[i-W]===WATER)o.push(i-W);if(i<N-W&&G.terr[i+W]===WATER)o.push(i+W);return o;}
 function touchesOwner(c,id){const x=c%W;return(x>0&&G.owner[c-1]===id)||(x<W-1&&G.owner[c+1]===id)||(c>=W&&G.owner[c-W]===id)||(c<N-W&&G.owner[c+W]===id);}
 function boatsOf(id){let c=0;for(const b of G.boats)if(b.o===id)c++;return c;}
-function boatCap(n){return 1+(n.era>=1?1:0)+n.mods.boatCap;}
+/* players with a coastline command a fleet: 4 ships in the Medieval era, 2 more each era after (Navy Yards adds 1). AIs keep 1-2 (+1) */
+function boatCap(n){return n.human?4+2*n.era+n.mods.boatCap:1+(n.era>=1?1:0)+n.mods.boatCap;}
 function findLanding(t,owner){
   const cx=t%W,cy=(t/W)|0;let best=-1,bd=1e9;
   for(let r=0;r<=22&&best<0;r++){
@@ -1914,7 +1934,17 @@ function findLanding(t,owner){
   }
   return best;
 }
-function sendBoat(A,t){
+/* up to k beaches of one owner on the landmass of tile t, nearest first and at least 4 tiles apart, so a fleet lands on several at once */
+function findLandings(t,owner,k){
+  const cx=t%W,cy=(t/W)|0,lm=landOf(t),c=[];
+  for(let dy=-22;dy<=22;dy++)for(let dx=-22;dx<=22;dx++){const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=y*W+x;if(G.coast[i]&&G.owner[i]===owner&&LMA[i]===lm)c.push([dx*dx+dy*dy,i]);}
+  c.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const out=[];
+  for(const [,i] of c){if(out.length>=k)break;if(out.every(j=>Math.max(Math.abs(j%W-i%W),Math.abs(((j/W)|0)-((i/W)|0)))>=4))out.push(i);}
+  return out;
+}
+/* k > 1 sends a fleet: k ships (as many as are free and as there are beaches) share the order's troops and land side by side.
+   A player's landing fights for the island it lands on (lm) instead of spreading over every front with that owner */
+function sendBoat(A,t,k){
   if(t<0||G.terr[t]===WATER)return 'Pick a stretch of land.';
   if(A.coastTiles===0)return 'You have no coastline to sail from.';
   if(boatsOf(A.id)>=boatCap(A))return 'All your transport boats are already at sea.';
@@ -1922,12 +1952,24 @@ function sendBoat(A,t){
   if(tg===A.id)return 'That is already your land.';
   if(tg>=0&&isAllied(A.id,tg))return `You are allied with ${G.nations[tg].name}.`;
   if(tg>=0&&inPeace())return `The peace treaty forbids landings on other nations for another ${mmss(peaceLeft())}.`;
-  const L=findLanding(t,tg);if(L<0)return 'There is no beach to land on near there.';
-  const path=bfsWater(waterNb(L),c=>touchesOwner(c,A.id));if(!path)return 'No sea route reaches that coast.';
-  const troops=Math.floor(A.troops*A.attackRatio);if(troops<20)return 'Not enough troops to fill a boat.';
-  A.troops-=troops;G.boats.push({o:A.id,t:tg,land:L,troops,path,pos:0});
+  k=Math.max(1,Math.min(k||1,boatCap(A)-boatsOf(A.id)));
+  const go=[];let troops;
+  if(k===1){
+    const L=findLanding(t,tg);if(L<0)return 'There is no beach to land on near there.';
+    const path=bfsWater(waterNb(L),c=>touchesOwner(c,A.id));if(!path)return 'No sea route reaches that coast.';
+    troops=Math.floor(A.troops*A.attackRatio);if(troops<20)return 'Not enough troops to fill a boat.';
+    go.push({L,path});
+  }else{
+    troops=Math.floor(A.troops*A.attackRatio);if(troops<20)return 'Not enough troops to fill a boat.';
+    k=Math.min(k,Math.floor(troops/20));
+    const Ls=findLandings(t,tg,k);if(!Ls.length)return 'There is no beach to land on near there.';
+    for(const L of Ls){const path=bfsWater(waterNb(L),c=>touchesOwner(c,A.id));if(path)go.push({L,path});}
+    if(!go.length)return 'No sea route reaches that coast.';
+  }
+  const per=Math.floor(troops/go.length);
+  for(const g of go){A.troops-=per;const b={o:A.id,t:tg,land:g.L,troops:per,path:g.path,pos:0};if(A.human)b.lm=landOf(g.L);G.boats.push(b);}
   if(tg>=0){relAdd(A.id,tg,-15);asmHostile(A,3,G.nations[tg]);}
-  mv(A,'bt'+tg,`set sail with {q} troops${tg>=0?' for '+G.nations[tg].name:' for open land'}`,tg>=0?'bad':'mv',troops);
+  mv(A,'bt'+tg,`set sail with {q} troops${go.length>1?` in ${go.length} ships`:''}${tg>=0?' for '+G.nations[tg].name:' for open land'}`,tg>=0?'bad':'mv',per*go.length);
   return null;
 }
 function processBoats(dt){
@@ -1938,6 +1980,7 @@ function processBoats(dt){
     if(b.pos<b.path.length-1)continue;
     G.boats.splice(k,1);
     const L=b.land,cur=G.owner[L];
+    if(cur===A.id&&b.lm!=null){const ex=G.attacks.find(a=>a.a===A.id&&a.lm===b.lm);if(ex){ex.troops+=b.troops;continue;}}
     if(cur===A.id||(cur>=0&&isAllied(A.id,cur))){A.troops+=b.troops;continue;}
     if(cur>=0&&(inPeace()||(A.asmSan&&!A.asmWar))){A.troops+=b.troops;continue;}
     const c=tileCost(A,cur,L)*1.5;
@@ -1949,7 +1992,7 @@ function processBoats(dt){
     b.troops-=c;
     if(cur>=0){const D=G.nations[cur];D.troops=Math.max(0,D.troops-c*0.5);D.lastHit=A.id;}
     setOwner(L,A.id);
-    launchAttack(A,cur,b.troops,true);
+    launchAttack(A,cur,b.troops,true,b.lm);
     if(A.human)log(A.id,`Your fleet landed${cur>=0?' in '+G.nations[cur].name:''} with ${fmt(b.troops)} troops.`,null,'good');
     if(cur>=0&&G.nations[cur].human)log(cur,`${A.name} landed ${fmt(b.troops)} troops on your coast!`,null,'bad');
   }
@@ -2180,12 +2223,12 @@ function icptFx(g,o,by){
   g.irons.slice(0,3).forEach((b,i)=>{add('iron',b.tile,0.06*i,0);add('iron',b.tile,0.06*i+0.1,1);});
 }
 /* what the energy shields show when a strike meets them (display only). The golden shield shatters under a hydrogen bomb it stops and
-   ripples under anything else; the white shield breaks more easily: any bomb that meets it shatters it, and so does an aircraft it
+   under any bomb that breaks through it, and ripples under anything else; the white shield breaks more easily: any bomb that meets it shatters it, and so does an aircraft it
    stops while under half power. dl -1 means at the moment the interceptors strike */
 function shieldFx(g,x,y,by,kind,dl){
   if(!g||g.T<0)return;const P=(lay,fx,d)=>G.fxQ.push({shield:1,n:g.T,lay,x,y,fx,dl:d}),nuke=kind==='atom'||kind==='hydrogen';
   if(by==='gold'){P('gold',kind==='hydrogen'?'shatter':'flash',-1);return;}
-  if(g.ng>0&&nuke)P('gold','punch',by==='iron'?-1:dl);
+  if(g.ng>0&&nuke)P('gold','shatter',by==='iron'?-1:dl);
   if(g.ni>0){if(nuke)P('iron','shatter',by==='iron'?-1:dl);else if(by==='iron')P('iron',g.is<0.5?'shatter':'flash',-1);}
 }
 function shotDown(A,t,what,x,y,sys,noFx){
@@ -2570,6 +2613,12 @@ function printMoney(A,pct){
   if(unb>0)A.gp=Math.min(5,(A.gp||1)*(1+0.5*unb/Math.max(1,A.reserve*GOLD_WC+claims)));
   /* more money chasing the same goods: the currency falls (building prices rise with it) and gold costs more of it */
   if(drop>0.0005){const cX=Math.max(CLAIM0,A.gdp*60)+A.printed+A.imported;A.printed+=cX*drop/(1-drop);A.fx*=1-drop;A.rfx*=1-drop;A.gp=Math.min(5,(A.gp||1)/(1-drop));}
+  /* a player holding the world reserve currency exports its inflation: every other currency falls with it, as far as gold and oil
+     fail to back it (no gold or oil: the same fall as the reserve currency; 5,000+ bars of gold and oil: none). It wears off as printed money does */
+  let spill=0,spillMax=0;
+  if(top&&A.human&&drop>0.0005)for(const D of G.nations){if(!D.alive||D===A)continue;const d=drop*(1-clamp(backingBars(D)/5000,0,1));if(d<0.0005)continue;
+    D.sfxm=Math.max(0.2,(D.sfxm||1)*(1-d));D.fx*=1-d;D.rfx*=1-d;spill++;spillMax=Math.max(spillMax,d);
+    if(D.human&&(D.spillLog==null||D.spillLog<G.time-30)){D.spillLog=G.time;log(D.id,`${A.name} printed its ${A.cur}, the world reserve currency, and your ${D.cur} fell ${(d*100).toFixed(d<0.1?1:0)}% with it. ${backingBars(D)<1?'You have no gold or oil behind it.':'More gold and oil would cushion it.'}`,null,'bad');}}
   let hit=0;const push=Math.max(100,A.gdp*6)+A.reserve*GOLD_WC*0.15;
   if(strong)for(const D of G.nations){
     if(!D.alive||D===A||D.fx>=A.fx*0.85||D.reserve*GOLD_WC>=D.gdp*30+400)continue;
@@ -2577,7 +2626,7 @@ function printMoney(A,pct){
     if(D.human&&D.devalLog<G.time-60){D.devalLog=G.time;log(D.id,`${A.name} is printing its strong ${A.cur}. Your ${D.cur} is losing value, imported food costs more and ${Math.round(10*sh)}% of your food stock is gone.${D.shield>0.005?` Your cities blocked ${Math.round(D.shield*100)}% of the damage.`:''}`,null,'bad');}
   }
   mv(A,'pm',`printed ${fmt(amt)} ${A.cur}, ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil${drop<0.001?'':`; the ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}%`}`,unb>Math.max(0.5,real*0.005)?'warn':'mv');
-  if(A.human)log(A.id,`You printed ${fmt(amt)} ${A.cur}: ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil. ${drop<0.001?`The ${A.cur} barely moved.`:`The ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and gold rose to ${fmt(goldPrice(A))} ${A.cur} a bar, so buildings cost more.`}${unb>Math.max(0.5,real*0.005)?` The unbacked ${fmt(unb/A.fx)} ${A.cur} keeps weakening it; buy gold or store oil to back your printing.`:''}${strong?` Your strong currency pushed inflation onto ${hit} weaker nation${hit===1?'':'s'}.`:''}`,null,unb>Math.max(0.5,real*0.005)?'warn':'good');
+  if(A.human)log(A.id,`You printed ${fmt(amt)} ${A.cur}: ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil. ${drop<0.001?`The ${A.cur} barely moved.`:`The ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and gold rose to ${fmt(goldPrice(A))} ${A.cur} a bar, so buildings cost more.`}${unb>Math.max(0.5,real*0.005)?` The unbacked ${fmt(unb/A.fx)} ${A.cur} keeps weakening it; buy gold or store oil to back your printing.`:''}${strong?` Your strong currency pushed inflation onto ${hit} weaker nation${hit===1?'':'s'}.`:''}${spill?` As the world reserve, you dragged ${spill} other currenc${spill===1?'y':'ies'} down with you, up to ${(spillMax*100).toFixed(spillMax<0.1?1:0)}% for those with no gold or oil.`:''}`,null,unb>Math.max(0.5,real*0.005)?'warn':'good');
   return null;
 }
 function buyGold(A){
@@ -2726,6 +2775,7 @@ function applyCmd(s,type,a){
     case 'tax':{const v=clamp(a[0]|0,0,60)/100;if(v!==A.tax)mv(A,'tax',`set income tax to ${Math.round(v*100)}%`,'pol');A.tax=v;break;}
     case 'tar':{const v=clamp(a[0]|0,0,50)/100;if(v!==A.tariff)mv(A,'tar',`set its trade tariff to ${Math.round(v*100)}%`,'pol');A.tariff=v;break;}
     case 'rat':{const v=clamp(a[0]|0,0,2);if(v!==A.rations)mv(A,'rat',`switched to ${RATION_NAME[v].toLowerCase()} food rations`,'pol');A.rations=v;break;}
+    case 'shp':{A.fleetN=clamp(a[0]|0,1,20);break;}
     case 'atk':{const v=clamp(a[0]|0,5,100)/100;if(v!==A.attackRatio)mv(A,'atk',`set its attack share to ${Math.round(v*100)}%`,'pol');A.attackRatio=v;break;}
     case 'trp':{const v=clamp(a[0]|0,10,90)/100;if(v!==A.troopRatio)mv(A,'trp',`set its army share to ${Math.round(v*100)}%`,'pol');A.troopRatio=v;break;}
     case 'pa':{
@@ -3007,7 +3057,7 @@ function secondly(){
     if((n.gfxm||1)<1){const gap=1-n.gfxm,d=n.gfxd||0,pay=Math.max(0,(n.rate&&n.rate.reserve)||0),left=Math.max(0,d-pay);n.gfxd=left;
       const g2=d>0?Math.max(gap*left/d,gap-GIFT_HEAL):Math.max(0,gap-GIFT_HEAL);n.gfxm=1-g2;
       if(g2<=1e-6){n.gfxm=1;n.gfxd=0;if(n.human)log(n.id,`Your gold output has backed the money you sent abroad: the ${n.cur} has recovered from your gifts.`,null,'good');}}
-    n.wfxm=1+((n.wfxm||1)-1)*0.995;n.printed*=0.997;n.imported*=0.985;n.pump=(n.pump||0)*0.97;n.support*=0.9975;n.tarSup=(n.tarSup||0)*0.98;n.issuedB=(n.issuedB||0)*0.997;{const gc=backingBars(n);if(n.issuedB>gc){n.printed+=(n.issuedB-gc)*goldPrice(n)*n.fx;n.issuedB=gc;}}
+    n.wfxm=1+((n.wfxm||1)-1)*0.995;if(n.sfxm!=null&&n.sfxm<1)n.sfxm=1-(1-n.sfxm)*0.997;n.printed*=0.997;n.imported*=0.985;n.pump=(n.pump||0)*0.97;n.support*=0.9975;n.tarSup=(n.tarSup||0)*0.98;n.issuedB=(n.issuedB||0)*0.997;{const gc=backingBars(n);if(n.issuedB>gc){n.printed+=(n.issuedB-gc)*goldPrice(n)*n.fx;n.issuedB=gc;}}
     const claims=Math.max(CLAIM0,n.gdp*60)+n.printed+n.imported;
     const tb=n.reserve*GOLD_WC+n.support+(n.tarSup||0)+(n.pump||0),back=tb<=claims?tb:claims+Math.sqrt((tb-claims)*claims);n.str=(back+n.gdp*60)/claims*(1+(n.irate-0.05)*3);
     /* gold sets the trend: 5,000+ bars lift a currency about 1% a minute; with no gold or oil, or gold and oil worth less than the money
@@ -3020,7 +3070,7 @@ function secondly(){
      else n.trendDir=0;
      n.trend=tr;}
     /* every currency is tied to gold: when the gold price rises, gold-poor currencies fall and those backed by 5,000+ bars rise with it */
-    const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr)*(n.fxm||1)*(n.fxr||1)*(n.wfxm||1)*(n.gfxm||1);n.str*=gmul;
+    const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr)*(n.fxm||1)*(n.fxr||1)*(n.wfxm||1)*(n.gfxm||1)*(n.sfxm||1);n.str*=gmul;
     /* the currency's value without a buy-back pump: city taxes support the currency at this rate, so a pump fades instead of feeding itself */
     {const tb0=n.reserve*GOLD_WC+n.support+(n.tarSup||0),b0=tb0<=claims?tb0:claims+Math.sqrt((tb0-claims)*claims),s0=(b0+n.gdp*60)/claims*(1+(n.irate-0.05)*3)*gmul;n.fxB=(n.fxB||n.fx)+(Math.max(0.05,s0)-(n.fxB||n.fx))*0.1;}
     const w=n.gdp+1;sum+=n.str*w;wsum+=w;
@@ -3211,7 +3261,7 @@ function serialize(){
   return {v:4,opts:G.opts,owner:Array.from(G.owner),fallout:Array.from(G.fallout),
     buildings:G.buildings.filter(b=>!b.dead).map(b=>({type:b.type,tile:b.tile,owner:b.owner,t:b.t,lvl:b.lvl,res:b.res,gold:b.gold})),road:Array.from(G.road),roadN:G.roadN,
     nations:G.nations.map(n=>{const o=Object.assign({},n);delete o.b;return o;}),
-    attacks:G.attacks.map(a=>({a:a.a,t:a.t,troops:a.troops})),boats:G.boats.map(b=>Object.assign({},b)),air:G.air.map(a=>Object.assign({},a)),reqs:G.reqs,
+    attacks:G.attacks.map(a=>a.lm!=null?{a:a.a,t:a.t,troops:a.troops,lm:a.lm}:{a:a.a,t:a.t,troops:a.troops}),boats:G.boats.map(b=>Object.assign({},b)),air:G.air.map(a=>Object.assign({},a)),reqs:G.reqs,
     time:G.time,tick:G.tick,phase:G.phase,spawnLeft:G.spawnLeft,season:G.season,year:G.year,cardYear:G.cardYear,peaceT:G.peaceT,peaceOver:G.peaceOver,top:G.top,topTemp:G.topTemp,gpx:G.gpx,
     rel:Array.from(G.rel),ally:Array.from(G.ally),sanc:Array.from(G.sanc),log:G.log.slice(-60),over:G.over,asm:G.asm?JSON.parse(JSON.stringify(G.asm)):null,asmN:G.asmN||0};
 }
@@ -3221,7 +3271,7 @@ function restore(s){
   G.owner.set(s.owner);G.fallout.set(s.fallout);G.fallN=0;for(const v of s.fallout)if(v)G.fallN++;
   G.buildings=s.buildings.map(b=>Object.assign({},b));G.bld.fill(-1);G.buildings.forEach((b,k)=>{G.bld[b.tile]=k;});
   s.nations.forEach((sn,k)=>{if(G.nations[k])Object.assign(G.nations[k],sn);});
-  G.attacks=s.attacks.map(a=>({a:a.a,t:a.t,troops:a.troops,idle:0,cands:[],score:[]}));
+  G.attacks=s.attacks.map(a=>{const o={a:a.a,t:a.t,troops:a.troops,idle:0,cands:[],score:[]};if(a.lm!=null)o.lm=a.lm;return o;});
   G.boats=s.boats||[];G.air=s.air||[];G.ships=[];G.raids=[];G.reqs=s.reqs||[];if(s.road){G.road.set(s.road);G.roadN=s.roadN||1;}
   for(const k of ['time','tick','phase','spawnLeft','season','year','cardYear','peaceT','peaceOver','top','topTemp','gpx','over'])G[k]=s[k];
   G.rel.set(s.rel);G.ally.set(s.ally);G.sanc.set(s.sanc);G.log=s.log||[];G.asm=s.asm||null;G.asmN=s.asmN||0;
@@ -3848,8 +3898,8 @@ function drawMush2D(e,S,T,z){
    shatters the golden shield, and any bomb shatters the white one, which breaks more easily: cracks race out from the hit, the cells
    break away as falling shards, the shield goes dark, then it recharges in waves of energy spreading out from its domes. ---------- */
 const SHL={gold:{full:GOLD_FULL,col:[255,192,64],H:6.4,down:1.5,rec:7},iron:{full:IRON_FULL,col:[226,238,255],H:4.8,down:1,rec:4.5}};
-const SH_DR=7,SH_SHARD=1.8;
-let SHC=0,SHG=null,SHN=0,SHO=0;const SHD=new Map(),SHQ=[],SHARDS=[];
+const SH_DR=7,SH_SHMAX=900,SH_GRAV=9;
+let SHC=0,SHG=null,SHN=0,SHO=0;const SHD=new Map(),SHQ=[],SHARDS=[],SHGL=[];
 function shH(L,d){return SHL[L.lay].H*Math.sqrt(Math.min(1,Math.max(0,d-1)/SH_DR));}
 function shDist(L,x,y){const tx=Math.floor(x)-L.x0,ty=Math.floor(y)-L.y0;if(tx<0||ty<0||tx>=L.bw||ty>=L.bh)return 1;const i=ty*L.bw+tx;return L.own[i]?L.dist[i]:1;}
 function shieldDrop(L){for(const M of L.meshes||[])if(V3.scene){V3.scene.remove(M);M.material.dispose();}L.meshes=[];L.mesh=null;}
@@ -3862,14 +3912,14 @@ function domeY(L,x,y){const D=domeFor(L,x,y);return 0.08+domeO(L,x,y,D)[1]*D.ry*
 /* where a strike meets the dome (on its rim when the target lies outside it) */
 function shO(L,x,y,D){const o=domeO(L,x,y,D);if(o[1]<=0){const m=Math.hypot(o[0],o[2])||1;o[0]/=m;o[2]/=m;}return o;}
 function shieldsTick(rdt){
-  if(SHG!==G){for(const L of SHD.values())shieldDrop(L);SHD.clear();SHQ.length=0;SHARDS.length=0;SHG=G;SHN=0;}
+  if(SHG!==G){for(const L of SHD.values())shieldDrop(L);SHD.clear();SHQ.length=0;SHARDS.length=0;SHGL.length=0;SHG=G;SHN=0;}
   if(!G)return;
   SHC+=rdt;
   for(let i=SHQ.length-1;i>=0;i--){const q=SHQ[i];if(q.at>SHC)continue;SHQ.splice(i,1);const L=SHD.get(q.n+':'+q.lay);if(!L||!L.own)continue;
     if(q.fx==='shatter'){L.sh={t0:q.at,x:q.x,y:q.y,seed:(Math.random()*1e6)|0};shardsSpawn(L,q);}
     else{L.hits.push({x:q.x,y:q.y,t0:q.at,fx:q.fx});if(L.hits.length>4)L.hits.shift();}}
   for(const L of SHD.values()){if(L.sh&&SHC-L.sh.t0>SHL[L.lay].down+SHL[L.lay].rec)L.sh=null;while(L.hits.length&&SHC-L.hits[0].t0>1.3)L.hits.shift();}
-  for(let i=SHARDS.length-1;i>=0;i--)if(SHC-SHARDS[i].t0-SHARDS[i].dl>SH_SHARD)SHARDS.splice(i,1);
+  shardsStep(rdt);
   const now=performance.now();if(now-SHN>500){SHN=now;shieldsScan(now);}
 }
 /* which countries have shields, how strong, and where their domes stand */
@@ -3918,15 +3968,52 @@ function shieldBase(L){
   let mr=1;for(let y=0;y<bh;y+=2)for(let x=0;x<bw;x+=2){if(!own[y*bw+x])continue;let md=1e9;for(const t of g12){const dx=t%W+0.5-(x0+x+0.5),dy=((t/W)|0)-(y0+y);md=Math.min(md,dx*dx+dy*dy);}if(md>mr)mr=md;}
   L.maxR=Math.sqrt(mr)+2;
 }
-/* shards of a shattered shield: they break away from the hit outwards (the farther, the later) and tumble down */
+/* shards of a shattered shield. The shell cracks from the hit and breaks up piece by piece, in the same order the shell itself goes dark;
+   every piece is a curved plate of the shield that tumbles and flutters down, hits the ground (bouncing once and chipping when it lands
+   hard, with a glint), settles flat, glows faintly and dissolves. Pieces over the sea sink. A spray of small fragments bursts from the hit */
+function shardAdd(p){p.st=0;p.b=p.b||0;p.rt=0;p.gl=p.gl||0.6;if(SHARDS.length>=SH_SHMAX)SHARDS.shift();SHARDS.push(p);}
 function shardsSpawn(L,q){
-  const gold=L.lay==='gold',n=gold?72:50,R=gold?9:6,sd=(Math.random()*1e6)|0;
-  for(let i=0;i<n;i++){const a=hash(sd+i)*6.283,r=Math.sqrt(hash(sd*3+i))*R,x=q.x+Math.cos(a)*r,y=q.y+Math.sin(a)*r,d=shDist(L,x,y);
-    const tx=Math.floor(x)-L.x0,ty=Math.floor(y)-L.y0;if(tx<0||ty<0||tx>=L.bw||ty>=L.bh||!L.own[ty*L.bw+tx])continue;
-    const h=L.dome?domeY(L,x,y):Math.max((V3.heights?hAt(Math.floor(y)*W+Math.floor(x)):0)+0.18,shH(L,d)),out=0.5+hash(sd*5+i)*1.6;
-    SHARDS.push({lay:L.lay,x,y,h,vx:Math.cos(a)*out,vy:Math.sin(a)*out,vh:0.4+hash(sd*7+i)*2.2,rx:hash(sd*11+i)*6.28,ry:hash(sd*13+i)*6.28,sp:(hash(sd*17+i)-0.5)*14,s:0.22+hash(sd*19+i)*0.45,t0:q.at,dl:0.12+(r/R)*0.35});}
-  if(SHARDS.length>520)SHARDS.splice(0,SHARDS.length-520);
+  const gold=L.lay==='gold',cfg=SHL[L.lay],k=gold?1:0.9,sd=(Math.random()*1e6)|0,ds=L.domes&&L.domes.length?L.domes:[];
+  const tot=ds.reduce((a,D)=>a+D.rx*D.rz,0)||1,n=gold?210:150;
+  ds.forEach((D,di)=>{const m=Math.max(4,Math.round(n*D.rx*D.rz/tot)),o=shO(L,q.x,q.y,D),sz=clamp(Math.sqrt(Math.PI*D.rx*D.rz*k*k/m)*0.8,0.3,1.8);
+    for(let i=0;i<m;i++){const j=sd+di*1009+i*7,r=Math.sqrt(hash(j*3))*0.97,a=hash(j*5)*6.283,u=Math.cos(a)*r,v=Math.sin(a)*r,hy=Math.sqrt(Math.max(0,1-u*u-v*v));
+      const nx=u*D.c-v*D.s,nz=u*D.s+v*D.c,out=0.3+hash(j*7)*0.9,d=Math.hypot(u-o[0],hy-o[1],v-o[2]);
+      shardAdd({lay:L.lay,x:D.cx+(u*D.rx*D.c-v*D.rz*D.s)*k,y:D.cz+(u*D.rx*D.s+v*D.rz*D.c)*k,h:0.08+hy*D.ry*k,vx:nx*out,vy:nz*out,vh:hy*out*0.5+hash(j*11)*0.4,
+        rx:hash(j*13)*6.28,ry:hash(j*17)*6.28,sp:(hash(j*19)-0.5)*6,sp2:(hash(j*23)-0.5)*4,s:sz*(0.6+hash(j*29)*0.7),t0:q.at,dl:0.18+hash(j*31)*0.55*(cfg.down-0.35)+d*0.05,ph:hash(j*37)*6.28});}});
+  const hh=L.dome?domeY(L,q.x,q.y):1,n2=gold?26:18;
+  for(let i=0;i<n2;i++){const j=sd*3+i*11,a=hash(j)*6.283,sp=2.5+hash(j*3)*4;
+    shardAdd({lay:L.lay,x:q.x,y:q.y,h:hh,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,vh:1+hash(j*5)*3,rx:hash(j*7)*6.28,ry:hash(j*9)*6.28,sp:(hash(j*13)-0.5)*16,sp2:(hash(j*17)-0.5)*12,s:0.12+hash(j*19)*0.22,t0:q.at,dl:0.02+hash(j*23)*0.08,ph:0,chip:1,gl:1});}
 }
+function shardGround(x,y){if(!(V3.on&&V3.heights))return 0;const i=Math.floor(y)*W+Math.floor(x);if(i<0||i>=N||G.terr[i]===WATER)return 0.04;return Math.max(0.04,ghAt(x,y));}
+function shardsStep(rdt){let left=Math.min(rdt,0.3);while(left>1e-6){const dt=Math.min(0.05,left);shardsStep1(dt);left-=dt;}}
+function shardsStep1(dt){
+  for(let i=SHARDS.length-1;i>=0;i--){const p=SHARDS[i],t=SHC-p.t0-p.dl;if(t<0)continue;
+    if(SHC-p.t0>16){SHARDS.splice(i,1);continue;}
+    if(p.st===0){
+      /* falling: gravity, air drag, and a plate's flutter */
+      p.vh-=SH_GRAV*dt;const dr=1-Math.min(1,(p.chip?0.25:0.9)*dt),fl=p.chip?0:0.45;p.vx*=dr;p.vy*=dr;
+      p.x+=p.vx*dt+Math.cos(p.ph+t*3.1)*fl*dt;p.y+=p.vy*dt+Math.sin(p.ph+t*2.7)*fl*dt;p.h+=p.vh*dt;p.rx+=p.sp*dt;p.ry+=p.sp2*dt;
+      const g0=shardGround(p.x,p.y);
+      if(p.h<=g0+0.03){p.h=g0+0.03;const ti=Math.floor(p.y)*W+Math.floor(p.x);p.water=ti>=0&&ti<N&&G.terr[ti]===WATER;
+        if(!p.water&&p.vh<-2.2&&p.b<1){/* a hard landing: it bounces, chips and glints */
+          p.b++;p.vh=-p.vh*0.28;p.vx*=0.45;p.vy*=0.45;p.sp*=0.4;p.sp2*=0.4;p.gl=1.4;SHGL.push({x:p.x,y:p.y,h:p.h,t0:SHC,lay:p.lay,s:p.s});
+          if(!p.chip&&p.s>0.3)for(let c=0;c<2;c++){const a=Math.random()*6.283,v=1+Math.random()*1.6;
+            shardAdd({lay:p.lay,x:p.x,y:p.y,h:p.h+0.02,vx:Math.cos(a)*v,vy:Math.sin(a)*v,vh:1.2+Math.random()*1.2,rx:Math.random()*6.28,ry:Math.random()*6.28,sp:(Math.random()-0.5)*14,sp2:(Math.random()-0.5)*10,s:p.s*0.38,t0:SHC,dl:0,ph:0,chip:1,b:1,gl:1});}}
+        else{p.st=1;p.rt=SHC;p.vx=p.vy=p.vh=0;p.life=p.water?0.35:1.6+Math.random()*1.3;if(!p.water&&p.b<1)p.gl=Math.max(p.gl,1);}}}
+    else{/* lying on the ground: it settles flat (or sinks into the sea), then dissolves */
+      const r=SHC-p.rt;p.rx+=(Math.round(p.rx/Math.PI)*Math.PI-p.rx)*Math.min(1,dt*10);if(p.water)p.h-=0.3*dt;
+      if(r>p.life+1.1){SHARDS.splice(i,1);continue;}}
+    if(p.gl>0.25)p.gl=Math.max(0.25,p.gl-dt*2.4);}
+  for(let i=SHGL.length-1;i>=0;i--)if(SHC-SHGL[i].t0>0.45)SHGL.splice(i,1);
+}
+/* how a shard looks now: opacity a, glow g, size k */
+function shardLook(p){
+  if(p.st===0)return {a:0.8,g:p.gl,k:1};
+  const r=SHC-p.rt;if(r<p.life)return {a:0.75,g:p.gl,k:1};
+  const f=Math.min(1,(r-p.life)/1.1);return {a:0.75*(1-f),g:0.25+0.6*f*(0.5+0.5*Math.sin(r*38+p.ph*9)),k:1-0.45*f};
+}
+function shardPath(x,y,r,an,sq){const R=[1,0.76,1.09,0.69,0.91],c=Math.cos(an),s0=Math.sin(an);ctx.beginPath();
+  for(let k=0;k<5;k++){const a=k/5*6.283,lx=Math.cos(a)*R[k]*r,ly=Math.sin(a)*R[k]*r*sq;const px=x+lx*c-ly*s0,py=y+lx*s0+ly*c;if(k)ctx.lineTo(px,py);else ctx.moveTo(px,py);}ctx.closePath();}
 /* the flat-map shield: a lattice of glowing cells over the country (missing cells where power is short) and a bright rim along the border */
 function shieldTex2D(L){
   const P=4,bw=L.bw,bh=L.bh,cv=L.cv||(L.cv=document.createElement('canvas'));cv.width=bw*P;cv.height=bh*P;
@@ -3944,7 +4031,7 @@ function shieldTex2D(L){
   mx.putImageData(id,0,0);x.globalCompositeOperation='source-over';x.drawImage(m,0,0,bw*P,bh*P);
 }
 function drawShields2D(S,T,z){
-  if(!SHD.size&&!SHARDS.length)return;
+  if(!SHD.size&&!SHARDS.length&&!SHGL.length)return;
   ctx.save();ctx.imageSmoothingEnabled=true;
   for(const lay of ['iron','gold'])for(const L of SHD.values()){
     if(L.lay!==lay||!L.own)continue;if(L.dirty2||!L.cv){shieldTex2D(L);L.dirty2=false;}
@@ -3980,10 +4067,17 @@ function drawShields2D(S,T,z){
           if(k===3&&hash(sd*29+i)>0.5){ctx.moveTo(px,py);ctx.lineTo(px+Math.cos(an+0.9)*L1*0.25,py+Math.sin(an+0.9)*L1*0.25);ctx.moveTo(px,py);}}ctx.stroke();}
       const fr=(2+st*7)*z,g=ctx.createRadialGradient(sx0,sy0,0,sx0,sy0,fr);g.addColorStop(0,`rgba(255,255,255,${al})`);g.addColorStop(0.3,`rgba(${c},${0.8*al})`);g.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx0,sy0,fr,0,6.2832);ctx.fill();ctx.restore();}
   }
-  /* the falling shards */
-  if(SHARDS.length){ctx.globalCompositeOperation='lighter';
-    for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0||t>SH_SHARD)continue;const f=t/SH_SHARD,sx=S(p.x+p.vx*t),sy=T(p.y+p.vy*t+1.6*t*t),r=Math.max(2.2,p.s*z*1.8*(1-f*0.4)),an=p.rx+p.sp*t;
-      if(sx<-20||sy<-20||sx>cw+20||sy>ch+20)continue;ctx.globalAlpha=(1-f)*0.95;ctx.fillStyle=`rgb(${SHL[p.lay].col})`;ctx.beginPath();ctx.moveTo(sx+Math.cos(an)*r,sy+Math.sin(an)*r);ctx.lineTo(sx+Math.cos(an+2.3)*r*0.75,sy+Math.sin(an+2.3)*r*0.75);ctx.lineTo(sx+Math.cos(an+4.1)*r*0.9,sy+Math.sin(an+4.1)*r*0.9);ctx.closePath();ctx.fill();}}
+  /* the falling pieces: each drops onto its own shadow (the higher it is, the farther the shadow and the larger the piece), tumbling
+     as it falls; on the ground it lies flat, glows faintly and dissolves */
+  if(SHARDS.length){ctx.lineJoin='round';
+    for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0)continue;const gx=S(p.x),gy=T(p.y);if(gx<-60||gy<-60||gx>cw+60||gy>ch+60)continue;
+      const lk=shardLook(p),hh=Math.max(0,p.h),c=SHL[p.lay].col.join(','),r=Math.max(1.8,p.s*z*0.62*lk.k*(1+hh*0.04)),sq=Math.max(0.18,Math.abs(Math.cos(p.rx))),sy=gy-hh*z*0.12;
+      ctx.globalCompositeOperation='source-over';ctx.globalAlpha=lk.a*0.4*Math.max(0.2,1-hh/16);ctx.fillStyle='#05070a';shardPath(gx+hh*z*0.2,gy+hh*z*0.1,r*0.95,p.ry,sq);ctx.fill();
+      ctx.globalCompositeOperation='lighter';ctx.globalAlpha=lk.a;ctx.fillStyle=`rgba(${c},${0.2+0.2*Math.min(1,lk.g)})`;shardPath(gx,sy,r,p.ry,sq);ctx.fill();
+      ctx.strokeStyle=`rgba(255,255,255,${Math.min(1,0.3+lk.g*0.5)})`;ctx.lineWidth=Math.max(0.8,Math.min(2,z*0.06));ctx.stroke();}}
+  /* glints where pieces strike the ground */
+  for(const g of SHGL){const f=(SHC-g.t0)/0.45;if(f<0||f>1)continue;const gx=S(g.x),gy=T(g.y),r=Math.max(4,(0.3+f*1.3)*z*(0.6+g.s));
+    ctx.globalCompositeOperation='lighter';ctx.globalAlpha=1;const gg=ctx.createRadialGradient(gx,gy,0,gx,gy,r);gg.addColorStop(0,`rgba(255,255,255,${0.85*(1-f)})`);gg.addColorStop(0.4,`rgba(${SHL[g.lay].col.join(',')},${0.45*(1-f)})`);gg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gg;ctx.beginPath();ctx.arc(gx,gy,r,0,6.2832);ctx.fill();}
   ctx.restore();
 }
 /* missile defence on the flat map. Iron Dome batteries fire pairs of interceptors that climb on white smoke trails; the Golden Dome fires
@@ -4481,9 +4575,19 @@ function init3D(){
      mm.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAlpha;varying float vAl;').replace('#include <begin_vertex>','#include <begin_vertex>\nvAl=aAlpha;');
        sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vAl;').replace('#include <alphamap_fragment>','#include <alphamap_fragment>\ndiffuseColor.a*=vAl;');};
      V3.mush=inst(g,mm,MUSH_N);}
-    /* shards of a shattered energy shield */
-    {const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0.55,-0.42,0,-0.3,0.48,0,-0.22],3));tg.computeVertexNormals();
-     V3.shard=inst(tg,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}),520);}
+    /* shards of a shattered energy shield: curved glass plates of the shell (lit by the sun, glowing with the shield's energy, fading out
+       one by one), and the glints where they strike the ground */
+    {const R=[1,0.76,1.09,0.69,0.91],pos=[];for(let k=0;k<5;k++){const a0=k/5*6.283,a1=(k+1)/5*6.283,r0=0.5*R[k],r1=0.5*R[(k+1)%5];pos.push(0,0.05,0,Math.cos(a0)*r0,0,Math.sin(a0)*r0,Math.cos(a1)*r1,0,Math.sin(a1)*r1);}
+     const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));tg.computeVertexNormals();
+     tg.setAttribute('aEdge',new THREE.Float32BufferAttribute(Array.from({length:15},(_,i)=>i%3?1:0),1));
+     tg.setAttribute('aAlpha',new THREE.InstancedBufferAttribute(new Float32Array(SH_SHMAX).fill(1),1));tg.setAttribute('aGlow',new THREE.InstancedBufferAttribute(new Float32Array(SH_SHMAX).fill(0.5),1));
+     const sm=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.12,metalness:0.35,transparent:true,depthWrite:false,side:THREE.DoubleSide});
+     sm.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAlpha;attribute float aGlow;attribute float aEdge;varying float vAl;varying float vGl;varying vec3 vTn;varying float vEd;')
+         .replace('#include <begin_vertex>','#include <begin_vertex>\nvAl=aAlpha;vGl=aGlow;vEd=aEdge;\n#ifdef USE_INSTANCING_COLOR\nvTn=instanceColor;\n#else\nvTn=vec3(1.0);\n#endif');
+       sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vAl;varying float vGl;varying vec3 vTn;varying float vEd;')
+         .replace('#include <alphamap_fragment>','#include <alphamap_fragment>\nfloat eg=smoothstep(0.72,1.0,vEd);diffuseColor.a*=vAl*(0.7+0.3*eg);').replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vTn*vGl*(0.55+1.7*eg)+vec3(eg*vGl*0.35);');};
+     V3.shard=inst(tg,sm,SH_SHMAX);
+     V3.glint=inst(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),160);}
     /* aircraft: fighter jets with contrails, helicopters with spinning rotors, painted in their nation's colour */
     V3.jets=[];V3.helis=[];
     {const metal=c=>new THREE.MeshStandardMaterial({color:c,roughness:0.42,metalness:0.55}),glass=new THREE.MeshStandardMaterial({color:0x9fd8ee,roughness:0.15,metalness:0.6}),dark=metal(0x2a2f36);
@@ -5192,10 +5296,14 @@ function shields3D(){
       let n=0;for(let i=L.hits.length-1;i>=0&&n<4;i--){if(hd[i]!==D)continue;const h=L.hits[i],t=SHC-h.t0;if(t>=0&&t<1.3){const o=shO(L,h.x,h.y,D);u.uHit.value[n++].set(o[0],o[1],o[2],t);}}
     }
   }
-  const SP=V3.shard;if(!SP)return;let ns=0;
-  for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0||t>SH_SHARD||ns>=520)continue;const f=t/SH_SHARD,c=SHL[p.lay].col,x=p.x+p.vx*t,y=p.y+p.vy*t,h=Math.max(0.05,p.h+p.vh*t-4.5*t*t),sz=p.s*(1-f*0.3);
-    putR(SP,ns++,x-W/2,h,y-H/2,sz,sz,sz,p.rx+p.sp*t,p.ry+p.sp*0.7*t,glowC(c[0],c[1],c[2],(1-f)*0.95));}
-  finish(SP,ns);
+  const SP=V3.shard;if(!SP)return;let ns=0;const aA=SP.geometry.attributes.aAlpha,aG=SP.geometry.attributes.aGlow;
+  for(const p of SHARDS){const t=SHC-p.t0-p.dl;if(t<0||ns>=SH_SHMAX)continue;const lk=shardLook(p),sz=p.s*lk.k;
+    putR(SP,ns,p.x-W/2,p.h,p.y-H/2,sz,sz,sz,p.rx,p.ry,`rgb(${SHL[p.lay].col})`);aA.array[ns]=lk.a;aG.array[ns]=lk.g*0.8;ns++;}
+  finish(SP,ns);aA.needsUpdate=aG.needsUpdate=true;
+  const GLN=V3.glint;let ng=0;
+  if(GLN){for(const g of SHGL){const f=(SHC-g.t0)/0.45;if(f<0||f>1||ng>=160)continue;const c=SHL[g.lay].col,r=(0.06+f*0.4)*(0.6+g.s);
+      put(GLN,ng++,g.x-W/2,g.h+0.05,g.y-H/2,r,r*0.6,r,0,glowC(255,Math.round(240*0.6+c[1]*0.4),Math.round(220*0.6+c[2]*0.4),(1-f)*0.95));}
+    finish(GLN,ng);}
 }
 function fx3D(rdt){
   let k=0;const GL=V3.glow,SP=V3.spout,PF=V3.puff,RG=V3.ring,lt=V3.lt||0,c={g:0,s:0,p:0,r:0};
@@ -6133,7 +6241,8 @@ function buildStaticUI(){
   $('modeCancel').onclick=()=>setMode({k:'attack'});
   $('spawnGo').onclick=()=>issue('go');
   const slider=(id,cmd,lab)=>{const el=$(id);el.oninput=()=>{$(lab).textContent=el.value+'%';if(!NET.match)issue(cmd,+el.value);};el.onchange=()=>{if(NET.match)issue(cmd,+el.value);};};
-  slider('atkR','atk','atkV');slider('trpR','trp','trpV');slider('taxR','tax','taxV');slider('tarR','tar','tarV');slider('irR','ir','irV');
+  slider('atkR','atk','atkV');slider('trpR','trp','trpV');
+  {const el=$('shpR');el.oninput=()=>{$('shpV').textContent=el.value;if(!NET.match)issue('shp',+el.value);};el.onchange=()=>{if(NET.match)issue('shp',+el.value);};}slider('taxR','tax','taxV');slider('tarR','tar','tarV');slider('irR','ir','irV');
   $('btnLoan').onclick=()=>issue('ln');$('btnRepay').onclick=()=>issue('lr');$('btnRaid').onclick=()=>issue('rs',-1);
   try{const v=+localStorage.getItem('ltdt-fxpct');if([5,10,20,50,100].includes(v))fxPct=v;}catch(e){}
   document.querySelectorAll('#fxAmt [data-p]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.p===fxPct));b.onclick=()=>{fxPct=+b.dataset.p;document.querySelectorAll('#fxAmt [data-p]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));try{localStorage.setItem('ltdt-fxpct',String(fxPct));}catch(e){}if(G)updateTreasury();};});
@@ -6770,6 +6879,10 @@ function updateArmy(){
   for(const b of G.boats)if(b.o===ME){fronts++;committed+=b.troops;}
   $('atkT').textContent=fronts?`${fmt(P.troops*P.attackRatio)} per order · ${fronts} front${fronts>1?'s':''}, ${fmt(committed)} committed`:`${fmt(P.troops*P.attackRatio)} troops per order`;
   updateFronts();
+  /* ships per landing, once you have a coastline */
+  {const cap=boatCap(P),box=$('shpBox'),on=P.coastTiles>0;if(box.hidden===on)box.hidden=!on;
+   if(on){const el=$('shpR'),v=Math.min(P.fleetN||1,cap);if(+el.max!==cap)el.max=String(cap);if(ae!==el){el.value=String(v);$('shpV').textContent=String(v);}
+     $('shpT').textContent=`ship${v>1?'s':''} per landing · ${boatsOf(ME)}/${cap} at sea`;}}
   $('trpT').textContent=`${fmt(P.troops)} army${P.urbanArmy>=1?` (${fmt(P.urbanArmy)} citizens)`:''} · ${fmt(P.workers+Math.max(0,(P.urban||0)-(P.urbanArmy||0)))} working`;
 }
 /* the countries you are attacking (and open land you are claiming), each with a button that calls the attack off */
