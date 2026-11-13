@@ -118,7 +118,13 @@ body.home #walkPad{display:none}
 .dock-row{display:flex;width:100%;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none}
 .dock-row>*{pointer-events:auto}
 #dock>.dock-row{pointer-events:none}
-#modeChip{display:flex;align-items:center;gap:12px;padding:7px 8px 7px 12px;font-weight:600;max-width:100%}
+/* what a tap will do (placing a building, a strike, a barrage): top right of the map, clear of the markets and army controls on the left;
+   it sits left of the compass in 3D, and toasts move down below it while it shows */
+#modeChip{position:absolute;top:12px;right:max(16px,env(safe-area-inset-right,0px));z-index:4;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 12px;font-weight:600;max-width:min(460px,calc(100% - 32px))}
+#modeChip[hidden]{display:none}
+#zNorth:not([hidden])~#modeChip{right:max(66px,env(safe-area-inset-right,0px))}
+body.mode-on #toasts{margin-top:56px}
+@media (max-width:760px){#modeChip{top:56px;right:max(10px,env(safe-area-inset-right,0px))}#zNorth:not([hidden])~#modeChip{right:max(10px,env(safe-area-inset-right,0px))}body.mode-on #toasts{margin-top:110px}}
 #spawnBanner{display:flex;align-items:center;gap:14px;padding:10px 12px 10px 14px;max-width:100%;flex-wrap:wrap}
 #spawnBanner b{font-weight:700;color:var(--gold)}
 #armyBar{display:flex;gap:18px;padding:10px 14px;flex-wrap:wrap;max-width:560px;flex:1;min-width:0}
@@ -971,6 +977,7 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
       </div>
     </div>
     <button type="button" id="zNorth" class="zb compass" aria-label="Turn the view to face north" title="Tap to face north" hidden><svg viewBox="0 0 20 20" id="zNorthSvg"><path d="M10 2.2l3.1 7.8H6.9z" fill="#ff6b5e" stroke="none"/><path d="M10 17.8l-3.1-7.8h6.2z" fill="currentColor" stroke="none" opacity=".7"/></svg></button>
+    <div id="modeChip" class="hudbox" hidden><span id="modeText"></span><button type="button" class="btn ghost sm" id="modeCancel">Cancel</button></div>
     <div id="roamPad" hidden role="group" aria-label="Move pad">
       <button type="button" class="rp" data-m="tl" aria-label="Turn left"><svg viewBox="0 0 20 20"><path d="M6.2 6.5A6 6 0 1 1 4.5 12" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 3.5l5 .5-1.4 4.6z"/></svg></button>
       <button type="button" class="rp" data-m="f" aria-label="Move forward"><svg viewBox="0 0 20 20"><path d="M10 3l7 10H3z"/></svg></button>
@@ -990,7 +997,6 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
     </div>
     <div id="dock">
       <button type="button" id="asmChip" class="hudbox" hidden><svg><use href="#ic-scales"/></svg><span id="asmChipT">World Assembly in session</span><b>Vote</b></button>
-      <div id="modeChip" class="hudbox" hidden><span id="modeText"></span><button type="button" class="btn ghost sm" id="modeCancel">Cancel</button></div>
       <div id="spawnBanner" class="hudbox" hidden>
         <div><b>Choose your capital.</b> <span id="spawnText">Tap open land away from rivals.</span></div>
         <button type="button" class="btn sm" id="spawnGo">Begin now</button>
@@ -6356,6 +6362,7 @@ function setMode(m){
   document.querySelectorAll('#wlist .bld').forEach(b=>b.setAttribute('aria-pressed',String(m.k==='nuke'&&m.kind===b.dataset.weapon)));
   document.querySelectorAll('#warBar .wbtn').forEach(b=>b.setAttribute('aria-pressed',String((m.k==='nuke'||m.k==='air')&&m.kind===b.dataset.w)));
   const chip=$('modeChip');
+  document.body.classList.toggle('mode-on',m.k!=='attack');
   if(m.k==='attack')chip.hidden=true;
   else{chip.hidden=false;$('modeText').textContent=m.k==='build'?`Placing ${BLD[m.type].name}. Tap your land.`:m.k==='air'?(m.kind==='jet'?'Jet strike: tap enemy land to bomb it.':'Helicopters: tap land to fly your troops in.'):`${WEAPONS[m.kind].name} barrage armed: each tap fires up to ${myBarrage()||BARRAGE}. Keep tapping targets, or Cancel.`;}
 }
