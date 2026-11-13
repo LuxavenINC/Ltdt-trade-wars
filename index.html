@@ -1392,7 +1392,7 @@ const BLD={
   oilrig:{name:'Oil Rig',era:2,cost:{stone:140,money:350},desc:'Desert or coast. Pumps +1.2 oil per second. Stores up to 30,000 oil to back your currency; oil beyond that is exported'},
   carplant:{name:'Car Plant',era:2,cost:{stone:220,money:600},desc:'Turns 0.6 oil/s into electric hover-cars: +9 money/s, +2 happiness'},
   silo:{name:'Missile Silo',era:3,cost:{stone:600,money:100000},desc:'Unlocks atom and hydrogen bombs. Each launch fires a barrage of 10 bombs per silo level; upgrade a silo up to level 5 for 50. The first silo costs 100,000, the next 250,000, then 500,000, 1M, 2.5M and so on'},
-  goldmine:{name:'Gold Mine',era:1,cost:{stone:300,money:1000000},desc:'Digs 100 gold bars every second. The first mine costs 1M, the next 2.5M, then 5M, 10M, 25M and so on'},
+  goldmine:{name:'Gold Mine',era:1,cost:{stone:300,money:1000000},desc:'Digs 100 gold bars every second, or 200 once your council passes the Deep Gold Shafts decree in the Modern era. The first mine costs 1M, the next 2.5M, then 5M, 10M, 25M and so on'},
   gov:{name:'Government',era:1,cost:{stone:400,money:20000},desc:'Your seat of government, built in the style of the land it stands on: the White House in the United States, the European Parliament in Europe, a national parliament anywhere else. One per nation: +150 gold bars every second, +10 happiness, +15% taxes, and it shields your currency from 15% of war losses. Every 4 years the World Assembly meets in its courtroom'},
   irondome:{name:'Iron Dome',era:2,cost:{stone:800,money:50000000},desc:'Powers the white energy shield over your whole country. Every Iron Dome adds strength; with 40 it is at full power and shoots down 3 in 4 enemy jets, helicopters and atom bombs and half of hydrogen bombs aimed at any of your land. With fewer, gaps let more through. Hits wear the shield down; once it loses 20% of its power it only recovers when you build more Iron Domes. Costs 50 million'},
   goldendome:{name:'Golden Dome',era:3,cost:{stone:2500,money:500000000},desc:'Powers the golden energy shield over your whole country; 5 give it full power. At full power it shoots down every hydrogen bomb and 19 in 20 enemy jets and helicopters aimed at any of your land. A barrage of atom bombs can overwhelm it: 1 to 3 get through, then it seals against atom bombs for 5 minutes. With fewer than 5, gaps let some through. Hits wear the shield down; once it loses 20% of its power it only recovers when you build more Golden Domes. Up to 5 per nation, more while the shield is worn. Costs 500 million'}
@@ -1403,6 +1403,9 @@ const IRON_R=22;
 const GOLD_SEAL=300;
 /* the domes power one energy shield over the whole country: 40 Iron Domes give the white shield full power, 5 Golden Domes the golden one */
 const IRON_FULL=40,GOLD_FULL=5;
+/* the most power an AI's shields reach: 70% golden, 80% white. Players' shields go to 100% */
+const AI_GOLD_CAP=0.7,AI_IRON_CAP=0.8;
+function shCap(n,lay){return n&&!n.human?(lay==='gold'?AI_GOLD_CAP:AI_IRON_CAP):1;}
 /* hits wear the energy shields down: a little power for every bomb or aircraft that meets them. Below 20% wear a shield recharges by itself;
    once it has lost 20% it stays down until new domes are built, each new dome repairing its share of the shield (1/40 or 1/5) */
 const SH_BREAK=0.2,SH_WEAR={gold:{atom:0.01,hydrogen:0.02,air:0.003},iron:{atom:0.02,hydrogen:0.04,air:0.006}},SH_REGEN={gold:0.002,iron:0.003};
@@ -1429,7 +1432,9 @@ const CARDS=[
   {id:'discipline',cat:'Military',name:'Iron Discipline',text:'Your attacks cost 15% fewer troops.',fx:n=>{n.mods.attackCost*=0.85;}},
   {id:'walls',cat:'Military',name:'Stone Walls',text:'Enemies pay 30% more troops for your land.',fx:n=>{n.mods.defense*=1.3;}},
   {id:'frontier',cat:'Military',name:'Frontier Spirit',text:'Unclaimed land costs 30% fewer troops.',fx:n=>{n.mods.wildCost*=0.7;}},
-  {id:'navy',cat:'Military',name:'Navy Yards',text:'Transport boats sail 50% faster and one more can be at sea.',fx:n=>{n.mods.boatSpeed*=1.5;n.mods.boatCap+=1;}}
+  {id:'navy',cat:'Military',name:'Navy Yards',text:'Transport boats sail 50% faster and one more can be at sea.',fx:n=>{n.mods.boatSpeed*=1.5;n.mods.boatCap+=1;}},
+  /* proposed by the council as soon as you reach the Modern era, and in every offer after that until you pass it */
+  {id:'deepgold',cat:'Treasury',name:'Deep Gold Shafts',era:3,must:true,text:'Every gold mine digs 200 gold bars a second instead of 100.',fx:n=>{n.mods.goldMine=200;}}
 ];
 /* ramp: how much more aggressive AIs get every 15 minutes of war; nkA, nkH: atom and hydrogen bombs each AI fires in every 25 minutes of war */
 const DIFF={
@@ -2125,7 +2130,7 @@ function domeGuards(A,t){
     const dx=b.tile%W-tx,dy=((b.tile/W)|0)-ty,d=dx*dx+dy*dy;
     if(b.type==='goldendome'){out.ng++;if(!out.gold||d<gd){out.gold=b;gd=d;}}else ir.push([d,b]);
   }
-  const D=G.nations[T];ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);out.ni=ir.length;out.gs=Math.max(0,Math.min(1,out.ng/GOLD_FULL)-(D.wG||0));out.is=Math.max(0,Math.min(1,out.ni/IRON_FULL)-(D.wI||0));return out;
+  const D=G.nations[T];ir.sort((p,q)=>p[0]-q[0]);out.irons=ir.map(x=>x[1]);out.ni=ir.length;out.gs=Math.max(0,Math.min(shCap(D,'gold'),out.ng/GOLD_FULL)-(D.wG||0));out.is=Math.max(0,Math.min(shCap(D,'iron'),out.ni/IRON_FULL)-(D.wI||0));return out;
 }
 /* a bomb meets the shields. A golden shield short of full power has gaps the bomb may fall through; where it covers, it stops every
    hydrogen bomb, and atom bombs can saturate it, so 1 to 3 slip through before it seals for 5 minutes. The white shield, where its gaps
@@ -2328,7 +2333,7 @@ function economy(n,dt){
   n.rate.oil=oilP-oilNeed*run;
   n.gp+=(1-n.gp)*Math.min(1,0.004*dt);
   const moneyP=(inc.tax+inc.market+inc.factory+inc.urban+inc.cars+inc.oil)*(n.asmSan?0.5:1);
-  const resP=(0.15+B.city*0.6+n.cnt[DESERT]*0.004)*(1+n.era*0.1)*ai+(B.goldmine||0)*100+(B.gov?150:0);
+  const resP=(0.15+B.city*0.6+n.cnt[DESERT]*0.004)*(1+n.era*0.1)*ai+(B.goldmine||0)*(n.mods.goldMine||100)+(B.gov?150:0);
   n.gdpBoost=(n.gdpBoost||0)*(1-Math.min(1,0.004*dt));
   n.gdp=(n.workers*0.006+B.market*5+B.factory*8+B.port*3+B.city*4+wr/1e6*2.5+(B.oilrig||0)*3+(B.carplant||0)*6*run)*prod+n.gdpBoost;
   n.food+=(foodP-foodC)*dt;n.wood+=woodP*dt;n.stone+=stoneP*dt;n.money+=moneyP*dt;n.reserve+=resP*dt;
@@ -2373,7 +2378,7 @@ function revolt(n){
 }
 
 /* ---------- Eras & council cards ---------- */
-function randomCards(n,k){const pool=CARDS.filter(c=>!n.cards.includes(c.id));for(let i=pool.length-1;i>0;i--){const j=(R()*(i+1))|0;[pool[i],pool[j]]=[pool[j],pool[i]];}return pool.slice(0,k);}
+function randomCards(n,k){const pool=CARDS.filter(c=>!c.era&&!n.cards.includes(c.id));for(let i=pool.length-1;i>0;i--){const j=(R()*(i+1))|0;[pool[i],pool[j]]=[pool[j],pool[i]];}return pool.slice(0,k);}
 function applyCard(n,id){const c=CARDS.find(x=>x.id===id);if(!c||n.cards.includes(id))return false;n.cards.push(id);c.fx(n);return true;}
 /* how strongly the council backs a decree, and why: from the buildings you have and the state of your government
    (seat of government, taxes, happiness, approval, wars, sanctions). Every decree keeps a small chance. */
@@ -2394,11 +2399,13 @@ function cardWhy(n,id){
     case 'walls':return {w:(b.defense||0)*1.2+hit*2+(n.asmSan?3:0),why:hit?'you are under attack':n.asmSan?'the World Assembly has sanctioned you':b.defense?c(b.defense,'defense post','defense posts'):''};
     case 'frontier':return {w:wild?3:0,why:wild?'there is open land on your borders':''};
     case 'navy':return {w:(b.port||0)*1.0,why:b.port?c(b.port,'port','ports'):''};
+    case 'deepgold':return {w:3+(b.goldmine||0)*1.5,why:'you have reached the Modern era'+(b.goldmine?' and '+c(b.goldmine,'gold mine','gold mines'):'')};
   }
   return {w:0,why:''};
 }
 function councilCards(n,k){
-  const pool=CARDS.filter(c=>!n.cards.includes(c.id)).map(c=>({c,w:0.4+Math.max(0,cardWhy(n,c.id).w)})),out=[];
+  const ok=c=>!n.cards.includes(c.id)&&(!c.era||n.era>=c.era),out=CARDS.filter(c=>c.must&&ok(c)).slice(0,k);
+  const pool=CARDS.filter(c=>ok(c)&&!out.includes(c)).map(c=>({c,w:0.4+Math.max(0,cardWhy(n,c.id).w)}));
   while(out.length<k&&pool.length){let tot=0;for(const p of pool)tot+=p.w;let r=R()*tot,i=0;for(;i<pool.length-1;i++){r-=pool[i].w;if(r<=0)break;}out.push(pool[i].c);pool.splice(i,1);}
   return out;
 }
@@ -2594,6 +2601,8 @@ function buyForex(A,X,frac){
 function dumpDrop(X,wc){const cX=Math.max(300,X.gdp*60)+X.printed+X.imported;return Math.min(0.08,0.3*wc/cX)*(1-(X.shield||0)*0.5);}
 /* selling a foreign holding brings its value home and strengthens your own currency: the mirror of buying
    (spend 10% of your cash and your currency dips 2%), so a holding that grew is worth more strength than it cost */
+/* how much of a dump's rise your gold holds: all of it with 5,000+ bars, none with no gold */
+function fxKeep(n){return clamp((n.reserve||0)/5000,0,1);}
 function dumpRise(A,got){return Math.min(0.2,0.2*got/Math.max(1,got+Math.max(0,A.money)));}
 function dumpForex(A,X,frac){
   const hold=A.fxh[X.id];if(!(hold>0))return `You hold no ${X.cur}.`;
@@ -2601,13 +2610,14 @@ function dumpForex(A,X,frac){
   if(X.locked)return `The ${X.cur} is frozen by sanctions; nobody will buy it.`;
   const fr=clamp(frac||1,0.01,1),units=fr>=0.999?hold:hold*fr;
   /* the full value of the dumped currency goes into your economy: cash into the treasury and a boost to output (GDP) that fades over a few minutes */
-  const wc=units*X.fx,got=wc/A.fx,rise=dumpRise(A,got);A.fxh[X.id]=fr>=0.999?0:hold-units;A.money+=got;
+  const wc=units*X.fx,got=wc/A.fx,rise=dumpRise(A,got);A.fxh[X.id]=fr>=0.999?0:hold-units;A.money+=got;A.dumpCash=(A.dumpCash||0)+got;
   const gb=A.gdpBoost||0,boost=Math.max(0,Math.min(wc/150,Math.max(25,(A.gdp-gb)*0.6)-gb));A.gdpBoost=gb+boost;A.gdp+=boost;
   /* the dumped currency melts and recovers slowly (about 0.02 a minute). Your currency rises, and that rise is tied to the
-     currency you dumped: it stays while that currency stays down and fades only as it gets stronger again */
+     currency you dumped: it stays while that currency stays down and fades only as it gets stronger again, except the share
+     your gold holds (all of it with 5,000+ bars) */
   const drop=dumpDrop(X,wc),pre=X.fx;
   X.support=Math.max(0,X.support-wc*0.4);if(drop>0.0005){X.fxm=Math.max(0.3,(X.fxm||1)*(1-drop));X.fx*=1-drop;X.rfx*=1-drop;}
-  if(rise>0.0005){(A.fxl||(A.fxl=[])).push({x:X.id,r:rise,pre,post:X.fx,rg:0});if(A.fxl.length>16)A.fxl.shift();A.fxr=Math.min(3,(A.fxr||1)*(1+rise));A.fx*=1+rise;A.rfx*=1+rise;}
+  if(rise>0.0005){(A.fxl||(A.fxl=[])).push({x:X.id,r:rise,pre,post:X.fx,rg:0});if(A.fxl.length>16){const L0=A.fxl.shift();A.fxk=Math.min(3,(A.fxk||1)*(1+L0.r*(1-L0.rg*(1-fxKeep(A)))));}A.fxr=Math.min(3,(A.fxr||1)*(1+rise));A.fx*=1+rise;A.rfx*=1+rise;}
   relAdd(A.id,X.id,-Math.min(40,8+wc/(X.gdp*10+100)));
   if(X.human)log(X.id,`${A.name} dumped ${fmt(units)} ${X.cur} on the world market. Your currency fell ${(drop*100).toFixed(drop<0.1?1:0)}%.`,null,'bad');
   /* everyone else holding that currency is warned: their reserve just lost value */
@@ -2799,9 +2809,16 @@ function aiBuy(n,type){
   const c=bldCost(n,type);for(const r in c)if(r!=='money'&&(n[r]||0)<c[r])return false;
   if(!aiCash(n,c.money||0))return false;return !build(n,type,n.sample);
 }
-/* AIs guard themselves with Iron Domes (never Golden ones), working up to the 40 that give their white shield full power */
-const AI_DOME_P=0.06;
-function aiDome(n){if(n.era>=2&&((n.b.irondome||0)<IRON_FULL||(n.wI||0)>=SH_BREAK)&&R()<AI_DOME_P)aiBuy(n,'irondome');}
+/* AIs guard themselves with Iron Domes and, from the Modern era, Golden Domes: 32 Iron Domes give their white shield 80% power and
+   4 Golden Domes their golden shield 70% (an AI's shields never go higher). They build more when hits wear a shield down */
+const AI_DOME_P=0.06,AI_IRON_N=32,AI_GOLD_N=4;
+function aiDome(n){
+  if(n.era<2)return;
+  const wantG=n.era>=3&&((n.b.goldendome||0)<AI_GOLD_N||(n.wG||0)>=SH_BREAK),wantI=(n.b.irondome||0)<AI_IRON_N||(n.wI||0)>=SH_BREAK;
+  if(!(wantG||wantI)||R()>=AI_DOME_P)return;
+  if(wantG&&aiBuy(n,'goldendome'))return;
+  if(wantI)aiBuy(n,'irondome');
+}
 /* the nuclear plan: on Medium every AI fires 10 atom bombs and 1 hydrogen bomb in every 25 minutes of war, on Hard 20 and 5. It keeps a
    silo, sells gold when short of money, spreads the launches through the 25 minutes and aims at whoever it is most hostile to */
 const NUKE_WIN=1500;
@@ -2936,9 +2953,10 @@ function secondly(){
     if(n.warCd>0)n.warCd=Math.max(0,n.warCd-1);
     {const fm=n.fxm||1,fr0=n.fxr||1,base=Math.max(0.05,n.fx/(fm*fr0)),step=0.02/60/base;
      if(fm<1)n.fxm=Math.min(1,fm+step);else if(fm>1)n.fxm=Math.max(1,fm-step);
-     let tgt=1;
-     if(n.fxl&&n.fxl.length){for(const L of n.fxl){const X=ns[L.x];if(X&&X.alive)L.rg=clamp((X.fx-L.post)/Math.max(L.pre-L.post,L.pre*0.01),0,1);tgt*=1+L.r*(1-L.rg);}
-       if(n.fxl.some(L=>L.rg>=0.999))n.fxl=n.fxl.filter(L=>L.rg<0.999);}
+     const keep=fxKeep(n);if((n.fxk||1)>1&&keep<1)n.fxk=1+(n.fxk-1)*(1-(1-keep)*0.002);
+     let tgt=n.fxk||1;
+     if(n.fxl&&n.fxl.length){for(const L of n.fxl){const X=ns[L.x];if(X&&X.alive)L.rg=clamp((X.fx-L.post)/Math.max(L.pre-L.post,L.pre*0.01),0,1);tgt*=1+L.r*(1-L.rg*(1-keep));}
+       if(n.fxl.some(L=>L.rg>=0.999)){for(const L of n.fxl)if(L.rg>=0.999&&keep>0)n.fxk=Math.min(3,(n.fxk||1)*(1+L.r*keep));n.fxl=n.fxl.filter(L=>L.rg<0.999);}}
      n.fxr=fr0>tgt?Math.max(tgt,fr0-step):tgt;}
     if((n.gfxm||1)<1){const gap=1-n.gfxm,d=n.gfxd||0,pay=Math.max(0,(n.rate&&n.rate.reserve)||0),left=Math.max(0,d-pay);n.gfxd=left;
       const g2=d>0?Math.max(gap*left/d,gap-GIFT_HEAL):Math.max(0,gap-GIFT_HEAL);n.gfxm=1-g2;
@@ -2947,9 +2965,11 @@ function secondly(){
     const claims=Math.max(CLAIM0,n.gdp*60)+n.printed+n.imported;
     const tb=n.reserve*GOLD_WC+n.support+(n.tarSup||0)+(n.pump||0),back=tb<=claims?tb:claims+Math.sqrt((tb-claims)*claims);n.str=(back+n.gdp*60)/claims*(1+(n.irate-0.05)*3);
     /* gold sets the trend: 5,000+ bars lift a currency about 1% a minute; with no gold or oil, or gold and oil worth less than the money
-       you hold, it slides step by step (10 -> 8.9 -> 8.1 -> 7.5 a minute apart); otherwise it holds. Spending money does not move it. */
+       you hold, it slides step by step (10 -> 8.9 -> 8.1 -> 7.5 a minute apart); otherwise it holds. Spending money does not move it.
+       Cash brought home by dumping foreign currency is backed by what was sold, so it is left out of that comparison. */
     {let tr=n.trend||1;const bl=backingLocal(n),none=n.reserve<1&&(n.oil||0)<60;
-     if(none||bl<Math.max(0,n.money)){if(tr>0.5)tr+=(0.5-tr)*0.004;n.trendDir=-1;}
+     n.dumpCash=Math.min(n.dumpCash||0,Math.max(0,n.money));
+     if(none||bl<Math.max(0,n.money-n.dumpCash)){if(tr>0.5)tr+=(0.5-tr)*0.004;n.trendDir=-1;}
      else if(n.reserve>=5000){tr=Math.min(3,tr*1.000167);n.trendDir=1;}
      else n.trendDir=0;
      n.trend=tr;}
@@ -3813,7 +3833,7 @@ function shieldsScan(now){
   for(const [k,L] of SHD){const n=G.nations[L.id];if(!cnt.has(k)||!n||!n.alive){shieldDrop(L);SHD.delete(k);}}
   for(const [k,tiles] of cnt){const id=+k.split(':')[0],lay=k.split(':')[1],n=G.nations[id];if(!n||!n.alive||n.tiles<1)continue;
     let L=SHD.get(k);if(!L){L={id,lay,hits:[],sh:null,ver:-1,s:-1,gk:'',bt:0,own:null};SHD.set(k,L);}
-    const s=Math.max(0,Math.min(1,tiles.length/SHL[lay].full)-((lay==='gold'?n.wG:n.wI)||0)),s2=Math.round(s*20)/20,gk=tiles.join(',');L.s=s;
+    const s=Math.max(0,Math.min(shCap(n,lay),tiles.length/SHL[lay].full)-((lay==='gold'?n.wG:n.wI)||0)),s2=Math.round(s*20)/20,gk=tiles.join(',');L.s=s;
     if(!L.own||L.s2!==s2||L.gk!==gk||(L.ver!==SHO&&now-L.bt>1500)){L.s2=s2;L.gk=gk;L.ver=SHO;L.bt=now;L.gens=tiles;shieldBase(L);L.dirty2=L.dirty3=true;}}
 }
 /* the shape of a country's shield: its land, how far each tile lies from the border (the shield rises from the border like a dome),
@@ -6579,7 +6599,7 @@ function updateForex(P){
   $('fxTot').textContent=`${fmt(held)} WC held`;$('fxAmtV').textContent=`= ${fmt(Math.floor(P.money*fxPct/100))} ${P.cur} · your ${P.cur} dips ~${(0.2*fxPct).toFixed(fxPct<10?1:0)}%`;
   {let dw=0,dd=0;for(const X of G.nations){if(X.id===ME||!X.alive)continue;const w=(P.fxh[X.id]||0)*X.fx*fxDumpPct/100;if(w>dw){dw=w;dd=dumpDrop(X,w);}}
    $('fxDumpV').textContent=dw>0?`of a holding · your biggest: +${(dumpRise(P,dw/P.fx)*100).toFixed(1)}% to your ${P.cur}, −${(dd*100).toFixed(1)}% to theirs`:'of the holding you dump';}
-  $('fxHint').textContent=P.locked?'Sanctions lock you out of currency exchange.':(G.top===ME?(P.manipCd>0?`Market desk ready in ${Math.ceil(P.manipCd)}s. `:'Market desk ready: as the world reserve you can short (▼) or prop up (▲) any currency by 12% every 30 seconds. '):'')+`Values are in world credits (WC), the same numbers and colours as the Currency markets panel; your ${P.cur} is worth ${fxv(P.fx)} WC. Buy spends the share of your cash picked above on that currency and props it up; holdings count toward your valuation. Dump sells the share of a holding picked above (All by default): its full value goes into your treasury and grows your economy (GDP), your own ${P.cur} rises (more when the holding grew), and that currency melts in proportion to how much you dump next to its money supply, up to 8% per seller, so two or three big holders dumping can knock it down 10-20%. The dumped currency recovers slowly, about 0.02 a minute; your rise stays as long as it stays down and gives back at the same slow pace only as that currency gets stronger again.`;
+  $('fxHint').textContent=P.locked?'Sanctions lock you out of currency exchange.':(G.top===ME?(P.manipCd>0?`Market desk ready in ${Math.ceil(P.manipCd)}s. `:'Market desk ready: as the world reserve you can short (▼) or prop up (▲) any currency by 12% every 30 seconds. '):'')+`Values are in world credits (WC), the same numbers and colours as the Currency markets panel; your ${P.cur} is worth ${fxv(P.fx)} WC. Buy spends the share of your cash picked above on that currency and props it up; holdings count toward your valuation. Dump sells the share of a holding picked above (All by default): its full value goes into your treasury and grows your economy (GDP), your own ${P.cur} rises (more when the holding grew), and that currency melts in proportion to how much you dump next to its money supply, up to 8% per seller, so two or three big holders dumping can knock it down 10-20%. The dumped currency recovers slowly, about 0.02 a minute; your rise stays as long as it stays down. As that currency gets stronger again you give the rise back at the same slow pace, unless gold backs you: with 5,000+ gold bars you keep all of it, with fewer a share. The cash a dump brings home is backed by what you sold, so it never starts your own ${P.cur} sliding.`;
 }
 /* who holds each currency: every nation's foreign exchange reserves, and how far a dump by the biggest holder would knock it down */
 function dumpRisk(X,wc){return dumpDrop(X,wc);}
