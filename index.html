@@ -4453,15 +4453,21 @@ function nextElection(){let y=Math.max(5,G.year+1);while((y-1)%4!==0)y++;return 
 function col3(css){let c=V3.cols.get(css);if(!c){c=new THREE.Color(css);V3.cols.set(css,c);}return c;}
 function hAt(i){if(!V3.heights||i<0||i>=N)return 0.2;return G.terr[i]===WATER?0.04:Math.max(0.18,V3.heights[i]);}
 /* ---------- realistic sea: shaders ---------- */
+/* 3D realism (display only): smooth noise, and soft cloud shadows that drift over land and sea */
+const NOISE_GL=`float rnH(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float rnV(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(rnH(i),rnH(i+vec2(1.0,0.0)),f.x),mix(rnH(i+vec2(0.0,1.0)),rnH(i+vec2(1.0,1.0)),f.x),f.y);}
+float rnF(vec2 p){return rnV(p)*0.5+rnV(p*2.03+7.1)*0.25+rnV(p*4.01+13.7)*0.125+rnV(p*8.05+3.3)*0.0625;}
+float cloudSh(vec2 xz,float t){return 1.0-0.3*smoothstep(0.5,0.72,rnF(xz*0.011+vec2(t*0.0045,t*0.002)));}
+`;
 const WATER_VS=`uniform float uTime;uniform sampler2D uDepth;uniform vec2 uMap;varying vec3 vW;varying vec2 vG;varying float vZ;varying float vH;
-void main(){vec4 w=modelMatrix*vec4(position,1.0);vec2 p=w.xz;float h=0.0;vec2 g=vec2(0.0);
-#define WV(DX,DZ,L,A,SP) {vec2 d=normalize(vec2(DX,DZ));float k=6.2831853/L;float ph=dot(d,p)*k+uTime*SP;h+=A*sin(ph);g+=A*k*cos(ph)*d;}
-WV(1.0,0.35,22.0,0.17,0.95) WV(-0.45,1.0,12.0,0.09,1.3) WV(0.8,-0.6,6.5,0.045,1.85) WV(-0.9,-0.2,3.6,0.014,2.6)
+void main(){vec4 w=modelMatrix*vec4(position,1.0);vec2 p=w.xz;vec2 pw=p+vec2(sin(p.y*0.043+1.3)*5.0+sin(p.y*0.117+p.x*0.031)*2.2,sin(p.x*0.037)*5.0+sin(p.x*0.101-p.y*0.027+2.1)*2.2);float h=0.0;vec2 g=vec2(0.0);
+#define WV(DX,DZ,L,A,SP) {vec2 d=normalize(vec2(DX,DZ));float k=6.2831853/L;float ph=dot(d,pw)*k+uTime*SP;h+=A*sin(ph);g+=A*k*cos(ph)*d;}
+WV(1.0,0.35,22.0,0.15,0.95) WV(-0.45,1.0,12.0,0.08,1.3) WV(0.3,0.95,31.0,0.07,0.7) WV(0.8,-0.6,6.5,0.045,1.85) WV(-0.9,-0.2,3.6,0.014,2.6)
 vec2 muv=(p+uMap*0.5)/uMap;float amp=1.0;if(muv.x>0.0&&muv.x<1.0&&muv.y>0.0&&muv.y<1.0)amp=0.15+0.85*smoothstep(0.03,0.3,texture2D(uDepth,muv).r);
 h*=amp;g*=amp;w.y+=h;vW=w.xyz;vG=g;vH=h;vec4 mv=viewMatrix*w;vZ=-mv.z;gl_Position=projectionMatrix*mv;}`;
 const WATER_FS=`uniform float uTime;uniform sampler2D uNorm;uniform sampler2D uDepth;uniform vec2 uMap;uniform vec3 uSun;uniform vec3 uSkyTop;uniform vec3 uSkyHor;uniform vec3 uFogCol;uniform float uFogNear;uniform float uFogFar;
 varying vec3 vW;varying vec2 vG;varying float vZ;varying float vH;
-void main(){vec2 p=vW.xz;
+${NOISE_GL}void main(){vec2 p=vW.xz;
 vec3 n1=texture2D(uNorm,p*0.085+vec2(uTime*0.012,uTime*0.008)).xyz*2.0-1.0;
 vec3 n2=texture2D(uNorm,p*0.21+vec2(-uTime*0.02,uTime*0.015)).xyz*2.0-1.0;
 vec3 n3=texture2D(uNorm,p*0.62+vec2(uTime*0.035,-uTime*0.027)).xyz*2.0-1.0;
@@ -4470,11 +4476,11 @@ vec3 V=normalize(cameraPosition-vW);float ndv=max(dot(N,V),0.0);float fres=0.02+
 vec3 R=reflect(-V,N);vec3 sky=mix(uSkyHor,uSkyTop,clamp(R.y*1.6,0.0,1.0));
 vec2 muv=(p+uMap*0.5)/uMap;float dep=1.0;if(muv.x>0.0&&muv.x<1.0&&muv.y>0.0&&muv.y<1.0)dep=texture2D(uDepth,muv).r;
 vec3 body=mix(vec3(0.24,0.62,0.6),vec3(0.07,0.36,0.45),smoothstep(0.0,0.22,dep));body=mix(body,vec3(0.025,0.14,0.25),smoothstep(0.22,0.75,dep));body=mix(body,vec3(0.015,0.08,0.17),smoothstep(0.75,1.0,dep)*0.6);
-body*=0.72+0.38*max(dot(N,uSun),0.0);
+float cls=cloudSh(p,uTime);body*=(0.72+0.38*max(dot(N,uSun),0.0))*cls;
 vec2 hv=-V.xz;float lh=length(hv);float sss=lh>0.0001?pow(max(dot(hv/lh,normalize(uSun.xz)),0.0),3.0):0.0;sss*=smoothstep(-0.02,0.2,vH)*(1.0-fres);
-body+=vec3(0.06,0.34,0.30)*sss*0.75;
-vec3 col=mix(body,sky,fres*0.8);float sp=max(dot(R,uSun),0.0);col+=vec3(1.0,0.95,0.85)*(pow(sp,220.0)*2.5+pow(sp,30.0)*0.12);
-vec3 Ng=normalize(vec3(n3.x*0.6+N.x,1.0,n3.y*0.6+N.z));float spg=max(dot(reflect(-V,Ng),uSun),0.0);col+=vec3(1.0,0.97,0.9)*pow(spg,900.0)*3.0;
+body+=vec3(0.06,0.34,0.30)*sss*(0.18+0.3*rnV(p*0.06+vec2(uTime*0.02,0.0)));
+vec3 col=mix(body,sky,fres*0.8);float sp=max(dot(R,uSun),0.0);float gf=cls*cls;col+=vec3(1.0,0.95,0.85)*(pow(sp,220.0)*1.1+pow(sp,30.0)*0.1)*gf;
+vec3 Ng=normalize(vec3(n3.x*0.6+N.x,1.0,n3.y*0.6+N.z));float spg=max(dot(reflect(-V,Ng),uSun),0.0);col+=vec3(1.0,0.97,0.9)*pow(spg,900.0)*1.5*gf*(1.0-smoothstep(90.0,260.0,vZ)*0.7);
 float fn=texture2D(uNorm,p*0.6+vec2(uTime*0.03,-uTime*0.02)).r;
 float shore=1.0-smoothstep(0.02,0.14,dep);
 float foam=shore*smoothstep(0.45,0.8,fn+0.35*sin(uTime*1.3+dep*60.0+p.x*0.3));
@@ -4504,15 +4510,15 @@ function init3D(){
     const SKY_T=new THREE.Color(0x3f76b4),SKY_H=new THREE.Color(0xbfd3e3);
     sc.background=SKY_H.clone();sc.fog=new THREE.Fog(SKY_H.getHex(),300,800);
     V3.camera=new THREE.PerspectiveCamera(45,cw/ch,0.1,3000);
-    sc.add(new THREE.HemisphereLight(0xdde9ff,0x4b3c2a,0.62));
-    const sun=new THREE.DirectionalLight(0xfff0d8,1.18);sun.position.set(-110,125,-80);sc.add(sun);
+    sc.add(new THREE.HemisphereLight(0xcfe0ff,0x4b3c2a,0.56));
+    const sun=new THREE.DirectionalLight(0xfff1dc,1.26);sun.position.set(-110,125,-80);sc.add(sun);
     {const sm=Math.min(window.innerWidth,window.innerHeight)<560?1024:2048;sun.castShadow=true;sun.shadow.mapSize.set(sm,sm);sun.shadow.bias=-0.0005;sun.shadow.normalBias=0.04;sc.add(sun.target);V3.sun=sun;}
     const rim=new THREE.DirectionalLight(0x9fc8e8,0.18);rim.position.set(90,60,120);sc.add(rim);
     V3.lamp=new THREE.PointLight(0xffdcae,0,1.8,2);sc.add(V3.lamp);
     V3.sunDir=sun.position.clone().normalize();
-    V3.sky=new THREE.Mesh(new THREE.SphereGeometry(1,32,16),new THREE.ShaderMaterial({uniforms:{uTop:{value:SKY_T},uHor:{value:SKY_H},uSun:{value:V3.sunDir}},
+    V3.sky=new THREE.Mesh(new THREE.SphereGeometry(1,32,16),new THREE.ShaderMaterial({uniforms:{uTop:{value:SKY_T},uHor:{value:SKY_H},uSun:{value:V3.sunDir},uTime:(V3.skyT={value:0})},
       vertexShader:'varying vec3 vD;void main(){vD=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-      fragmentShader:'uniform vec3 uTop;uniform vec3 uHor;uniform vec3 uSun;varying vec3 vD;void main(){vec3 d=normalize(vD);float y=max(d.y,0.0);vec3 c=mix(uHor,uTop,pow(y,0.5));float s=max(dot(d,uSun),0.0);c+=vec3(1.0,0.92,0.75)*(pow(s,600.0)*1.6+pow(s,10.0)*0.1);gl_FragColor=vec4(c,1.0);}',
+      fragmentShader:'uniform vec3 uTop;uniform vec3 uHor;uniform vec3 uSun;uniform float uTime;varying vec3 vD;\n'+NOISE_GL+'void main(){vec3 d=normalize(vD);float y=max(d.y,0.0);vec3 c=mix(uHor,uTop,pow(y,0.5));c=mix(c,uTop*0.72,smoothstep(0.35,1.0,y)*0.5);float s=max(dot(d,uSun),0.0);c+=vec3(1.0,0.86,0.62)*pow(s,4.0)*0.12*(1.0-y);if(d.y>0.01){vec2 q=d.xz/(d.y+0.18)*1.6+vec2(uTime*0.004,uTime*0.002);float n=rnF(q)+rnV(q*9.0)*0.05;float cl=smoothstep(0.5,0.78,n)*smoothstep(0.01,0.22,d.y);vec3 cc=mix(vec3(0.74,0.78,0.84),vec3(1.0,0.99,0.96),smoothstep(0.5,0.9,n+s*0.15));c=mix(c,cc,cl*0.85);}c+=vec3(1.0,0.92,0.75)*(pow(s,600.0)*1.6+pow(s,10.0)*0.1);gl_FragColor=vec4(c,1.0);}',
       side:THREE.BackSide,depthWrite:false,depthTest:false,fog:false}));
     V3.sky.renderOrder=-10;V3.sky.frustumCulled=false;sc.add(V3.sky);
     V3.mapTex=new THREE.CanvasTexture(off);V3.mapTex.magFilter=THREE.NearestFilter;V3.mapTex.minFilter=THREE.LinearFilter;V3.mapTex.generateMipmaps=false;
@@ -4525,7 +4531,14 @@ function init3D(){
     geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(GW*GH*3).fill(1),3));
     V3.ownTex=new THREE.CanvasTexture(ooff);V3.ownTex.minFilter=THREE.LinearFilter;V3.ownTex.generateMipmaps=false;
     const tm=new THREE.MeshStandardMaterial({vertexColors:true,emissiveMap:V3.glowTex,emissive:0xffffff,emissiveIntensity:0.5,roughness:0.93,metalness:0});
-    tm.onBeforeCompile=sh=>{sh.uniforms.ownTex={value:V3.ownTex};sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D ownTex;').replace('#include <color_fragment>','#include <color_fragment>\n{vec4 ov=texture2D(ownTex,vUv);diffuseColor.rgb=mix(diffuseColor.rgb,ov.rgb,ov.a);}');};
+    V3.terrT={value:0};
+    tm.onBeforeCompile=sh=>{sh.uniforms.ownTex={value:V3.ownTex};sh.uniforms.uTime=V3.terrT;
+      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWp=(modelMatrix*vec4(transformed,1.0)).xyz;');
+      sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D ownTex;uniform float uTime;varying vec3 vWp;\n'+NOISE_GL)
+        /* fine grain in the ground (grass, sand, stone), then the territory tint, then drifting cloud shadows */
+        .replace('#include <color_fragment>','#include <color_fragment>\n{float vd=length(vViewPosition);float nf=1.0-smoothstep(40.0,140.0,vd);float d1=rnV(vWp.xz*2.6),d2=rnV(vWp.xz*11.0),d3=rnV(vWp.xz*37.0);diffuseColor.rgb*=1.0+((d1-0.5)*0.16+(d2-0.5)*0.14*nf+(d3-0.5)*0.12*nf*nf);diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.06,1.0,0.9),(d1-0.3)*0.5);vec4 ov=texture2D(ownTex,vUv);diffuseColor.rgb=mix(diffuseColor.rgb,ov.rgb*(0.94+d2*0.12),ov.a);diffuseColor.rgb*=cloudSh(vWp.xz,uTime);}')
+        /* tiny bumps so slopes catch the sun like rough ground instead of smooth plastic */
+        .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\n{float vd2=length(vViewPosition);float bf=(1.0-smoothstep(25.0,110.0,vd2))*0.32;if(bf>0.001){vec2 q=vWp.xz*7.0;float n0=rnV(q),nx=rnV(q+vec2(0.35,0.0)),nz=rnV(q+vec2(0.0,0.35));normal=normalize(normal+(viewMatrix*vec4((n0-nx)*bf,0.0,(n0-nz)*bf,0.0)).xyz);}}');};
     V3.terrain=new THREE.Mesh(geo,tm);V3.terrain.castShadow=Math.min(window.innerWidth,window.innerHeight)>=560;V3.terrain.receiveShadow=true;
     sc.add(V3.terrain);
     /* the sea: rolling waves, ripples, sun glints and glitter, sky reflections, light through the wave crests, turquoise shallows,
@@ -4907,7 +4920,7 @@ function buildTerrain3D(){
     mt[i]=t===MOUNT?1:t===SNOW?1.15:t===FOREST?0.2:t===DESERT?0.14:t===GRASS?0.09:0;
     const v=hash(i*13+5),q=t===WATER?0:clamp((e-G.elevSea)/span,0,1);let c;
     if(t===WATER)c=[0.76,0.70,0.52];else if(t===GRASS)c=[0.36+q*0.22,0.56-q*0.08,0.22+q*0.06];else if(t===FOREST)c=[0.22,0.40,0.17];
-    else if(t===DESERT)c=[0.83,0.70,0.46];else if(t===MOUNT)c=[0.52,0.48,0.42];else c=[0.92,0.94,0.96];
+    else if(t===DESERT)c=[0.83,0.70,0.46];else if(t===MOUNT)c=[0.52,0.48,0.42];else c=[0.83,0.86,0.91];
     const k=0.92+v*0.16;tr[i]=c[0]*k;tg[i]=c[1]*k;tb[i]=c[2]*k;}
   {const L=1.1,tmp=new Float32Array(N);
    for(let it=0;it<8;it++){let ch=0;for(let i=0;i<N;i++){if(G.terr[i]===WATER)continue;const x=i%W,y=(i/W)|0;let m=0;
@@ -4946,12 +4959,17 @@ function buildTerrain3D(){
         const be=coast*(1-smooth01(0.2,0.42,h));r+=(0.78-r)*be;g+=(0.71-g)*be;b+=(0.53-b)*be;
         /* gullies and crevices sit in shade while ridges catch the light; snow lies above a ragged snowline and gathers in the gullies */
         const cv=gx>0&&gy>0&&gx<GW-1&&gy<GH-1?(hg[k-1]+hg[k+1]+hg[k-GW]+hg[k+GW])*0.25-h:0;
-        const sn=smooth01(6.8,8.2,h+(vnoise(tx*0.7,ty*0.7)-0.5)*1.0+cv*0.5)*(1-smooth01(0.35,0.6,sl));r+=(0.95-r)*sn;g+=(0.96-g)*sn;b+=(0.98-b)*sn;
+        const sn=smooth01(6.8,8.2,h+(vnoise(tx*0.7,ty*0.7)-0.5)*1.0+cv*0.5)*(1-smooth01(0.35,0.6,sl));r+=(0.84-r)*sn;g+=(0.87-g)*sn;b+=(0.92-b)*sn;
         const nz=(0.88+vnoise(tx*2.3,ty*2.3)*0.16+vnoise(tx*7.1,ty*7.1)*0.08)*clamp(1-cv*0.9,0.72,1.12);r*=nz;g*=nz;b*=nz;}
       col[k*3]=r;col[k*3+1]=g;col[k*3+2]=b;}}
   geo.attributes.color.needsUpdate=true;
   /* 4. sea depth for the water shader: turquoise shallows and foam near the coast, dark blue far out */
-  const dd=new Uint8Array(N*4);for(let i=0;i<N;i++){const v=G.terr[i]===WATER?Math.round(255*clamp(0.08+(G.elevSea-G.elev[i])*5,0,1)):0;dd[i*4]=dd[i*4+1]=dd[i*4+2]=v;dd[i*4+3]=255;}
+  const dd=new Uint8Array(N*4);
+  {const ds=new Float32Array(N).fill(99),q=new Int32Array(N);let qh=0,qt=0;for(let i=0;i<N;i++)if(G.terr[i]!==WATER){ds[i]=0;q[qt++]=i;}
+   while(qh<qt){const c=q[qh++],x=c%W,d=ds[c]+1;if(d>16)continue;if(x>0&&ds[c-1]>d){ds[c-1]=d;q[qt++]=c-1;}if(x<W-1&&ds[c+1]>d){ds[c+1]=d;q[qt++]=c+1;}if(c>=W&&ds[c-W]>d){ds[c-W]=d;q[qt++]=c-W;}if(c<N-W&&ds[c+W]>d){ds[c+W]=d;q[qt++]=c+W;}}
+   let f=new Float32Array(N),t2=new Float32Array(N);for(let i=0;i<N;i++)f[i]=G.terr[i]===WATER?clamp(0.07+(Math.min(16,ds[i])-1)/15*0.7+clamp((G.elevSea-G.elev[i])*5,0,1)*0.23,0,1):0;
+   for(let it=0;it<3;it++){for(let i=0;i<N;i++){if(G.terr[i]!==WATER){t2[i]=0;continue;}const x=i%W;let sm=f[i]*2,w=2;if(x>0&&G.terr[i-1]===WATER){sm+=f[i-1];w++;}if(x<W-1&&G.terr[i+1]===WATER){sm+=f[i+1];w++;}if(i>=W&&G.terr[i-W]===WATER){sm+=f[i-W];w++;}if(i<N-W&&G.terr[i+W]===WATER){sm+=f[i+W];w++;}t2[i]=sm/w;}const sw=f;f=t2;t2=sw;}
+   for(let i=0;i<N;i++){const v=Math.round(255*f[i]);dd[i*4]=dd[i*4+1]=dd[i*4+2]=v;dd[i*4+3]=255;}}
   if(V3.depthTex)V3.depthTex.dispose();V3.depthTex=new THREE.DataTexture(dd,W,H,THREE.RGBAFormat);V3.depthTex.magFilter=THREE.LinearFilter;V3.depthTex.minFilter=THREE.LinearFilter;V3.depthTex.needsUpdate=true;V3.waterU.uDepth.value=V3.depthTex;
   for(const [m] of (V3.treeSets||[])){V3.scene.remove(m);m.geometry.dispose();m.material.dispose();}
   /* forests get two or three trees per tile (pines on high or cold ground, broadleaf lower down), lone trees dot the grassland,
@@ -4964,7 +4982,10 @@ function buildTerrain3D(){
     else if(tt===MOUNT&&hs[i]<5.8&&hash(i*17+7)<0.45)pines.push([i,8]);
   }
   const tc=new THREE.Color(),mk=(geo,list)=>{
-    const t=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9,metalness:0}),Math.max(1,list.length));
+    const tmat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9,metalness:0});V3.treeT=V3.treeT||{value:0};
+    tmat.onBeforeCompile=sh=>{sh.uniforms.uTime=V3.treeT;sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\n{vec3 ip=instanceMatrix[3].xyz;float sw=transformed.y*transformed.y;transformed.x+=sin(uTime*1.3+ip.x*0.7+ip.z*0.5)*0.035*sw+sin(uTime*3.1+ip.z*1.3)*0.008*sw;transformed.z+=cos(uTime*1.1+ip.x*0.4-ip.z*0.6)*0.028*sw;}\n#endif');};
+    const t=new THREE.InstancedMesh(geo,tmat,Math.max(1,list.length));
     t.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1,list.length)*3).fill(1),3);t.frustumCulled=false;
     list.forEach(([i,q],k)=>{const x=i%W,y=(i/W)|0,h=hash(i*3+q*17+1),h2=hash(i*5+q*29+2),sc=q===8?0.42+h*0.3:0.55+h*0.55,ox=q===9?0:q===8?(h2-0.5)*0.6:(q===0?-0.22:q===1?0.22:0.02)+(h2-0.5)*0.22,oz=q===9?0:q===8?(h-0.5)*0.6:(q===2?0.24:-0.1)+(h-0.5)*0.22;
       _p3.set(x-W/2+0.5+ox,ghAt(x+0.5+ox,y+0.5+oz)-0.02,y-H/2+0.5+oz);_e3.set(0,h2*6.283,0);_q4.setFromEuler(_e3);_s3.set(sc,sc*(0.85+h2*0.5),sc);_m4.compose(_p3,_q4,_s3);t.setMatrixAt(k,_m4);
@@ -5569,7 +5590,7 @@ function render3D(rdt,realDt){
   V3.shieldMat.opacity=0.11+0.05*Math.sin(nowS*2);
   people3D();vessels3D();nukes3D(nowS);air3D(nowS);fx3D(rdt);shieldsTick(rdt);shields3D();
   updateCam3D();
-  if(V3.waterU){V3.waterU.uTime.value=V3.lt;V3.waterU.uFogNear.value=V3.scene.fog.near;V3.waterU.uFogFar.value=V3.scene.fog.far;}
+  if(V3.skyT)V3.skyT.value=V3.lt;if(V3.terrT)V3.terrT.value=V3.lt;if(V3.treeT)V3.treeT.value=V3.lt;if(V3.waterU){V3.waterU.uTime.value=V3.lt;V3.waterU.uFogNear.value=V3.scene.fog.near;V3.waterU.uFogFar.value=V3.scene.fog.far;}
   if(V3.sky){V3.sky.position.copy(V3.camera.position);const s=V3.camera.far*0.9;V3.sky.scale.set(s,s,s);}
   {const nb=V3.northEl||(V3.northEl=$('zNorth')),hid=!V3.on||!!V3.walk||!G||G.demo;if(nb.hidden!==hid)nb.hidden=hid;if(!hid&&V3.na!==V3.yaw){V3.na=V3.yaw;(V3.northSvg||(V3.northSvg=$('zNorthSvg'))).style.transform=`rotate(${V3.yaw}rad)`;}}
   V3.renderer.render(V3.scene,V3.camera);
