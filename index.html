@@ -1417,9 +1417,9 @@ function shCap(n,lay){return n&&!n.human?(lay==='gold'?AI_GOLD_CAP:AI_IRON_CAP):
 /* how much power a nation's golden or white shield has now */
 function shPow(n,lay){const F=lay==='gold'?GOLD_FULL:IRON_FULL,k=(n.b&&n.b[lay==='gold'?'goldendome':'irondome'])||0;return Math.max(0,Math.min(shCap(n,lay),k/F)-((lay==='gold'?n.wG:n.wI)||0));}
 /* when a player's golden or white shield reaches full power, AIs on Normal and Hard aim their bombs at that player until the shield
-   is worn down to 35% (hG, hI = 1). Then they hold their bombs against that player (= 2), leaving the rest of the shield standing,
+   is worn down to 50% (hG, hI = 1). Then they hold their bombs against that player (= 2), leaving the rest of the shield standing,
    until a shield is brought back to full power (hunted again) or its last dome is gone */
-const SH_HUNT=0.35;
+const SH_HUNT=0.5;
 function shHunt(n){
   if(!n.human||!n.alive||!(G.diff.nkA||G.diff.nkH))return;
   for(const lay of ['gold','iron']){const f=lay==='gold'?'hG':'hI',p=shPow(n,lay),nm=lay==='gold'?'golden':'white',k=n.b[lay==='gold'?'goldendome':'irondome']||0;
@@ -1429,7 +1429,7 @@ function shHunt(n){
       log(n.id,`The AIs wore your ${nm} shield down to ${Math.round(p*100)}%.${n[o]===1?` They keep aiming at your ${lay==='gold'?'white':'golden'} shield until it is down to ${Math.round(SH_HUNT*100)}% too.`:' They have stopped aiming their bombs at you while it stays below full power.'}`,null,'warn');}}
 }
 /* how a player's shields steer AI bombs: 'hunt' while a full-power shield is being worn down (and the bombs already on their way will
-   not finish the job), 'held' once the AIs have worn it down to 35%, '' otherwise */
+   not finish the job), 'held' once the AIs have worn it down to 50%, '' otherwise */
 function shAim(Q){
   if(Q.hG===1||Q.hI===1){
     let fl=0;for(const nk of G.nukes)if(!nk.ic&&G.owner[nk.to]===Q.id)fl++;
@@ -1441,8 +1441,11 @@ function shAim(Q){
 /* hits wear the energy shields down: a little power for every bomb or aircraft that meets them. Below 20% wear a shield recharges by itself;
    once it has lost 20% it stays down until new domes are built, each new dome repairing its share of the shield (1/40 or 1/5) */
 const SH_BREAK=0.2,SH_WEAR={gold:{atom:0.01,hydrogen:0.02,air:0.003},iron:{atom:0.02,hydrogen:0.04,air:0.006}},SH_REGEN={gold:0.002,iron:0.003};
-function shWear(D,lay,kind){
-  if(!D)return;const f=lay==='gold'?'wG':'wI',b=D[f]||0,w=Math.min(1,Math.round((b+SH_WEAR[lay][kind==='atom'||kind==='hydrogen'?kind:'air'])*1e6)/1e6);D[f]=w;
+/* by: the attacker. An AI's hits never wear a player's golden or white shield below 50% (SH_HUNT), on any difficulty */
+function shWear(D,lay,kind,by){
+  if(!D)return;const f=lay==='gold'?'wG':'wI',b=D[f]||0;let w=Math.min(1,Math.round((b+SH_WEAR[lay][kind==='atom'||kind==='hydrogen'?kind:'air'])*1e6)/1e6);
+  if(by&&!by.human&&D.human){const full=Math.min(shCap(D,lay),((D.b&&D.b[lay==='gold'?'goldendome':'irondome'])||0)/(lay==='gold'?GOLD_FULL:IRON_FULL));w=Math.max(b,Math.min(w,Math.round(Math.max(0,full-SH_HUNT)*1e6)/1e6));}
+  D[f]=w;
   if(b<SH_BREAK&&w>=SH_BREAK&&D.human)log(D.id,`Your ${lay==='gold'?'golden':'white'} shield has lost ${Math.round(w*100)}% of its power to hits and will not recover until you build more ${lay==='gold'?'Golden':'Iron'} Domes.`,null,'bad');
 }
 /* missile silos grow from level 1 to 5: each launch fires a barrage of 10 bombs per level from your highest-level silo */
@@ -2218,7 +2221,7 @@ function nukeDefence(A,nk){
     else{if(S.gleak==null||(S.gleak<=0&&G.time>=(S.gleakT||0)))S.gleak=1+Math.floor(R()*3);
       if(S.gleak>0){S.gleak--;leak=S.gleak;if(S.gleak<=0)S.gleakT=G.time+GOLD_SEAL;}else{stop=true;by='gold';}}}
   if(!stop&&g.irons.length){if(g.is<1&&R()>=g.is)g.irons=[];else if(R()<(nk.kind==='hydrogen'?0.5:0.75)){stop=true;by='iron';}}
-  const D=G.nations[g.T];if(g.gold)shWear(D,'gold',nk.kind);if(g.irons.length&&(by==='iron'||!stop))shWear(D,'iron',nk.kind);
+  const D=G.nations[g.T],AT=G.nations[nk.o];if(g.gold)shWear(D,'gold',nk.kind,AT);if(g.irons.length&&(by==='iron'||!stop))shWear(D,'iron',nk.kind,AT);
   return {stop,by,leak,g};
 }
 /* the interceptors that rise to meet a strike, for the screen: the Golden Dome fires from its site and from orbit, each Iron Dome battery in range fires two */
@@ -2282,7 +2285,7 @@ function processAir(dt){
     const a=G.air[k],A=G.nations[a.o];
     if(!A||!A.alive){G.air.splice(k,1);continue;}
     a.d+=AIR[a.kind].speed*dt;
-    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to),by=st?(g.gold?'gold':'iron'):'';icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},by);if(by)shWear(G.nations[g.T],by,a.kind);shieldFx(g,a.to%W+0.5,((a.to/W)|0)+0.5,by,a.kind,0);
+    if(!a.ic&&a.d>=a.dist*0.8){a.ic=1;const p=domeOdds(A,a.to,a.kind);if(p>0){const st=R()<p,q=airPos(a,0.8),g=domeGuards(A,a.to),by=st?(g.gold?'gold':'iron'):'';icptFx(g,{ax:q.x,ay:q.y,air:a.kind==='jet'?1:2},by);if(by)shWear(G.nations[g.T],by,a.kind,A);shieldFx(g,a.to%W+0.5,((a.to/W)|0)+0.5,by,a.kind,0);
       if(st){G.air.splice(k,1);shotDown(A,a.to,a.kind==='jet'?'jet':'helicopter',q.x,q.y,g.gold?'Golden Dome':'Iron Dome',true);continue;}}}
     if(a.d<a.dist)continue;
     G.air.splice(k,1);
@@ -2356,11 +2359,15 @@ function launchNuke(A,kind,t){
 }
 function detonate(nk){
   const w=WEAPONS[nk.kind],r=w.radius,cx=nk.to%W,cy=(nk.to/W)|0,lost=new Array(G.NN).fill(0);
+  /* an AI's bomb spares a player's dome when losing it would take that shield below 50% (SH_HUNT) */
+  let keep=null;const AT=G.nations[nk.o];
+  if(AT&&!AT.human){const al={};for(const b of G.buildings){if(b.dead||(b.type!=='goldendome'&&b.type!=='irondome'))continue;const O=G.nations[b.owner];if(!O||!O.human)continue;
+      const lay=b.type==='goldendome'?'gold':'iron',key=b.owner+lay;if(al[key]==null)al[key]={n:Math.max(0,Math.floor((shPow(O,lay)-SH_HUNT)*(lay==='gold'?GOLD_FULL:IRON_FULL)+1e-6))};(keep||(keep=new Map())).set(b.tile,al[key]);}}
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
     const d2=dx*dx+dy*dy;if(d2>r*r)continue;
     const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=W||y>=H)continue;
     const i=y*W+x;if(G.terr[i]===WATER)continue;
-    if(d2<=r*r*0.42||R()<0.55){const o=G.owner[i];if(o>=0){lost[o]++;setOwner(i,-1);}if(!G.fallout[i])G.fallN++;G.fallout[i]=255;G.road[i]=0;}
+    if(d2<=r*r*0.42||R()<0.55){if(keep){const a=keep.get(i);if(a){if(a.n<=0)continue;a.n--;}}const o=G.owner[i];if(o>=0){lost[o]++;setOwner(i,-1);}if(!G.fallout[i])G.fallN++;G.fallout[i]=255;G.road[i]=0;}
   }
   for(let o=0;o<G.NN;o++)if(lost[o]>0){
     const D=G.nations[o],f=Math.min(1,lost[o]/Math.max(1,D.tiles));
@@ -2903,7 +2910,7 @@ function aiDome(n){
 /* the nuclear plan (Normal and Hard): in the Modern era every AI fires 20 atom bombs every year of war (one every 6 seconds), plus
    1 hydrogen bomb in every 25 minutes on Normal and 5 on Hard. It keeps a silo, sells gold when short of money and aims at whoever it
    is most hostile to, except that a player whose golden or white shield is at full power draws its bombs until that shield is down to
-   35%, and is then left alone by its bombs until a shield is back at full power */
+   50%, and is then left alone by its bombs until a shield is back at full power */
 const NUKE_WIN=1500,YEAR_LEN=SEASON_LEN*4,AI_ATOM_YR=20;
 function aiNukes(n,peace,held){
   const D=G.diff;if(!(D.nkA||D.nkH)||peace||held||n.era<3)return;
