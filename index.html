@@ -124,6 +124,30 @@ body.home #walkPad{display:none}
 #modeChip[hidden]{display:none}
 #zNorth:not([hidden])~#modeChip{right:max(66px,env(safe-area-inset-right,0px))}
 body.mode-on #toasts{margin-top:56px}
+/* How to play: the guided tour. It lights up one part of the screen at a time and never blocks taps on the game itself */
+#tour{position:fixed;inset:0;z-index:22;pointer-events:none}
+#tour[hidden],#tour.tour-off{display:none}
+#tourDim{position:fixed;inset:0;background:rgba(3,5,8,.58)}
+#tourHole{position:fixed;border:2px solid var(--gold-hi);border-radius:6px;box-shadow:0 0 0 9999px rgba(3,5,8,.58),0 0 22px rgba(226,180,79,.55);transition:left .25s,top .25s,width .25s,height .25s}
+#tour.tour-act #tourHole{box-shadow:0 0 0 9999px rgba(3,5,8,.2),0 0 22px rgba(226,180,79,.7)}
+#tour.tour-act #tourDim{background:rgba(3,5,8,.2)}
+#tourCard{position:fixed;pointer-events:auto;padding:14px 16px 12px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 24px);overflow-y:auto}
+#tourCard .tour-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#tourCard .tour-k{font:600 11px var(--f-num);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+#tourCard h3{margin:0;font-size:17px;line-height:1.25;color:var(--chrome)}
+#tourB{display:flex;flex-direction:column;gap:7px}
+#tourCard p{margin:0;font-size:14px;line-height:1.5;color:var(--chrome)}
+#tourCard ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5;color:var(--chrome)}
+#tourCard b{color:var(--gold-hi);font-weight:600}
+#tourCard .tour-task{padding:7px 10px;border:1px solid var(--gold-lo);background:var(--gold-soft);border-radius:2px;font-size:13px}
+#tourCard .tour-task.ok{border-color:#3f8f5a;background:rgba(63,143,90,.18)}
+#tourCard .tour-acts{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:2px}
+#tourCard .tour-acts .sp{flex:1}
+#tourDots{display:flex;gap:4px}
+#tourDots i{width:6px;height:6px;border-radius:3px;background:var(--rule-hi)}
+#tourDots i.on{background:var(--gold)}
+#tourX{background:none;border:0;color:var(--muted);font:500 12px var(--f-num);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:4px}
+#tourX:hover{color:var(--chrome)}
 @media (max-width:760px){#modeChip{top:56px;right:max(10px,env(safe-area-inset-right,0px))}#zNorth:not([hidden])~#modeChip{right:max(10px,env(safe-area-inset-right,0px))}body.mode-on #toasts{margin-top:110px}}
 #spawnBanner{display:flex;align-items:center;gap:14px;padding:10px 12px 10px 14px;max-width:100%;flex-wrap:wrap}
 #spawnBanner b{font-weight:700;color:var(--gold)}
@@ -1325,6 +1349,12 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
   </div>
 </section>
 
+<div id="tour" hidden><div id="tourDim"></div><div id="tourHole" hidden></div>
+  <div id="tourCard" class="hudbox" role="dialog" aria-live="polite" aria-labelledby="tourT">
+    <div class="tour-top"><span class="tour-k" id="tourK"></span><button type="button" id="tourX">Skip tour</button></div>
+    <h3 id="tourT"></h3><div id="tourB"></div>
+    <div class="tour-acts"><div id="tourDots"></div><span class="sp"></span><button type="button" class="btn ghost sm" id="tourBack">Back</button><button type="button" class="btn sm" id="tourNext">Next</button></div>
+  </div></div>
 <div id="overlay" hidden></div>
 <div id="asmOv" hidden>
   <div class="asm hudbox" role="dialog" aria-modal="true" aria-labelledby="asmTitle">
@@ -6972,18 +7002,122 @@ function openMenu(){
     <p class="hint">Left by accident? Enter this code on the title screen under Online servers to get your seat back. Give it to any commander who drops out.</p>`:''}
     <div class="menu-list">
       <button type="button" class="mitem primary" id="mnResume" data-autofocus><span class="mi-t">Resume</span><span class="mi-s">Back to the war</span><kbd>Esc</kbd></button>
+      <button type="button" class="mitem" id="mnTour"><span class="mi-t">How to play</span><span class="mi-s">A step-by-step tour of the game</span></button>
       ${wideScreen()?`<button type="button" class="mitem" id="mnPanel"><span class="mi-t">${panelOff()?'Show side panel':'Hide side panel'}</span><span class="mi-s">${panelOff()?'Bring back Realm, Treasury, Build, Nations and Chronicle':'See the whole map. Bring it back any time from here or the top bar'}</span><kbd>P</kbd></button>`:''}
       <button type="button" class="mitem" id="mnServer"><span class="mi-t">Find new server</span><span class="mi-s">${online?'Leave this match and pick another server':'Leave this war and browse online servers'}</span></button>
       <button type="button" class="mitem danger" id="mnExit"><span class="mi-t">Exit game</span><span class="mi-s">${online?'Leave the match and return to the title screen':'Saves this war and returns to the title screen'}</span></button>
     </div>
   </div>`,ov=>{
     ov.querySelector('#mnResume').onclick=closeModal;
+    ov.querySelector('#mnTour').onclick=()=>{closeModal();startTour(false);};
     {const cp=ov.querySelector('#mnCopy');if(cp)cp.onclick=()=>{const code=$('mnCode').textContent;const done=()=>toast(`Match code ${code} copied.`,'good');
       try{navigator.clipboard.writeText(code).then(done,()=>{const r=document.createRange();r.selectNodeContents($('mnCode'));const sl=getSelection();sl.removeAllRanges();sl.addRange(r);toast('Select and copy the code.','info');});}catch(e){toast('Select and copy the code.','info');}};}
     {const mp=ov.querySelector('#mnPanel');if(mp)mp.onclick=()=>{closeModal();setPanelOff(!panelOff());};}
     ov.querySelector('#mnServer').onclick=()=>{closeModal();leaveGame('servers');};
     ov.querySelector('#mnExit').onclick=()=>{closeModal();leaveGame('top');};
   });
+}
+/* ---------- How to play: a guided tour ----------
+   It starts by itself in a commander's first solo war (remembered in this browser) and can be replayed any time from
+   Menu → How to play. Each step lights up one part of the screen. In a solo war the game waits while you read, and runs
+   during steps that ask you to do something; those move on by themselves once you have done it. Online the match never waits */
+const TOUR_KEY='ltdt-tour';
+function tourSeen(){try{return localStorage.getItem(TOUR_KEY)==='done';}catch(e){return false;}}
+function myFronts(){let n=0;for(const a of G.attacks)if(a.a===ME)n++;for(const b of G.boats)if(b.o===ME)n++;return n;}
+const TOUR=[
+  {title:'Welcome, Commander',body:()=>`<p>This tour shows you how to play LTDT Trade Wars, one step at a time. It takes about two minutes.</p><p>You win by owning <b>72% of all the land</b>. ${NET.match?'The match keeps running while you read.':'The game waits while you read.'}</p>`},
+  {el:['#spawnBanner'],title:'Pick where your empire starts',run:true,wait:()=>G.phase==='play',
+    body:()=>`<p>Your capital is already placed. To move it, <b>tap open land</b> on the map: away from rivals, ideally near a coast for ports and ships.</p><p>Grassland is cheapest to expand into; forests, deserts and mountains cost more troops.</p>`,
+    task:'Press <b>Begin now</b> when you are happy, or wait for the countdown.'},
+  {el:['#hud .stats','#hud'],title:'Your supplies',
+    body:()=>`<p>The top bar shows what you have and how fast it grows (+) or shrinks (−) each second:</p><ul><li><b>Money</b> is your own currency, ${esc(me()?me().cur:'')}.</li><li><b>Gold bars</b> back your currency and buy big things.</li><li><b>Food, Wood, Stone, Oil</b> feed your people and pay for buildings.</li></ul>`},
+  {el:['#hudPeace','#hudDate'],title:'The peace treaty',
+    body:()=>`<p>Nobody can attack another nation until the peace runs out. Use it to claim open land and build your economy.</p><p>One season lasts 30 seconds, so a year is 2 minutes.</p>`},
+  {el:['#armyBar'],title:'Claim open land',run:true,base:()=>({f:myFronts(),t:me()?me().tiles:0}),wait:b=>myFronts()>b.f||(me()&&me().tiles>b.t+4),
+    body:()=>`<p>The <b>Attack</b> slider sets how much of your army each order sends. Your troops march in tile by tile and pay troops for every tile.</p><p>Each attack appears under the slider with a <b>Call off</b> button that brings the troops home.</p>`,
+    task:'<b>Tap open land</b> next to your border on the map.'},
+  {el:['#trpR'],box:el=>el.closest('.ab')||el,title:'Soldiers and workers',
+    body:()=>`<p><b>Army share</b> sets how many of your people are soldiers. The rest are workers who farm, build and pay taxes.</p><p>Raise it before a war; lower it in calm times so your economy grows faster.</p>`},
+  {el:['#blist .bld[data-type="farm"]','#zBuild'],prep:()=>openTab('build'),title:'Build a farm',run:true,base:()=>({n:me()?(me().b.farm||0):0}),wait:b=>me()&&(me().b.farm||0)>b.n,
+    body:()=>`<p>Buildings turn your land into food, wood, stone, money and gold. Each copy costs a little more than the last.</p><p>Pick a building, then tap your own land. Press <b>Cancel</b> on the bar at the top right when you are done.</p>`,
+    task:'Pick <b>Farm</b>, then <b>tap your land</b> to place it.'},
+  {el:['#blist'],prep:()=>{setMode({k:'attack'});openTab('build');},title:'What to build first',
+    body:()=>`<ul><li><b>Farms</b> and a <b>Lumber Mill</b> so food and wood never run out.</li><li><b>Houses</b> when your population is near its limit.</li><li>A <b>Quarry</b>: stone unlocks the next era.</li><li><b>Trade Centers</b> for money and happiness.</li></ul><p>Greyed-out buildings belong to a later era.</p>`},
+  {el:['#btnEra','#eraNext'],prep:()=>openTab('realm'),title:'Advance through four eras',
+    body:()=>`<p>Medieval, Renaissance, Industrial, Modern. Each era unlocks stronger buildings and weapons. When you can pay the cost shown, press <b>Advance era</b>.</p><p>Each new era, and every two years, your council proposes three decrees. You pass one.</p>`},
+  {el:['#nextTip'],box:el=>el.closest('.nextstep')||el,prep:()=>openTab('realm'),title:'Not sure what to do?',
+    body:()=>`<p>The <b>Next step</b> tip on the Realm tab always tells you what your empire needs right now.</p><p>The Realm tab also shows your happiness, your elections and the World Assembly. Keep happiness above 25 or rebels take land.</p>`},
+  {el:['#pane-treasury .block','#pane-treasury'],prep:()=>openTab('treasury'),title:'Your central bank',
+    body:()=>`<p>The <b>Treasury</b> tab is your central bank: buy and sell gold, print money, trade other currencies, borrow, and set taxes.</p><ul><li>With <b>5,000 gold bars</b> your currency rises on its own.</li><li>Printing more than your gold and oil cover weakens it.</li></ul>`},
+  {el:['#econ'],title:'Currency markets',
+    body:()=>`<p>This chart tracks every currency. Buy a rival’s currency, then <b>dump</b> it later to sink theirs and lift yours.</p><p>The strongest currency, backed by plenty of gold and oil, becomes the world reserve.</p>`},
+  {el:['#pane-nations','[data-tab="nations"]'],prep:()=>openTab('nations'),title:'Other nations',
+    body:()=>`<p>The <b>Nations</b> tab ranks every nation. Right-click a nation’s land (long-press on a phone) to open its card.</p><p>From the card: send emojis like 🕊️ to ask for peace, send gifts, or propose an alliance.</p>`},
+  {el:['#warBar','#armyBar'],title:'When the peace ends',
+    body:()=>`<p>Tap enemy land on your border to attack it. Tap land across the sea and <b>ships</b> carry your troops there.</p><p>Later eras add jets, helicopters, warships, atom and hydrogen bombs, and <b>Iron and Golden Domes</b> that shield your country.</p>`},
+  {el:['#zTray','#zMore','#zView'],title:'Map controls',
+    body:()=>`<p>Go to your capital, see the whole map, switch to <b>3D</b> (or press V), and in 3D walk your own streets in <b>Street view</b>.</p><p>Drag to move the map; scroll or pinch to zoom.</p>`},
+  {el:['#menuBtn'],title:'The menu',
+    body:()=>`<p><b>Menu</b> lets you hide the panel, find an online server, or exit. Exiting a solo war saves it for <b>Continue saved war</b>.</p><p>Replay this tour any time from <b>Menu → How to play</b>.</p>`},
+  {title:'You are ready',body:()=>`<p>Build during the peace, keep your currency strong, make allies, and take 72% of the world.</p><p>Good luck, Commander.</p>`}
+];
+let TR=null;
+function tourVis(el){if(!el||el.closest('[hidden]'))return false;const r=el.getBoundingClientRect();return r.width>2&&r.height>2&&r.bottom>0&&r.right>0&&r.top<innerHeight&&r.left<innerWidth;}
+function tourEl(s){if(!s.el)return null;for(const q of s.el){for(const e of document.querySelectorAll(q)){if(tourVis(e))return s.box?s.box(e):e;}}return null;}
+function startTour(auto){
+  if(!G||G.demo||!me())return;if(modalOpen)closeModal();
+  TR={i:0,auto:!!auto,base:null,done:false,wasPaused:paused};$('tour').hidden=false;
+  if(!$('tourCard').dataset.on){$('tourCard').dataset.on='1';
+    $('tourX').onclick=()=>endTour();$('tourBack').onclick=()=>tourGo(-1);$('tourNext').onclick=()=>tourGo(1);}
+  tourShow();requestAnimationFrame(tourLoop);
+}
+/* stop the tour; it counts as seen once started, so it never starts by itself again */
+function endTour(){
+  if(!TR)return;TR=null;$('tour').hidden=true;try{localStorage.setItem(TOUR_KEY,'done');}catch(e){}
+  if(G&&!G.demo&&!NET.match){paused=false;setPauseIcon();}
+  if(G&&!G.demo&&mode.k==='build')setMode({k:'attack'});
+}
+function tourGo(d){if(!TR)return;const n=TR.i+d;if(n<0)return;if(n>=TOUR.length){endTour();return;}TR.i=n;tourShow();}
+function tourShow(){
+  const s=TOUR[TR.i],last=TR.i===TOUR.length-1;
+  if(s.prep)try{s.prep();}catch(e){}
+  /* bring the step's target into view when it sits further down a panel */
+  if(s.el)outer:for(const q of s.el)for(const e of document.querySelectorAll(q)){if(e.closest('[hidden]')||!e.getClientRects().length)continue;try{(s.box?s.box(e):e).scrollIntoView({block:'nearest',inline:'nearest'});}catch(er){}break outer;}
+  TR.base=s.base?s.base():null;TR.done=false;
+  if(!NET.match){paused=!s.run;setPauseIcon();}
+  $('tourK').textContent=`Step ${TR.i+1} of ${TOUR.length}`;$('tourT').textContent=s.title;
+  $('tourB').innerHTML=s.body()+(s.task?`<p class="tour-task" id="tourTask">${s.task}</p>`:'');
+  $('tourBack').hidden=TR.i===0;$('tourNext').textContent=s.wait?'Skip this step':last?'Start playing':'Next';
+  $('tourDots').innerHTML=TOUR.map((_,i)=>`<i class="${i===TR.i?'on':''}"></i>`).join('');
+  $('tour').classList.toggle('tour-act',!!s.wait);
+  tourPlace();
+}
+function tourPlace(){
+  const s=TOUR[TR.i],el=tourEl(s),hole=$('tourHole'),card=$('tourCard'),vw=innerWidth,vh=innerHeight,m=12;
+  let r=null;
+  if(el){const b=el.getBoundingClientRect(),p=6,x=Math.max(4,b.left-p),y=Math.max(4,b.top-p);r={x,y,w:Math.min(vw-4,b.right+p)-x,h:Math.min(vh-4,b.bottom+p)-y};}
+  if(r){hole.hidden=false;hole.style.left=r.x+'px';hole.style.top=r.y+'px';hole.style.width=r.w+'px';hole.style.height=r.h+'px';}else hole.hidden=true;
+  $('tourDim').hidden=!!r;
+  const cw=Math.min(380,vw-2*m);card.style.width=cw+'px';const ch=card.offsetHeight;let x,y;
+  if(!r){x=(vw-cw)/2;y=(vh-ch)/2;}
+  else if(r.y+r.h+m+ch<=vh-m){y=r.y+r.h+m;x=r.x+r.w/2-cw/2;}
+  else if(r.y-m-ch>=m){y=r.y-m-ch;x=r.x+r.w/2-cw/2;}
+  else if(r.x+r.w+m+cw<=vw-m){x=r.x+r.w+m;y=r.y+r.h/2-ch/2;}
+  else if(r.x-m-cw>=m){x=r.x-m-cw;y=r.y+r.h/2-ch/2;}
+  else{x=(vw-cw)/2;y=r.y+r.h/2<vh/2?vh-ch-m:m;}
+  card.style.left=Math.round(clamp(x,m,Math.max(m,vw-cw-m)))+'px';card.style.top=Math.round(clamp(y,m,Math.max(m,vh-ch-m)))+'px';
+}
+function tourLoop(){
+  if(!TR)return;
+  if(!G||G.demo||!me()){endTour();return;}
+  const s=TOUR[TR.i],asm=$('asmOv'),off=modalOpen||(asm&&!asm.hidden);
+  $('tour').classList.toggle('tour-off',!!off);
+  if(!off){
+    if(s.wait&&!TR.done){let ok=false;try{ok=!!s.wait(TR.base);}catch(e){}
+      if(ok){TR.done=true;const t=$('tourTask');if(t){t.classList.add('ok');t.innerHTML='Done!';}const at=TR.i;setTimeout(()=>{if(TR&&TR.i===at)tourGo(1);},800);}}
+    tourPlace();
+  }
+  requestAnimationFrame(tourLoop);
 }
 function openCards(){
   const P=me();if(!P||!P.offers.length)return;
@@ -7041,6 +7175,8 @@ function enterGame(){
   buildNationRows();rebuildLog();renderInspector();setMode({k:'attack'});
   paused=false;if(!NET.match)speed=1;setPauseIcon();syncSpeed();openTab('realm');
   paintMap();G.dirty=false;
+  if(TR){TR=null;$('tour').hidden=true;}
+  if(!NET.match&&!G.demo&&G.phase==='spawn'&&!tourSeen()){const g=G;setTimeout(()=>{if(G===g&&!TR&&G.phase==='spawn'&&!document.body.classList.contains('home'))startTour(true);},700);}
 }
 /* ---------- Accounts: log in on any device to get your profile, your saved war and the servers you played ----------
    On the public website accounts live online (Firebase, under ltdt/v1/acct); inside Claude the page cannot reach that
@@ -7482,6 +7618,7 @@ function startDemo(){
   ME=-1;walkers=[];fx=[];cam.z=Math.max(fitZ()*1.7,4);cam.x=W/2;cam.y=H/2;demoT=Math.random()*100;paintMap();G.dirty=false;
 }
 function goHome(where){
+  if(TR){TR=null;$('tour').hidden=true;}
   closeMarkets();if(document.body.classList.contains('fullmap'))setFullMap(false);
   document.body.classList.add('home');closeModal();closeAsm();setMode({k:'attack'});
   requestAnimationFrame(resize);
