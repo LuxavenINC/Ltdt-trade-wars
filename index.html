@@ -1306,6 +1306,7 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
       <div class="hero-cta">
         <button type="button" class="btn big" id="ctaOnline">Play online</button>
         <button type="button" class="btn ghost big" id="ctaSolo">Solo vs AI</button>
+        <button type="button" class="btn ghost big" id="ctaTour" title="Start a solo war with a step-by-step guide" hidden>How to play</button>
         <button type="button" class="btn ghost big" id="ctaContinue" hidden>Continue saved war</button>
       </div>
     </div>
@@ -7021,8 +7022,11 @@ function openMenu(){
    It starts by itself in a commander's first solo war (remembered in this browser) and can be replayed any time from
    Menu → How to play. Each step lights up one part of the screen. In a solo war the game waits while you read, and runs
    during steps that ask you to do something; those move on by themselves once you have done it. Online the match never waits */
-const TOUR_KEY='ltdt-tour';
+const TOUR_KEY='ltdt-tour';let TOUR_FORCE=false;
 function tourSeen(){try{return localStorage.getItem(TOUR_KEY)==='done';}catch(e){return false;}}
+/* the title screen's How to play button: for new commanders only. It goes away once this browser has seen the tour or the
+   profile has played a war */
+function tourCtaSync(){try{const b=$('ctaTour');if(!b)return;const p=curProfile();b.hidden=tourSeen()||!!(p&&p.played>0);}catch(e){}}
 function myFronts(){let n=0;for(const a of G.attacks)if(a.a===ME)n++;for(const b of G.boats)if(b.o===ME)n++;return n;}
 const TOUR=[
   {title:'Welcome, Commander',body:()=>`<p>This tour shows you how to play LTDT Trade Wars, one step at a time. It takes about two minutes.</p><p>You win by owning <b>72% of all the land</b>. ${NET.match?'The match keeps running while you read.':'The game waits while you read.'}</p>`},
@@ -7176,7 +7180,7 @@ function enterGame(){
   paused=false;if(!NET.match)speed=1;setPauseIcon();syncSpeed();openTab('realm');
   paintMap();G.dirty=false;
   if(TR){TR=null;$('tour').hidden=true;}
-  if(!NET.match&&!G.demo&&G.phase==='spawn'&&!tourSeen()){const g=G;setTimeout(()=>{if(G===g&&!TR&&G.phase==='spawn'&&!document.body.classList.contains('home'))startTour(true);},700);}
+  if(!NET.match&&!G.demo&&G.phase==='spawn'&&(!tourSeen()||TOUR_FORCE)){TOUR_FORCE=false;const g=G;setTimeout(()=>{if(G===g&&!TR&&G.phase==='spawn'&&!document.body.classList.contains('home'))startTour(true);},700);}
 }
 /* ---------- Accounts: log in on any device to get your profile, your saved war and the servers you played ----------
    On the public website accounts live online (Firebase, under ltdt/v1/acct); inside Claude the page cannot reach that
@@ -7557,6 +7561,7 @@ function needProfile(){
   toast('Create your profile first: a commander name and an empire name.','warn');setTimeout(()=>{const i=$('pfCmd');if(i)i.focus({preventScroll:true});},350);
 }
 function renderProfile(){
+  tourCtaSync();
   const body=$('profBody');if(!body)return;const p=curProfile();
   if(ACC.view){renderAccForm(body);return;}
   $('profCap').textContent=p?'Playing as '+p.cmd:'Required to play';
@@ -8041,7 +8046,7 @@ function refreshHome(){
   if(roomState==='on'){let total=0;const c=serverCounts();for(const k in c)total+=c[k].n;pill.classList.remove('off');$('netText').textContent=`Live · ${total} in servers`;}
   else if(roomState==='off'){pill.classList.add('off');$('netText').textContent='Online play unavailable';}
   else{pill.classList.add('off');$('netText').textContent='Connecting';}
-  $('ctaContinue').hidden=!hasSave();
+  $('ctaContinue').hidden=!hasSave();tourCtaSync();
   let html='';
   if(roomState!=='on'){
     html=`<p class="hint">${roomState==='off'?(window.claude?'Online servers need you to be signed in to Claude with access to this game (the owner invites you from its Share menu). Solo war works for everyone.':'The online servers could not be reached. Check your internet connection and refresh the page. Solo war works offline.'):'Looking for servers…'}</p>`;
@@ -8088,6 +8093,7 @@ function bindHome(){
     }
   });
   $('ctaOnline').onclick=()=>{if(!curProfile()){needProfile();return;}$('srvPanel').scrollIntoView({behavior:'smooth',block:'start'});};
+  $('ctaTour').onclick=()=>{if(!curProfile()){needProfile();return;}TOUR_FORCE=true;startSolo();if(!G||G.demo||G.phase!=='spawn')TOUR_FORCE=false;};
   $('ctaSolo').onclick=()=>{if(!curProfile()){needProfile();return;}$('soloPanel').scrollIntoView({behavior:'smooth',block:'start'});$('cmdName').focus({preventScroll:true});};
   $('ctaContinue').onclick=()=>{if(!curProfile()){needProfile();return;}const s=loadSaved();if(!s)return;if(NET.r)leaveServer();try{restore(s);ME=0;enterGame();toast('Saved war restored.','good');}catch(err){toast('That save is from an older version and could not be read.','warn');}};
   $('btnSolo').onclick=startSolo;
