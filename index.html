@@ -1396,9 +1396,12 @@ const PEACE=1800,GOLD_WC=50,GOLD_PX=15000,SHIELD_R=6,RAID_MAX=120,RAID_PRICE=100
 const RES_GOLD=50000,RES_OIL=30000,RES_TEMP=1000;
 /* every trade ship that docks brings 12 gold bars and 12 food; a farm makes 25 food a second; tariffs also back the currency */
 const SHIP_FOOD=12,FARM_FOOD=25,TARIFF_BACK=3,FOOD_PX=5;
-const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=11,CITY_MAX=3;
+/* slower trade ships spend longer at sea, so more of them sail at once; the cap (230 before ships slowed) keeps trade income the same */
+const TRADE_SHIPS_MAX=460;
+const SHIP_GOLD=12,YEAR_S=SEASON_LEN*4,RAID_LIFE=90,RAID_SPEED=11/3,CITY_MAX=3;
 /* ships sail at a realistic pace: troop transports 7 tiles a second, trade ships 9, raider warships 11 */
-const BOAT_SPEED=7,SHIP_SPEED=9;
+/* every ship sails at a third of its old speed (tiles a second): troop ships 7 -> 2.33, trade ships 9 -> 3, warships 11 -> 3.67 */
+const BOAT_SPEED=7/3,SHIP_SPEED=3;
 /* World Assembly: every 4 years the presidents of every country meet and vote on one country to sanction.
    Every president who votes receives 5,000 gold bars for protecting the peace and rebuilding the economy; those who do not vote receive nothing;
    the sanctioned country receives only 1,000. If no one votes at all, every country receives just 200. Voting stays open 30 seconds. */
@@ -2058,7 +2061,7 @@ function processTrade(dt){
     if(!opts.length)continue;
     let r=R()*tot,pick=opts[0][0];for(const o of opts){r-=o[1];if(r<=0){pick=o[0];break;}}
     const path=getRoute(p.tile,pick.tile);
-    if(path&&path.length>2&&G.ships.length<230)G.ships.push({o:p.owner,d:pick.owner,to:pick.tile,path,pos:0});
+    if(path&&path.length>2&&G.ships.length<TRADE_SHIPS_MAX)G.ships.push({o:p.owner,d:pick.owner,to:pick.tile,path,pos:0});
   }
   for(let k=G.ships.length-1;k>=0;k--){
     const s=G.ships[k];s.pos+=SHIP_SPEED*dt;if(s.pos<s.path.length-1)continue;
@@ -5183,16 +5186,6 @@ function vessels3D(){
   const base=(x,z,a,L)=>{_p3.set(x,0.02,z);_e3.set(0,a,0);_q4.setFromEuler(_e3);_s3.set(L,L,L);bm.compose(_p3,_q4,_s3);};
   const part=(m,i,lx,ly,lz,sx,sy,sz,css)=>{_p3.set(lx,ly,lz);_s3.set(sx,sy,sz);lm.compose(_p3,qi,_s3);fm.multiplyMatrices(bm,lm);m.setMatrixAt(i,fm);m.setColorAt(i,col3(css));};
   const head=(path,pos)=>{const p=pathPos(path,pos),q=pathPos(path,Math.min(path.length-1,pos+1));return {p,a:Math.atan2(-(q.y-p.y),q.x-p.x)};};
-  for(const sh of G.ships){
-    if(nh>=555||nb>=7980||nc>=2395||nw>=1595)break;
-    const o=head(sh.path,sh.pos),n=G.nations[sh.o];base(o.p.x-W/2,o.p.y-H/2,o.a,1.5);
-    part(V.hull,nh++,0,-0.06,0,1,1,1,n.cssDark);
-    part(V.sbox,nb++,-0.14,-0.05,0,0.72,0.04,0.365,'#8f2a24');
-    part(V.sbox,nb++,-0.36,0.12,0,0.15,0.24,0.28,'#eef2f6');part(V.sbox,nb++,-0.36,0.31,0,0.155,0.028,0.285,'#1b2530');part(V.sbox,nb++,-0.33,0.36,0,0.07,0.015,0.38,'#eef2f6');
-    {const sd=sh.o*7+(sh.path?sh.path.length:0);for(let c=0;c<3;c++)for(let r=0;r<2;r++){const col=CONT[(sd+c*3+r*5)%CONT.length];part(V.sbox,nb++,-0.15+c*0.17,0.12,r?0.075:-0.075,0.155,0.075,0.14,col);if((sd+c+r)%3)part(V.sbox,nb++,-0.15+c*0.17,0.195,r?0.075:-0.075,0.155,0.07,0.14,CONT[(sd+c*5+r*3+2)%CONT.length]);}}
-    part(V.scyl,nc++,-0.44,0.2,0,0.065,0.16,0.065,n.css);part(V.scyl,nc++,-0.44,0.36,0,0.07,0.025,0.07,'#1d2228');
-    part(V.wake,nw++,-0.95,0.012,0,1.1,1,0.24,'#ffffff');part(V.wake,nw++,0.5,0.013,0,0.14,1,0.34,'#ffffff');
-  }
   for(const b of G.boats){
     if(nh>=555||nb>=7980||nc>=2390||nw>=1595)break;
     const o=head(b.path,b.pos),n=G.nations[b.o];base(o.p.x-W/2,o.p.y-H/2,o.a,1.9);
@@ -5222,6 +5215,17 @@ function vessels3D(){
     part(V.scyl,nc++,0.24,0.12,0,0.11,0.06,0.11,'#3c444e');
     part(V.sbox,nb++,0.35,0.15,0,0.18,0.022,0.024,'#1d2228');
     part(V.wake,nw++,-0.9,0.012,0,1,1,0.26,'#ffffff');
+  }
+  /* trade ships last: troop ships and warships above always get drawn on a busy sea */
+  for(const sh of G.ships){
+    if(nh>=555||nb>=7980||nc>=2395||nw>=1595)break;
+    const o=head(sh.path,sh.pos),n=G.nations[sh.o];base(o.p.x-W/2,o.p.y-H/2,o.a,1.5);
+    part(V.hull,nh++,0,-0.06,0,1,1,1,n.cssDark);
+    part(V.sbox,nb++,-0.14,-0.05,0,0.72,0.04,0.365,'#8f2a24');
+    part(V.sbox,nb++,-0.36,0.12,0,0.15,0.24,0.28,'#eef2f6');part(V.sbox,nb++,-0.36,0.31,0,0.155,0.028,0.285,'#1b2530');part(V.sbox,nb++,-0.33,0.36,0,0.07,0.015,0.38,'#eef2f6');
+    {const sd=sh.o*7+(sh.path?sh.path.length:0);for(let c=0;c<3;c++)for(let r=0;r<2;r++){const col=CONT[(sd+c*3+r*5)%CONT.length];part(V.sbox,nb++,-0.15+c*0.17,0.12,r?0.075:-0.075,0.155,0.075,0.14,col);if((sd+c+r)%3)part(V.sbox,nb++,-0.15+c*0.17,0.195,r?0.075:-0.075,0.155,0.07,0.14,CONT[(sd+c*5+r*3+2)%CONT.length]);}}
+    part(V.scyl,nc++,-0.44,0.2,0,0.065,0.16,0.065,n.css);part(V.scyl,nc++,-0.44,0.36,0,0.07,0.025,0.07,'#1d2228');
+    part(V.wake,nw++,-0.95,0.012,0,1.1,1,0.24,'#ffffff');part(V.wake,nw++,0.5,0.013,0,0.14,1,0.34,'#ffffff');
   }
   /* ships going down: burnt black, they settle stern first, list over and slide under the waves */
   for(const e of fx){
