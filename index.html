@@ -1701,8 +1701,65 @@ function newGame(opts){
   const caps=[];
   for(let k=humans.length;k<NN;k++){const t=picks?picks[k-humans.length].tile:findSpawn(caps);if(t>=0){spawnAt(G.nations[k],t);caps.push(t);}}
   for(let k=0;k<humans.length;k++){const t=findSpawn(caps);if(t>=0){spawnAt(G.nations[k],t);caps.push(t);}}
+  makeVillages();
   scan();countBuildings();
   return G;
+}
+/* ---------- villages ----------
+   Small settlements already living on the land when the war begins: about one per 420 tiles of land (8 to 80 on a map), each 6 to 22
+   tiles of unclaimed land, kept clear of every capital. They never attack. Taking village land costs more troops than open land,
+   because villagers defend it; take the village centre (or all of its land) and the whole village joins you, with its people and
+   its stores of gold, food, wood, stone and oil. Villages grow a little stronger and richer every second. They are placed with their
+   own random numbers, so the rest of the map and every nation's start stay exactly as before */
+const VIL_A=['Oak','Ash','Elm','Stone','River','Mill','Red','Green','High','Wolf','Bright','Cold','Fair','Kings','Salt','Iron','Gold','Black','White','Thorn','Bay','Fox','Raven','Sun','Moss','Lake','Pine','Hollow'];
+const VIL_B=['ford','by','wick','ton','field','dale','holm','stead','bury','haven','moor','gate','brook','well','ridge','hill','mere','worth'];
+function makeVillages(){
+  G.villages=[];G.vil=new Int16Array(N).fill(-1);G.vilV=(G.vilV||0)+1;
+  const rr=mulberry32((Math.imul(G.opts.seed>>>0,40503)^0x5bd1e995)>>>0),want=clamp(Math.round(G.totalLand/420),8,80);
+  const caps=G.nations.map(n=>n.capital).filter(c=>c>=0),names=new Set(),q=new Int32Array(64);
+  for(let tries=0;G.villages.length<want&&tries<want*80;tries++){
+    const c=G.landList[(rr()*G.landList.length)|0],tt=G.terr[c];
+    if(tt===MOUNT||tt===SNOW||G.owner[c]>=0||G.vil[c]>=0)continue;
+    const cx=c%W,cy=(c/W)|0;
+    if(caps.some(t=>{const dx=t%W-cx,dy=((t/W)|0)-cy;return dx*dx+dy*dy<144;}))continue;
+    if(G.villages.some(v=>{const dx=v.c%W-cx,dy=((v.c/W)|0)-cy;return dx*dx+dy*dy<121;}))continue;
+    /* the village spreads over the nearest land around its centre */
+    const size=8+((rr()*15)|0),tl=[c],seen=new Set([c]);let h=0;
+    while(h<tl.length&&tl.length<size){const t=tl[h++],x=t%W;for(const j of [x>0?t-1:-1,x<W-1?t+1:-1,t-W,t+W]){if(tl.length>=size)break;if(j<0||j>=N||seen.has(j))continue;seen.add(j);if(G.terr[j]!==WATER&&G.owner[j]<0&&G.vil[j]<0)tl.push(j);}}
+    if(tl.length<6)continue;
+    const id=G.villages.length,n=tl.length;let nm='';for(let k=0;k<6&&(!nm||names.has(nm));k++)nm=VIL_A[(rr()*VIL_A.length)|0]+VIL_B[(rr()*VIL_B.length)|0];names.add(nm);
+    const oily=tl.some(t=>G.terr[t]===DESERT||G.coast[t]),def=Math.round(n*(20+rr()*25));
+    for(const t of tl)G.vil[t]=id;
+    G.villages.push({id,name:nm,c,tl,left:n,alive:true,def,dmax:def*3,pop:Math.round(n*(30+rr()*40)),gold:Math.round(5+n*(1+rr()*2)),
+      food:Math.round(n*(40+rr()*60)),wood:Math.round(n*(25+rr()*40)),stone:Math.round(n*(10+rr()*25)),oil:oily?Math.round(n*(5+rr()*20)):0});
+  }
+}
+/* once every capital is final: a village that a starting empire landed on is gone, its land left open */
+function settleVillages(){
+  if(!G.villages)return;
+  for(const v of G.villages){if(!v.alive)continue;if(v.tl.some(t=>G.vil[t]===v.id&&G.owner[t]>=0)){v.alive=false;for(const t of v.tl)if(G.vil[t]===v.id)G.vil[t]=-1;v.left=0;}}
+  G.vilV=(G.vilV||0)+1;G.dirty=true;
+}
+/* a village grows a little stronger and richer every second it is left alone */
+function villagesTick(){
+  if(!G.villages||G.phase!=='play')return;
+  for(const v of G.villages){if(!v.alive)continue;const n=v.left;v.def=Math.min(v.dmax,v.def+n*0.06);v.pop+=n*0.02;v.food+=n*0.06;v.wood+=n*0.04;v.stone+=n*0.02;v.gold+=n*0.003;if(v.oil>0)v.oil+=n*0.01;}
+}
+function villageAt(i){return G.vil&&i>=0&&i<N&&G.vil[i]>=0?G.villages[G.vil[i]]:null;}
+/* a village tile changed hands: the village joins its conqueror when its centre falls or its last tile is taken */
+function villageTaken(i,o){
+  const v=G.villages[G.vil[i]];G.vil[i]=-1;v.left--;G.vilV++;
+  if(i===v.c||v.left<=0)absorbVillage(v,G.nations[o]);
+}
+function absorbVillage(v,A){
+  v.alive=false;
+  for(const t of v.tl)if(G.vil[t]===v.id){G.vil[t]=-1;if(G.owner[t]<0)setOwner(t,A.id);}
+  v.left=0;G.vilV++;
+  const got={pop:Math.round(v.pop),gold:Math.round(v.gold),food:Math.round(v.food),wood:Math.round(v.wood),stone:Math.round(v.stone),oil:Math.round(v.oil)};
+  A.workers+=got.pop;A.reserve+=got.gold;A.food+=got.food;A.wood+=got.wood;A.stone+=got.stone;A.oil=(A.oil||0)+got.oil;
+  v.pop=v.gold=v.food=v.wood=v.stone=v.oil=0;
+  if(A.human)log(A.id,`You absorbed the village of ${v.name}: +${fmt(got.pop)} people, +${fmt(got.gold)} gold bars, +${fmt(got.food)} food, +${fmt(got.wood)} wood, +${fmt(got.stone)} stone${got.oil?`, +${fmt(got.oil)} oil`:''}.`,null,'good');
+  mv(A,'vil',`absorbed the village of ${v.name}`,'mv');
 }
 function landAround(t,r){const cx=t%W,cy=(t/W)|0;let c=0;for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){if(dx*dx+dy*dy>r*r)continue;const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=W||y>=H)continue;if(G.terr[y*W+x]!==WATER)c++;}return c;}
 function findSpawn(avoid){
@@ -1732,6 +1789,7 @@ function spawnPick(A,t){
 function beginPlay(){
   G.phase='play';G.time=0;
   for(const n of G.nations){n.spawned=true;n.tilesAvg=n.tiles;}
+  settleVillages();
   if(G.peaceT>0)log(-1,null,`A ${Math.round(G.peaceT/60)}-minute peace treaty begins. Claim open land and build your economy; attacks on nations unlock when it ends.`,'info',true);
   else log(-1,null,`The war for the map begins. Hold ${Math.round(VICTORY*100)}% of the land to win.`,'info',true);
 }
@@ -1778,6 +1836,7 @@ function scan(){
 /* ---------- Ownership & buildings ---------- */
 function setOwner(i,o){
   G.owner[i]=o;G.dirty=true;
+  if(o>=0&&G.vil&&G.vil[i]>=0&&G.phase==='play')villageTaken(i,o);
   const bi=G.bld[i];
   if(bi>=0){const b=G.buildings[bi];if(o<0){b.dead=true;G.bld[i]=-1;G.bldDirty=true;}else{if(b.type==='city'&&b.owner!==o&&b.res)b.res*=0.7;b.owner=o;}}
 }
@@ -1864,7 +1923,7 @@ function nearDefense(t,i){const x=i%W,y=(i/W)|0;for(const b of G.buildings){if(b
 function tileCost(A,t,i){
   let c=TCOST[G.terr[i]];
   if(G.fallout[i])c*=2.5;
-  if(t<0)return c*7*A.mods.wildCost*A.mods.attackCost;
+  if(t<0){const v=villageAt(i);if(v)return c*(7+v.def/Math.max(1,v.left)*1.3)*A.mods.attackCost;return c*7*A.mods.wildCost*A.mods.attackCost;}
   const D=G.nations[t],dens=D.troops/Math.max(1,D.tiles);
   c*=(7+dens*1.3)*D.mods.defense*A.mods.attackCost*ERA_ADV[clamp(A.era-D.era,-3,3)]*defMult(D);
   if(nearDefense(t,i))c*=4;
@@ -1909,6 +1968,7 @@ function processAttacks(){
       if(a.troops<c){done=true;break;}
       a.troops-=c;
       if(a.t>=0){const D=G.nations[a.t];D.troops=Math.max(0,D.troops-c*0.5);D.lastHit=A.id;}
+      else{const v=villageAt(i);if(v)v.def=Math.max(0,v.def-c*0.5);}
       setOwner(i,A.id);A.conquered++;
     }
     if(a.t>=0)relAdd(a.a,a.t,-0.15);
@@ -3081,6 +3141,7 @@ function secondly(){
   for(const n of ns){if(n.wG>0&&n.wG<SH_BREAK)n.wG=Math.max(0,Math.round((n.wG-SH_REGEN.gold)*1e6)/1e6);if(n.wI>0&&n.wI<SH_BREAK)n.wI=Math.max(0,Math.round((n.wI-SH_REGEN.iron)*1e6)/1e6);}
   for(let a=0;a<NN;a++)for(let b=a+1;b<NN;b++){const k=a*NN+b,tg=G.ally[k]?40:(ns[a].asmWar||ns[b].asmWar)?-100:0,v=G.rel[k]+(tg-G.rel[k])*0.02;G.rel[k]=v;G.rel[b*NN+a]=v;}
   for(const n of ns)if(n.hos)n.hos=n.hos>0.05?n.hos*0.996:0;
+  villagesTick();
   for(const n of ns)shHunt(n);
   if(G.reqs.length)G.reqs=G.reqs.filter(r=>r.exp>=G.tick);
   for(const n of ns){
@@ -3189,10 +3250,12 @@ function secondly(){
     if(!n.alive||!n.spawned||n.tiles>0)continue;
     n.alive=false;n.troops=0;n.workers=0;n.offers=[];
     const k=n.lastHit>=0?ns[n.lastHit]:null;
-    if(k&&k.alive){k.money+=Math.max(0,n.money)*n.fx/k.fx;k.reserve+=n.reserve;for(let j=0;j<NN;j++)if(j!==k.id)k.fxh[j]+=n.fxh[j];}
-    n.money=0;n.reserve=0;n.fxh.fill(0);n.debt=0;for(const q of ns)q.fxh[n.id]=0;for(const q of ns)setAlly(n.id,q.id,false);
+    /* its conqueror takes everything in its stores: money, gold, oil, food, wood, stone and its foreign currency */
+    const got={money:Math.max(0,n.money),gold:Math.max(0,n.reserve),oil:Math.max(0,n.oil||0),food:Math.max(0,n.food),wood:Math.max(0,n.wood),stone:Math.max(0,n.stone)};
+    if(k&&k.alive){k.money+=got.money*n.fx/k.fx;k.reserve+=got.gold;k.oil=(k.oil||0)+got.oil;k.food+=got.food;k.wood+=got.wood;k.stone+=got.stone;for(let j=0;j<NN;j++)if(j!==k.id)k.fxh[j]+=n.fxh[j];}
+    n.money=0;n.reserve=0;n.oil=0;n.food=0;n.wood=0;n.stone=0;n.fxh.fill(0);n.debt=0;for(const q of ns)q.fxh[n.id]=0;for(const q of ns)setAlly(n.id,q.id,false);
     log(n.id,'Your empire has fallen.',`${n.name} has fallen${k?' to '+k.name:''}.`,n.human?'bad':'info');
-    if(k&&k.human)log(k.id,`${n.name} has fallen to you. Its gold reserve is now yours.`,null,'good');
+    if(k&&k.alive&&k.human)log(k.id,`${n.name} has fallen to you. Its stores are now yours: +${fmt(got.money*n.fx/k.fx)} ${k.cur}, +${fmt(got.gold)} gold bars, +${fmt(got.oil)} oil, +${fmt(got.food)} food, +${fmt(got.wood)} wood, +${fmt(got.stone)} stone.`,null,'good');
   }
   if(!G.over){
     for(const n of ns){if(n.alive&&n.tiles/G.totalLand>=VICTORY){G.over={winner:n.id};HOOK.over(G.over);break;}}
@@ -3310,7 +3373,8 @@ function serialize(){
     nations:G.nations.map(n=>{const o=Object.assign({},n);delete o.b;return o;}),
     attacks:G.attacks.map(a=>a.lm!=null?{a:a.a,t:a.t,troops:a.troops,lm:a.lm}:{a:a.a,t:a.t,troops:a.troops}),boats:G.boats.map(b=>Object.assign({},b)),air:G.air.map(a=>Object.assign({},a)),reqs:G.reqs,
     time:G.time,tick:G.tick,phase:G.phase,spawnLeft:G.spawnLeft,season:G.season,year:G.year,cardYear:G.cardYear,peaceT:G.peaceT,peaceOver:G.peaceOver,top:G.top,topTemp:G.topTemp,gpx:G.gpx,
-    rel:Array.from(G.rel),ally:Array.from(G.ally),sanc:Array.from(G.sanc),log:G.log.slice(-60),over:G.over,asm:G.asm?JSON.parse(JSON.stringify(G.asm)):null,asmN:G.asmN||0};
+    rel:Array.from(G.rel),ally:Array.from(G.ally),sanc:Array.from(G.sanc),log:G.log.slice(-60),over:G.over,asm:G.asm?JSON.parse(JSON.stringify(G.asm)):null,asmN:G.asmN||0,
+    villages:(G.villages||[]).filter(v=>v.alive).map(v=>Object.assign({},v,{tl:v.tl.filter(t=>G.vil[t]===v.id)}))};
 }
 function restore(s){
   if(!s||s.v!==4)throw new Error('old save');
@@ -3323,6 +3387,9 @@ function restore(s){
   for(const k of ['time','tick','phase','spawnLeft','season','year','cardYear','peaceT','peaceOver','top','topTemp','gpx','over'])G[k]=s[k];
   G.rel.set(s.rel);G.ally.set(s.ally);G.sanc.set(s.sanc);G.log=s.log||[];G.asm=s.asm||null;G.asmN=s.asmN||0;
   G.diff=DIFF[s.opts.difficulty]||DIFF.normal;
+  /* villages: as saved (a war saved before villages existed has none) */
+  G.villages=[];G.vil.fill(-1);G.vilV=(G.vilV||0)+1;
+  for(const sv of (s.villages||[])){const v=Object.assign({},sv,{id:G.villages.length,tl:sv.tl.slice()});v.left=v.tl.length;G.villages.push(v);for(const t of v.tl)G.vil[t]=v.id;}
   countBuildings();scan();G.dirty=true;
   return G;
 }
@@ -3372,6 +3439,7 @@ function hash(i){return (Math.imul(i^0x9e3779b9,2654435761)>>>0)/4294967296;}
 function randSeed(){return 1000+Math.floor(Math.random()*89000);}
 
 /* ---------- Map painting ---------- */
+const VIL_COL=[196,146,92];
 function paintMap(){
   const own=G.owner,terr=G.terr,base=G.base,fall=G.fallout,ns=G.nations,winter=G.season===3;
   let i=0;
@@ -3388,6 +3456,12 @@ function paintMap(){
         if(border){r=c[0]+(255-c[0])*0.42;g=c[1]+(255-c[1])*0.42;b=c[2]+(255-c[2])*0.42;gpx[p]=r;gpx[p+1]=g;gpx[p+2]=b;gpx[p+3]=255;}
         else{r=r*0.5+c[0]*0.5;g=g*0.5+c[1]*0.5;b=b*0.5+c[2]*0.5;}
         const a=border?0.7:0.45,cr=border?r:c[0],cg=border?g:c[1],cb=border?b:c[2];oR=cr*a+oR*(1-a);oG=cg*a+oG*(1-a);oB=cb*a+oB*(1-a);oA=a+oA*(1-a);
+      }
+      else if(G.vil&&G.vil[i]>=0){
+        /* village land: an earthy tint, its edge picked out */
+        const vi=G.vil[i],c=VIL_COL,border=(x>0&&terr[i-1]!==WATER&&G.vil[i-1]!==vi)||(x<W-1&&terr[i+1]!==WATER&&G.vil[i+1]!==vi)||(y>0&&terr[i-W]!==WATER&&G.vil[i-W]!==vi)||(y<H-1&&terr[i+W]!==WATER&&G.vil[i+W]!==vi);
+        if(border){r=c[0]+(255-c[0])*0.35;g=c[1]+(255-c[1])*0.35;b=c[2]+(255-c[2])*0.35;}else{r=r*0.62+c[0]*0.38;g=g*0.62+c[1]*0.38;b=b*0.62+c[2]*0.38;}
+        const a=border?0.6:0.35,cr=border?r:c[0],cg=border?g:c[1],cb=border?b:c[2];oR=cr*a+oR*(1-a);oG=cg*a+oG*(1-a);oB=cb*a+oB*(1-a);oA=a+oA*(1-a);
       }
       if(G.road[i]&&G.bld[i]<0){r=r*0.28+50;g=g*0.28+48;b=b*0.28+45;if(!gpx[p+3]){gpx[p]=47;gpx[p+1]=113;gpx[p+2]=121;gpx[p+3]=120;}}
     }
@@ -4466,6 +4540,7 @@ function draw(rdt){
     const tl=fmt(n.troops)+(n.id===G.top?' ★':'')+(n.human&&n.id!==ME?' · player':'');
     ctx.strokeText(tl,sx,sy+size*0.5);ctx.fillStyle=n.id===G.top?TK.holo:(ME>=0&&isAllied(ME,n.id)?TK.good:TK.paper);ctx.fillText(tl,sx,sy+size*0.5);
   }
+  drawVillages((x,y)=>({x:S(x),y:T(y)}),z);
   drawEmoBubbles(n=>{let lx=n.lx,ly=n.ly;const ti=Math.round(ly)*W+Math.round(lx);if(G.owner[ti]!==n.id){lx=n.capital%W;ly=(n.capital/W)|0;}const x=S(lx+0.5),y=T(ly+0.5)-(z>=8?z*1.2:0)-12;return x<-60||y<-60||x>cw+60||y>ch+80?null:{x,y};});
   if(G.phase==='spawn'&&P&&P.capital>=0){
     const c=tileXY(P.capital),sx=S(c.x+0.5),sy=T(c.y+0.5),pr=14+Math.sin(t*4)*3;
@@ -5037,6 +5112,20 @@ function buildTerrain3D(){
   V3.treeSets=[[tp,pines.map(p=>p[0])],[tl,leafy.map(p=>p[0])],[rm,rocks]];V3.trees=tp;V3.treeList=V3.treeSets[0][1];V3.roadN=-1;V3.roadsKey=null;
   V3.builtFor=G;V3.texDirty=true;V3.bldAcc=9;V3.sx=null;V3.gy=null;V3.vx=V3.vy=0;
 }
+/* 3D: timber huts with thatched roofs on village land, rebuilt whenever a village changes */
+function villages3D(){
+  if(!V3.scene||!G.villages)return;
+  const key=G.vilV+':'+(V3.builtFor===G?1:0);if(V3.vilKey===key&&V3.vilFor===G)return;V3.vilKey=key;V3.vilFor=G;
+  if(V3.vilMesh){V3.scene.remove(V3.vilMesh);V3.vilMesh.geometry.dispose();V3.vilMesh.material.dispose();V3.vilMesh=null;}
+  const spots=[];for(const v of G.villages){if(!v.alive)continue;for(const t of v.tl){if(G.vil[t]!==v.id||G.owner[t]>=0)continue;if(t===v.c||hash(t*31+5)<0.45)spots.push([t,t===v.c]);}}
+  if(!spots.length)return;
+  if(!V3.hutGeo){const w=new THREE.BoxGeometry(0.42,0.3,0.36);w.translate(0,0.15,0);const r=new THREE.ConeGeometry(0.34,0.3,4);r.rotateY(Math.PI/4);r.scale(1.05,1,0.95);r.translate(0,0.45,0);const d=new THREE.BoxGeometry(0.1,0.16,0.02);d.translate(0,0.08,0.19);
+    V3.hutGeo=mergeGeo([[w,'#c9a77a'],[r,'#8a5a2b'],[d,'#4a2e18']]);}
+  const m=new THREE.InstancedMesh(V3.hutGeo.clone(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9,metalness:0}),spots.length);
+  spots.forEach(([t,big],k)=>{const x=t%W,y=(t/W)|0,h=hash(t*7+1),h2=hash(t*13+3),ox=(h-0.5)*0.35,oz=(h2-0.5)*0.35,sc=big?1.25:0.8+h*0.3;
+    _p3.set(x-W/2+0.5+ox,ghAt(x+0.5+ox,y+0.5+oz)-0.01,y-H/2+0.5+oz);_e3.set(0,h2*6.283,0);_q4.setFromEuler(_e3);_s3.set(sc,sc,sc);_m4.compose(_p3,_q4,_s3);m.setMatrixAt(k,_m4);});
+  m.castShadow=m.receiveShadow=true;m.frustumCulled=false;m.instanceMatrix.needsUpdate=true;V3.scene.add(m);V3.vilMesh=m;
+}
 function buildings3D(){
   const B=V3,HC={h1:0,h2:0,hr:0,i0:0,i1:0,l0:0,l1:0};let nb=0,nc=0,ny=0,nd=0,ns=0;V3.near=[];V3.solids=[];const wk=V3.walk;
   /* homes near you in street view, or near the middle of the screen when zoomed in, get the detailed model */
@@ -5591,6 +5680,7 @@ function overlay3D(nowS){
     const tl=fmt(n.troops)+(n.id===G.top?' ★':'')+(n.human&&n.id!==ME?' · player':'');
     ctx.strokeText(tl,p.x,p.y+size*0.5);ctx.fillStyle=n.id===G.top?TK.holo:(ME>=0&&isAllied(ME,n.id)?TK.good:TK.paper);ctx.fillText(tl,p.x,p.y+size*0.5);
   }
+  drawVillages((x,y)=>proj(x-W/2,hAt(Math.floor(y)*W+Math.floor(x))+0.9,y-H/2),z*1.6);
   drawEmoBubbles(n=>{let lx=n.lx,ly=n.ly;const ti=Math.round(ly)*W+Math.round(lx);if(G.owner[ti]!==n.id){lx=n.capital%W;ly=(n.capital/W)|0;}const p=proj(lx+0.5-W/2,hAt(Math.round(ly)*W+Math.round(lx))+(z>=8?3:1.5),ly+0.5-H/2);return p&&p.x>-60&&p.y>-60&&p.x<cw+60&&p.y<ch+80?{x:p.x,y:p.y-14}:null;});
   for(const nk of G.nukes){
     if(nk.t<0||nk.bg>0)continue;
@@ -5620,7 +5710,7 @@ function render3D(rdt,realDt){
   {const rk=G.roadN+'|'+G.buildings.length;if(V3.roads&&V3.roadsKey!==rk){V3.roadsKey=rk;roads3D();}}
   V3.lt=(V3.lt||0)+realDt;if(V3.walk)walk3D(realDt);else roamStep(realDt);placePad();
   if(V3.waterTex){V3.waterTex.offset.x=(V3.lt*0.018)%1;V3.waterTex.offset.y=(V3.lt*0.011)%1;}
-  V3.bldAcc+=realDt;if(V3.bldAcc>=0.4){V3.bldAcc=0;buildings3D();}
+  V3.bldAcc+=realDt;if(V3.bldAcc>=0.4){V3.bldAcc=0;buildings3D();villages3D();}
   const nowS=performance.now()/1000;
   V3.shieldMat.opacity=0.11+0.05*Math.sin(nowS*2);
   people3D();vessels3D();nukes3D(nowS);air3D(nowS);fx3D(rdt);shieldsTick(rdt);shields3D();
@@ -6529,11 +6619,26 @@ function bindMap(){
   $('pin').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('pin').hidden=true;if(b.dataset.act==='open'){if(panelOff())setPanelOff(false);$('ledger').classList.remove('collapsed');openTab('nations');requestAnimationFrame(resize);}});
   cvs.addEventListener('wheel',e=>{if(!G||G.demo)return;e.preventDefault();if(V3.walk){V3.walk.push=clamp(V3.walk.push-e.deltaY*0.004,-2,2);return;}if(V3.on){const pp=pos(e),w=worldAt(pp.x,pp.y),oz=cam.z;cam.z=clampZ(cam.z*Math.exp(-e.deltaY*0.0015));if(w){const f=1-oz/cam.z;cam.x+=(w.x-cam.x)*f;cam.y+=(w.y-cam.y)*f;}clampCam();return;}const p=pos(e),wx=(p.x-cw/2)/cam.z+cam.x,wy=(p.y-ch/2)/cam.z+cam.y,nz=clampZ(cam.z*Math.exp(-e.deltaY*0.0015));cam.z=nz;cam.x=wx-(p.x-cw/2)/nz;cam.y=wy-(p.y-ch/2)/nz;clampCam();},{passive:false});
 }
+/* a small hut over each village centre; up close, its name and how many villagers defend it */
+function drawVillages(at,z){
+  if(!G.villages||z<1.6)return;
+  for(const v of G.villages){
+    if(!v.alive||G.owner[v.c]>=0)continue;const p=at(v.c%W+0.5,((v.c/W)|0)+0.5);if(!p||p.x<-40||p.y<-40||p.x>cw+40||p.y>ch+40)continue;
+    const u=clamp(z*0.55,5,13),x=p.x,y=p.y;
+    ctx.beginPath();ctx.moveTo(x-u,y+u*0.7);ctx.lineTo(x-u,y-u*0.1);ctx.lineTo(x,y-u);ctx.lineTo(x+u,y-u*0.1);ctx.lineTo(x+u,y+u*0.7);ctx.closePath();
+    ctx.fillStyle='#f3e2c4';ctx.fill();ctx.lineWidth=Math.max(1.2,u*0.18);ctx.strokeStyle='#4a2e18';ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-u*1.15,y-u*0.05);ctx.lineTo(x,y-u*1.15);ctx.lineTo(x+u*1.15,y-u*0.05);ctx.strokeStyle='#8a4a22';ctx.lineWidth=Math.max(1.5,u*0.3);ctx.stroke();
+    ctx.fillStyle='#4a2e18';ctx.fillRect(x-u*0.22,y+u*0.15,u*0.44,u*0.55);
+    if(z>=4){outlined(v.name,x,y-u*1.75,`600 ${Math.round(clamp(z*0.9,10,14))}px ${FN}`,TK.paper);outlined(`${fmt(v.def)} villagers`,x,y+u*1.55,`500 ${Math.round(clamp(z*0.75,9,12))}px ${FN}`,'#f3e2c4');}
+  }
+}
 function tipHTML(t){
   const P=me();if(t<0||!G||!P)return '';
   const tt=G.terr[t];if(tt===WATER)return '<b>Open sea</b>';
   const o=G.owner[t],bi=bldNear(t),bn=bi>=0&&G.buildings[bi]&&!G.buildings[bi].dead?' · '+(G.buildings[bi].type==='gov'?govInfo(G.buildings[bi]).name:BLD[G.buildings[bi].type].name):'';
   const fall=G.fallout[t]?' · fallout':'',cb=bi>=0?G.buildings[bi]:null,extra=cb&&!cb.dead?(cb.type==='city'?` · ${fmt(cb.res||0)} of ${cb.lvl||1}M people${G.nations[cb.owner].urban>0?` · tax +${(G.nations[cb.owner].inc.urban*(cb.res||0)/G.nations[cb.owner].urban).toFixed(1)}/s`:''}`:''):'';
+  const vg=o<0?villageAt(t):null;
+  if(vg)return `<b>Village of ${esc(vg.name)}</b> · ${TNAME[tt]}${fall}<span class="sub">${fmt(vg.def)} villagers defend it · about ${Math.ceil(tileCost(P,-1,t))} troops a tile</span><span class="sub">Take its centre to absorb it: ${fmt(vg.pop)} people, ${fmt(vg.gold)} gold bars, ${fmt(vg.food)} food, ${fmt(vg.wood)} wood, ${fmt(vg.stone)} stone${vg.oil>0?`, ${fmt(vg.oil)} oil`:''}</span>`;
   if(o<0)return `<b>Unclaimed ${TNAME[tt].toLowerCase()}</b>${fall}<span class="sub">About ${Math.ceil(tileCost(P,-1,t))} troops a tile</span>`;
   const n=G.nations[o],tag=n.id===ME?'You':isAllied(ME,o)?'Ally':relLabel(rel(ME,o))+(n.human?' · player':'');
   return `<b>${esc(n.name)}</b> · ${TNAME[tt]}${bn}${extra}${fall}<span class="sub">${tag} · ${fmt(n.troops)} troops · ${esc(n.cur)} ${n.fx.toFixed(2)}${n.id===G.top?(G.topTemp?' ★ temporary reserve':' ★ reserve'):''} · invasion ×${defMult(n).toFixed(1)}</span><span class="sub">GDP ${fmt(n.gdp)} (${pct(Math.max(0,n.gdp)/(G.nations.reduce((a,q)=>a+(q.alive?Math.max(0,q.gdp):0),0)||1))} of the world) · income ${fmt(n.rate.money*n.fx)} WC/s · ${fmt(n.b.city||0)} cities · ${fmt(n.b.factory||0)} factories · ${fmt(n.b.port||0)} ports</span>`;
@@ -6564,7 +6669,10 @@ function clickTile(t){
   issue('at',t);
 }
 function inspectTile(t,xy){
-  if(!G||t<0||G.terr[t]===WATER)return;const o=G.owner[t];if(o<0)return;selNation=o;renderInspector();
+  if(!G||t<0||G.terr[t]===WATER)return;const o=G.owner[t];
+  if(o<0&&villageAt(t)){const pin=$('pin');pin.innerHTML=tipHTML(t)+'<div class="acts"><button type="button" class="btn sm ghost" data-act="close">Close</button></div>';pin.hidden=false;$('tip').hidden=true;
+    const p=xy||{x:cw/2,y:ch/2},w=pin.offsetWidth,h=pin.offsetHeight;let x=p.x+12,y=p.y+12;if(x+w>cw-8)x=p.x-w-12;if(y+h>ch-8)y=p.y-h-12;pin.style.left=Math.max(8,x)+'px';pin.style.top=Math.max(8,y)+'px';return;}
+  if(o<0)return;selNation=o;renderInspector();
   /* show the nation in a small card on the map; your open section only changes if you press Details */
   const pin=$('pin');pin.innerHTML=tipHTML(t)+'<div class="acts"><button type="button" class="btn sm" data-act="open">Details in Nations</button><button type="button" class="btn sm ghost" data-act="close">Close</button></div>';pin.hidden=false;$('tip').hidden=true;
   const p=xy||{x:cw/2,y:ch/2},w=pin.offsetWidth,h=pin.offsetHeight;let x=p.x+12,y=p.y+12;if(x+w>cw-8)x=p.x-w-12;if(y+h>ch-8)y=p.y-h-12;
