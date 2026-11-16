@@ -1932,9 +1932,13 @@ function tileCost(A,t,i){
   return c;
 }
 function hasAttack(a,t){return G.attacks.some(x=>x.a===a&&x.t===t);}
+/* a nation whose currency is held down by the world reserve's printing cannot attack that reserve until its gold and oil free it */
+function resHeldMsg(A,t){if(t==null||t<0||!(A.sCap>0)||A.sBy!==t)return null;const T=G.nations[t];if(!T||!T.alive)return null;
+  return `The ${A.cur} is held down by ${T.name}'s printing as the world reserve: you cannot attack ${T.name} until your gold and oil reach ${fmt(A.sNeed)} bars.`;}
 function launchAttack(A,t,troops,fromBoat,lm){
   troops=Math.floor(troops);
   if(t===A.id)return null;
+  {const h=resHeldMsg(A,t);if(h){if(fromBoat&&troops>0)A.troops+=troops;return h;}}
   if(t>=0&&isAllied(A.id,t))return `You are allied with ${G.nations[t].name}.`;
   if(t>=0&&inPeace())return `The peace treaty forbids attacks on nations for another ${mmss(peaceLeft())}.`;
   if(!fromBoat){troops=Math.min(troops,Math.floor(A.troops));if(troops<1)return 'Not enough troops.';A.troops-=troops;}
@@ -2057,6 +2061,7 @@ function sendBoat(A,t,k){
   if(tg===A.id)return 'That is already your land.';
   if(tg>=0&&isAllied(A.id,tg))return `You are allied with ${G.nations[tg].name}.`;
   if(tg>=0&&inPeace())return `The peace treaty forbids landings on other nations for another ${mmss(peaceLeft())}.`;
+  {const h=resHeldMsg(A,tg);if(h)return h;}
   k=Math.max(1,Math.min(k||1,boatCap(A)-boatsOf(A.id)));
   const go=[];let troops;
   if(k===1){
@@ -2151,7 +2156,7 @@ function launchRaider(A,tg){
   let port=null;for(const b of G.buildings)if(!b.dead&&b.type==='port'&&b.owner===A.id&&waterNb(b.tile).length){port=b;break;}
   if(!port)return 'Build a port to launch raider warships.';
   if(raidsOf(A.id)>=raidCap(A))return `All ${raidCap(A)} of your raider warships are at sea.`;
-  if(tg>=0){const T=G.nations[tg];if(!T||!T.alive||tg===A.id)return 'Pick another nation to raid.';if(isAllied(A.id,tg))return `You are allied with ${T.name}.`;}
+  if(tg>=0){const T=G.nations[tg];if(!T||!T.alive||tg===A.id)return 'Pick another nation to raid.';if(isAllied(A.id,tg))return `You are allied with ${T.name}.`;const h=resHeldMsg(A,tg);if(h)return h;}
   const cost=raidCost(A);if(A.money<cost)return `A raider warship costs ${fmt(cost)} ${A.cur}.`;
   A.money-=cost;A.buys=(A.buys||0)+1;A.raidN=(A.raidN||0)+1;
   G.raids.push({o:A.id,tg,path:[waterNb(port.tile)[0]],pos:0,life:RAID_LIFE,hunt:null,re:0,got:0,val:0,hp:100,cd:0,foe:null});
@@ -2269,6 +2274,7 @@ function launchAir(A,kind,t){
   const T=G.owner[t];
   if(T===A.id)return 'That target is your own land.';
   if(T>=0&&isAllied(A.id,T))return `You are allied with ${G.nations[T].name}.`;
+  {const h=resHeldMsg(A,T);if(h)return h;}
   if(kind==='jet'&&T<0)return 'Jets need an enemy target: pick land another nation owns.';
   let up=0;for(const a of G.air)if(a.o===A.id)up++;if(up>=AIR_MAX)return `Up to ${AIR_MAX} aircraft can be in the air at once.`;
   const cost=airCost(A,kind);if(A.money<cost)return `${article(w.name)==='an'?'An':'A'} ${w.name} costs ${fmt(cost)} ${A.cur}.`;
@@ -2409,6 +2415,7 @@ function launchBarrage(A,kind,t){
   const T=G.owner[t];
   if(T===A.id)return 'That target is inside your own land.';
   if(T>=0&&isAllied(A.id,T))return `You are allied with ${G.nations[T].name}.`;
+  {const h=resHeldMsg(A,T);if(h)return h;}
   const cost=wpnCost(A,kind),cnt=Math.min(BARRAGE*siloLvl(silo),Math.floor(A.money/cost));
   if(cnt<1)return `${article(w.name)==='an'?'An':'A'} ${w.name} costs ${fmt(cost)} ${A.cur}.`;
   A.money-=cost*cnt;
@@ -2441,6 +2448,7 @@ function launchNuke(A,kind,t){
   const T=G.owner[t];
   if(T===A.id)return 'That target is inside your own land.';
   if(T>=0&&isAllied(A.id,T))return `You are allied with ${G.nations[T].name}.`;
+  {const h=resHeldMsg(A,T);if(h)return h;}
   A.money-=cost;
   const nk={o:A.id,kind,from:silo.tile,to:t,t:0,dur:3+Math.sqrt(bd)/22};
   G.nukes.push(nk);
@@ -2486,6 +2494,8 @@ function economy(n,dt){
   const B=n.b,pop=n.troops-(n.urbanArmy||0)+n.workers,s=G.season,ai=n.human?1:G.diff.ai,wr=Math.max(0,(n.urban||0)-(n.urbanArmy||0));
   n.pl=clamp(FX0/Math.max(0.05,n.fx),0.4,6);
   n.poverty=clamp((n.pl-1.5)/3,0,1);
+  /* held down by the world reserve's printing without the gold to cover it: its people sink into poverty (up to 60%) */
+  if(n.sCap>0&&n.sNeed>0)n.poverty=Math.max(n.poverty,0.6*(1-clamp(backingBars(n)/n.sNeed,0,1)));
   const nom=Math.sqrt(n.pl);
   const prod=(0.75+n.happiness/200)*(1+n.era*0.15)*ai*(1-(n.irate-0.05)*2)*(1+(n.pw||0)*0.5);
   n.maxPop=(800+n.tiles*30+B.house*700+B.city*4500)*(1+n.era*0.1);
@@ -2712,6 +2722,8 @@ function backingBars(n){return Math.max(0,n.reserve)+Math.max(0,n.oil||0)/60;}
 function goldRoom(n){return Math.max(0,(backingBars(n)-(n.issuedB||0))*goldPrice(n));}
 /* how long (seconds) a nation's people stay angry after the world reserve's last print that hit its currency */
 const RES_HOLD=120;
+/* a held-down currency is free once its nation's gold and oil reach this share of everything the world reserve has printed (in bars) */
+const RES_FREE=0.1;
 function printMoney(A,pct){
   if(!A.alive)return 'Your treasury is gone.';
   if(A.crisis>0)return `A caretaker cabinet controls the mint for another ${Math.ceil(A.crisis)}s.`;
@@ -2727,18 +2739,21 @@ function printMoney(A,pct){
   if(drop>0.0005){const cX=Math.max(CLAIM0,A.gdp*60)+A.printed+A.imported;A.printed+=cX*drop/(1-drop);A.fx*=1-drop;A.rfx*=1-drop;A.gp=Math.min(5,(A.gp||1)/(1-drop));}
   /* a player holding the world reserve currency exports its inflation: every other currency falls with it. The fall follows how much was
      printed (a standard run up to 3%, bigger runs as much as the reserve's own fall), even when the reserve's gold keeps its own currency steady.
-     What the reserve prints is counted in bars of gold (G.rpB, wearing off as printed money does). A nation whose gold and oil cover that
-     many bars holds steady; one with less falls by the share it cannot cover, the more the bigger the print is next to its own gold
+     What the reserve prints is counted in bars of gold (G.rpB, which never wears off). A nation whose gold and oil cover a tenth of that
+     (RES_FREE) holds steady; one with less falls by the share it cannot cover, the more the bigger the print is next to its own gold
      (a print worth 10x its gold about 10%, 10,000x about 40%, at most 60%), and stays down: buying back or a shrinking economy cannot lift it.
-     It climbs back only slowly, as the nation adds gold and oil, and is free once its gold and oil cover what the reserve had printed
-     (sNeed, which wears off like G.rpB). Its people's anger fades RES_HOLD seconds after the last print that hit it */
+     It climbs back only slowly, as the nation adds gold and oil, and is free once its gold and oil reach a tenth of what the reserve had
+     printed (sNeed, which never wears off). Until then its people live in poverty and it cannot attack the reserve (sBy).
+     Their anger fades RES_HOLD seconds after the last print that hit them */
   let spill=0,spillMax=0;const sBase=Math.max(drop,Math.min(0.03,0.04*amt/Math.max(1,claims)));
   if(top&&A.human){G.rpB=(G.rpB||0)+pB;
-   for(const D of G.nations){if(!D.alive||D===A)continue;const bD=backingBars(D),cover=clamp(bD/Math.max(1e-9,G.rpB),0,1),big=Math.min(0.6,0.1*Math.log10(1+pB/Math.max(1000,bD))),d0=Math.max(sBase,big)*(1-cover);if(d0<0.0005)continue;
+   for(const D of G.nations){if(!D.alive||D===A)continue;const bD=backingBars(D),cover=clamp(bD/Math.max(1e-9,G.rpB*RES_FREE),0,1),big=Math.min(0.6,0.1*Math.log10(1+pB/Math.max(1000,bD))),d0=Math.max(sBase,big)*(1-cover);if(d0<0.0005)continue;
     const s0=D.sfxm||1,s1=Math.max(0.2,s0*(1-d0)),d=1-s1/s0;D.sfxm=s1;if(d>0){D.fx*=1-d;D.rfx*=1-d;}
-    D.sNeed=Math.max(D.sNeed||0,G.rpB);D.sCap=D.sCap>0?Math.min(D.sCap,D.fx):D.fx;D.sHold=RES_HOLD;D.sLastB=bD;
+    D.sNeed=Math.max(D.sNeed||0,G.rpB*RES_FREE);D.sCap=D.sCap>0?Math.min(D.sCap,D.fx):D.fx;D.sHold=RES_HOLD;D.sLastB=bD;D.sBy=A.id;
+    /* it can no longer fight the reserve: its land attacks on it are called off and the troops come home */
+    for(let k=G.attacks.length-1;k>=0;k--){const x=G.attacks[k];if(x.a===D.id&&x.t===A.id){D.troops+=x.troops;G.attacks.splice(k,1);}}
     if(d<0.0005)continue;spill++;spillMax=Math.max(spillMax,d);
-    if(D.human&&(D.spillLog==null||D.spillLog<G.time-30)){D.spillLog=G.time;log(D.id,`${A.name} printed its ${A.cur}, the world reserve currency, and your ${D.cur} fell ${(d*100).toFixed(d<0.1?1:0)}%. ${bD<1?'You have no gold or oil behind it. ':''}It stays down, even if you buy it back, and climbs only slowly as you add gold and oil; your people may revolt. Gold and oil worth ${fmt(D.sNeed)} bars, what the reserve has printed, frees it.`,null,'bad');}}}
+    if(D.human&&(D.spillLog==null||D.spillLog<G.time-30)){D.spillLog=G.time;log(D.id,`${A.name} printed its ${A.cur}, the world reserve currency, and your ${D.cur} fell ${(d*100).toFixed(d<0.1?1:0)}%. ${bD<1?'You have no gold or oil behind it. ':''}It stays down, even if you buy it back, your people sink into poverty and may revolt, and you cannot attack ${A.name}. It climbs only slowly as you add gold and oil; gold and oil worth ${fmt(D.sNeed)} bars, a tenth of what the reserve has printed, free it.`,null,'bad');}}}
   let hit=0;const push=Math.max(100,A.gdp*6)+A.reserve*GOLD_WC*0.15;
   if(strong)for(const D of G.nations){
     if(!D.alive||D===A||D.fx>=A.fx*0.85||D.reserve*GOLD_WC>=D.gdp*30+400)continue;
@@ -2746,7 +2761,7 @@ function printMoney(A,pct){
     if(D.human&&D.devalLog<G.time-60){D.devalLog=G.time;log(D.id,`${A.name} is printing its strong ${A.cur}. Your ${D.cur} is losing value, imported food costs more and ${Math.round(10*sh)}% of your food stock is gone.${D.shield>0.005?` Your cities blocked ${Math.round(D.shield*100)}% of the damage.`:''}`,null,'bad');}
   }
   mv(A,'pm',`printed ${fmt(amt)} ${A.cur}, ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil${drop<0.001?'':`; the ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}%`}`,unb>Math.max(0.5,real*0.005)?'warn':'mv');
-  if(A.human)log(A.id,`You printed ${fmt(amt)} ${A.cur}: ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil. ${drop<0.001?`The ${A.cur} barely moved.`:`The ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and gold rose to ${fmt(goldPrice(A))} ${A.cur} a bar, so buildings cost more.`}${unb>Math.max(0.5,real*0.005)?` The unbacked ${fmt(unb/A.fx)} ${A.cur} keeps weakening it; buy gold or store oil to back your printing.`:''}${strong?` Your strong currency pushed inflation onto ${hit} weaker nation${hit===1?'':'s'}.`:''}${spill?` As the world reserve, your printing dragged ${spill} other currenc${spill===1?'y':'ies'} down, by up to ${(spillMax*100).toFixed(spillMax<0.1?1:0)}%. They stay down, climbing only slowly as they add gold and oil, until their gold and oil cover the ${fmt(G.rpB)} bars' worth you have printed; nations that already do hold steady.`:''}`,null,unb>Math.max(0.5,real*0.005)?'warn':'good');
+  if(A.human)log(A.id,`You printed ${fmt(amt)} ${A.cur}: ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil. ${drop<0.001?`The ${A.cur} barely moved.`:`The ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and gold rose to ${fmt(goldPrice(A))} ${A.cur} a bar, so buildings cost more.`}${unb>Math.max(0.5,real*0.005)?` The unbacked ${fmt(unb/A.fx)} ${A.cur} keeps weakening it; buy gold or store oil to back your printing.`:''}${strong?` Your strong currency pushed inflation onto ${hit} weaker nation${hit===1?'':'s'}.`:''}${spill?` As the world reserve, your printing dragged ${spill} other currenc${spill===1?'y':'ies'} down, by up to ${(spillMax*100).toFixed(spillMax<0.1?1:0)}%. They stay down in poverty and cannot attack you, climbing only slowly as they add gold and oil, until their gold and oil reach ${fmt(G.rpB*RES_FREE)} bars, a tenth of the ${fmt(G.rpB)} bars' worth you have printed; nations that already have that hold steady.`:''}`,null,unb>Math.max(0.5,real*0.005)?'warn':'good');
   return null;
 }
 function buyGold(A){
@@ -2931,7 +2946,7 @@ function applyCmd(s,type,a){
     case 'rs':if(A.alive&&G.phase==='play'){const tg=a[0]==null?-1:a[0]|0,e=launchRaider(A,tg),T=tg>=0?G.nations[tg]:null;r=e?{msg:e,kind:'warn'}:{msg:`Raider warship launched${T?` against ${T.name}'s trade ships`:''}. It hunts for ${RAID_LIFE} seconds.`,kind:'good'};}break;
     case 'cu':if(A.alive&&G.phase==='play'){const t=a[0]|0,e=upgradeCity(A,t);r=e?{msg:e,kind:'warn'}:{msg:`City expanded to hold ${G.buildings[G.bld[t]].lvl} million people.`,kind:'good',tile:t};}break;
     case 'mm':{const X=natArg(a[0]),dir=(a[1]|0)<0?-1:1;if(A.alive&&G.phase==='play'){const x=manipulate(A,X,dir);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Your market desk ${dir<0?'shorted':'propped up'} the ${X.cur}: ${dir<0?'down':'up'} ${Math.round(x.k*100)}%.`,kind:'good'};}break;}
-    case 'bc':if(A.alive&&G.phase==='play'){const x=buyCurrency(A);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Sold ${fmt(x.bars)} gold bars at ${x.price>=1000?fmt(x.price):x.price.toFixed(2)} ${A.cur} a bar and bought back ${fmt(x.amt)} ${A.cur}. The boost hits now and fades over the next minute or two, since that gold no longer backs the ${A.cur}. Your gold price dipped to ${fmt(goldPrice(A))} ${A.cur} a bar.${A.sCap>0?` But the world reserve's printing holds the ${A.cur} down: it climbs only as you add gold and oil, and is free once they reach ${fmt(A.sNeed)} bars.`:''}`,kind:A.sCap>0?'warn':'good'};}break;
+    case 'bc':if(A.alive&&G.phase==='play'){const x=buyCurrency(A);r=typeof x==='string'?{msg:x,kind:'warn'}:{msg:`Sold ${fmt(x.bars)} gold bars at ${x.price>=1000?fmt(x.price):x.price.toFixed(2)} ${A.cur} a bar and bought back ${fmt(x.amt)} ${A.cur}. The boost hits now and fades over the next minute or two, since that gold no longer backs the ${A.cur}. Your gold price dipped to ${fmt(goldPrice(A))} ${A.cur} a bar.${A.sCap>0?` But the world reserve's printing holds the ${A.cur} down: it climbs only as you add gold and oil, and is free once they reach ${fmt(A.sNeed)} bars, a tenth of what the reserve has printed.`:''}`,kind:A.sCap>0?'warn':'good'};}break;
     case 'ac':{
       const F=natArg(a[0]);if(!F||!F.alive||!A.alive)break;
       const q=G.reqs.find(x=>x.f===F.id&&x.t===A.id&&x.exp>=G.tick);
@@ -3125,7 +3140,7 @@ function aiThink(n,iv){
   if(!peace&&!held){
     let best=-1,bs=0;
     for(let q=0;q<NN;q++){
-      if(q===n.id||G.adj[n.id*(NN+1)+q]===0||isAllied(n.id,q)||truceOn(n.id,q))continue;
+      if(q===n.id||G.adj[n.id*(NN+1)+q]===0||isAllied(n.id,q)||truceOn(n.id,q)||(n.sCap>0&&n.sBy===q))continue;
       const Q=G.nations[q];if(!Q.alive)continue;
       let sc=n.troops/(Q.troops+50)/defMult(Q);if(Q.human)sc*=D.bias;sc*=1-rel(n.id,q)/200;if(Q.asmWar)sc*=3;
       if(sc>bs){bs=sc;best=q;}
@@ -3151,7 +3166,6 @@ function aiThink(n,iv){
 /* ---------- Clock ---------- */
 function secondly(){
   const NN=G.NN,ns=G.nations;
-  if(G.rpB)G.rpB*=0.997;
   for(const n of ns){if(n.wG>0&&n.wG<SH_BREAK)n.wG=Math.max(0,Math.round((n.wG-SH_REGEN.gold)*1e6)/1e6);if(n.wI>0&&n.wI<SH_BREAK)n.wI=Math.max(0,Math.round((n.wI-SH_REGEN.iron)*1e6)/1e6);}
   for(let a=0;a<NN;a++)for(let b=a+1;b<NN;b++){const k=a*NN+b,tg=G.ally[k]?40:(ns[a].asmWar||ns[b].asmWar)?-100:0,v=G.rel[k]+(tg-G.rel[k])*0.02;G.rel[k]=v;G.rel[b*NN+a]=v;}
   for(const n of ns)if(n.hos)n.hos=n.hos>0.05?n.hos*0.996:0;
@@ -3195,8 +3209,8 @@ function secondly(){
     /* every currency is tied to gold: when the gold price rises, gold-poor currencies fall and those backed by 5,000+ bars rise with it */
     const gr=Math.sqrt((G.gpx||GOLD_PX)/GOLD_PX),cov=clamp(n.reserve/5000,0,1),gmul=n.trend*(cov*gr+(1-cov)/gr)*(n.fxm||1)*(n.fxr||1)*(n.wfxm||1)*(n.gfxm||1)*(n.sfxm||1);n.str*=gmul;
     /* held down by the world reserve's printing: the currency cannot rise above where that left it until gold and oil cover what was printed */
-    if(n.sCap>0){n.sNeed=(n.sNeed||0)*0.997;n.sHold=Math.max(0,(n.sHold||0)-1);const bN=backingBars(n);
-      if(bN>=n.sNeed){n.sCap=0;n.sNeed=0;n.sHold=0;n.sGain=0;if(n.human)log(n.id,`Your gold and oil now cover what the world reserve printed: the ${n.cur} is free to recover.`,null,'good');}
+    if(n.sCap>0){n.sHold=Math.max(0,(n.sHold||0)-1);const bN=backingBars(n);
+      if(bN>=n.sNeed){const by=G.nations[n.sBy];n.sCap=0;n.sNeed=0;n.sHold=0;n.sGain=0;n.sBy=-1;if(n.human)log(n.id,`Your gold and oil now cover a tenth of what the world reserve printed: the ${n.cur} is free to recover${by?` and you can attack ${by.name} again`:''}.`,null,'good');}
       /* gold and oil added (mines, oil rigs, buying gold) let the held currency climb, slowly: doubling your gold earns about 25%, paid out
          at most 0.2% a second; gold spent does not take it back down */
       else{const dB=bN-(n.sLastB==null?bN:n.sLastB);if(dB>0)n.sGain=(n.sGain||0)+0.5*dB/Math.max(1e4,bN);
