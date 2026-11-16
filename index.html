@@ -957,6 +957,8 @@ em.hos{font-style:normal;font-weight:600}em.hos.h0{color:var(--good)}em.hos.h1{c
       <div class="stat"><span class="k">Wood</span><span class="v"><b id="sWood">0</b><i id="rWood">+0</i></span></div>
       <div class="stat"><span class="k">Stone</span><span class="v"><b id="sStone">0</b><i id="rStone">+0</i></span></div>
       <div class="stat"><span class="k">Oil</span><span class="v"><b id="sOil">0</b><i id="rOil">+0</i></span></div>
+      <div class="stat" title="Golden Dome shield power: 5 Golden Domes give it full power. Hits wear it down; small wear recharges, heavy wear needs more domes"><span class="k">Golden Dome</span><span class="v"><b id="sGShield">0%</b><i class="muted" id="rGShield">0/5</i></span></div>
+      <div class="stat" title="Iron Dome shield power: 40 Iron Domes give it full power. Hits wear it down; small wear recharges, heavy wear needs more domes"><span class="k">Iron Dome</span><span class="v"><b id="sIShield">0%</b><i class="muted" id="rIShield">0/40</i></span></div>
       <div class="stat"><span class="k">Citizens</span><span class="v"><b id="sPop">0</b></span></div>
       <div class="stat"><span class="k">Army</span><span class="v"><b id="sTroops">0</b></span></div>
       <div class="stat"><span class="k">Mood</span><span class="v"><b id="sHappy">0</b></span></div>
@@ -2720,12 +2722,14 @@ function printMoney(A,pct){
   if(unb>0)A.gp=Math.min(5,(A.gp||1)*(1+0.5*unb/Math.max(1,A.reserve*GOLD_WC+claims)));
   /* more money chasing the same goods: the currency falls (building prices rise with it) and gold costs more of it */
   if(drop>0.0005){const cX=Math.max(CLAIM0,A.gdp*60)+A.printed+A.imported;A.printed+=cX*drop/(1-drop);A.fx*=1-drop;A.rfx*=1-drop;A.gp=Math.min(5,(A.gp||1)/(1-drop));}
-  /* a player holding the world reserve currency exports its inflation: every other currency falls with it, as far as gold and oil
-     fail to back it (no gold or oil: the same fall as the reserve currency; 5,000+ bars of gold and oil: none). It wears off as printed money does */
-  let spill=0,spillMax=0;
-  if(top&&A.human&&drop>0.0005)for(const D of G.nations){if(!D.alive||D===A)continue;const d=drop*(1-clamp(backingBars(D)/5000,0,1));if(d<0.0005)continue;
+  /* a player holding the world reserve currency exports its inflation: every other currency falls with it. The fall follows how much was
+     printed (a standard run up to 3%, bigger runs as much as the reserve's own fall), even when the reserve's gold keeps its own currency steady.
+     Gold and oil cushion it: no gold or oil takes the full fall, as much gold and oil as the reserve holder takes half, far more takes little.
+     It wears off as printed money does */
+  let spill=0,spillMax=0;const sBase=Math.max(drop,Math.min(0.03,0.04*amt/Math.max(1,claims))),sRef=Math.max(5000,backingBars(A));
+  if(top&&A.human&&sBase>0.0005)for(const D of G.nations){if(!D.alive||D===A)continue;const bD=backingBars(D),d=sBase*sRef/(sRef+bD);if(d<0.0005)continue;
     D.sfxm=Math.max(0.2,(D.sfxm||1)*(1-d));D.fx*=1-d;D.rfx*=1-d;spill++;spillMax=Math.max(spillMax,d);
-    if(D.human&&(D.spillLog==null||D.spillLog<G.time-30)){D.spillLog=G.time;log(D.id,`${A.name} printed its ${A.cur}, the world reserve currency, and your ${D.cur} fell ${(d*100).toFixed(d<0.1?1:0)}% with it. ${backingBars(D)<1?'You have no gold or oil behind it.':'More gold and oil would cushion it.'}`,null,'bad');}}
+    if(D.human&&(D.spillLog==null||D.spillLog<G.time-30)){D.spillLog=G.time;log(D.id,`${A.name} printed its ${A.cur}, the world reserve currency, and your ${D.cur} fell ${(d*100).toFixed(d<0.1?1:0)}%. ${backingBars(D)<1?'You have no gold or oil behind it.':'More gold and oil would cushion it.'}`,null,'bad');}}
   let hit=0;const push=Math.max(100,A.gdp*6)+A.reserve*GOLD_WC*0.15;
   if(strong)for(const D of G.nations){
     if(!D.alive||D===A||D.fx>=A.fx*0.85||D.reserve*GOLD_WC>=D.gdp*30+400)continue;
@@ -2733,7 +2737,7 @@ function printMoney(A,pct){
     if(D.human&&D.devalLog<G.time-60){D.devalLog=G.time;log(D.id,`${A.name} is printing its strong ${A.cur}. Your ${D.cur} is losing value, imported food costs more and ${Math.round(10*sh)}% of your food stock is gone.${D.shield>0.005?` Your cities blocked ${Math.round(D.shield*100)}% of the damage.`:''}`,null,'bad');}
   }
   mv(A,'pm',`printed ${fmt(amt)} ${A.cur}, ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil${drop<0.001?'':`; the ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}%`}`,unb>Math.max(0.5,real*0.005)?'warn':'mv');
-  if(A.human)log(A.id,`You printed ${fmt(amt)} ${A.cur}: ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil. ${drop<0.001?`The ${A.cur} barely moved.`:`The ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and gold rose to ${fmt(goldPrice(A))} ${A.cur} a bar, so buildings cost more.`}${unb>Math.max(0.5,real*0.005)?` The unbacked ${fmt(unb/A.fx)} ${A.cur} keeps weakening it; buy gold or store oil to back your printing.`:''}${strong?` Your strong currency pushed inflation onto ${hit} weaker nation${hit===1?'':'s'}.`:''}${spill?` As the world reserve, you dragged ${spill} other currenc${spill===1?'y':'ies'} down with you, up to ${(spillMax*100).toFixed(spillMax<0.1?1:0)}% for those with no gold or oil.`:''}`,null,unb>Math.max(0.5,real*0.005)?'warn':'good');
+  if(A.human)log(A.id,`You printed ${fmt(amt)} ${A.cur}: ${Math.round(backed/Math.max(1e-9,real)*100)}% backed by gold and oil. ${drop<0.001?`The ${A.cur} barely moved.`:`The ${A.cur} fell ${(drop*100).toFixed(drop<0.1?1:0)}% and gold rose to ${fmt(goldPrice(A))} ${A.cur} a bar, so buildings cost more.`}${unb>Math.max(0.5,real*0.005)?` The unbacked ${fmt(unb/A.fx)} ${A.cur} keeps weakening it; buy gold or store oil to back your printing.`:''}${strong?` Your strong currency pushed inflation onto ${hit} weaker nation${hit===1?'':'s'}.`:''}${spill?` As the world reserve, your printing dragged ${spill} other currenc${spill===1?'y':'ies'} down, by up to ${(spillMax*100).toFixed(spillMax<0.1?1:0)}%. Those with the least gold and oil fall the most.`:''}`,null,unb>Math.max(0.5,real*0.005)?'warn':'good');
   return null;
 }
 function buyGold(A){
@@ -6817,6 +6821,10 @@ function updateHUD(){
   $('sFood').textContent=fmt(P.food);setRate('rFood',P.rate.food);
   $('sWood').textContent=fmt(P.wood);setRate('rWood',P.rate.wood);
   $('sStone').textContent=fmt(P.stone);setRate('rStone',P.rate.stone);$('sOil').textContent=fmt(P.oil||0);setRate('rOil',P.rate.oil||0);
+  /* shield power of your Golden Dome and Iron Dome shields, as in the Build panel: domes built toward full power, less wear */
+  for(const [type,F,w,sv,sr] of [['goldendome',GOLD_FULL,P.wG||0,'sGShield','rGShield'],['irondome',IRON_FULL,P.wI||0,'sIShield','rIShield']]){
+    const k=P.b[type]||0,pw=k?Math.max(0,Math.min(1,k/F)-w):0,v=$(sv),r=$(sr),t=Math.round(pw*100)+'%',sub=!k?`0/${F}`:pw<0.005?'down':w>=SH_BREAK?'needs domes':w>0.0005?'recharging':`${k}/${F}`;
+    if(v.textContent!==t)v.textContent=t;if(r.textContent!==sub)r.textContent=sub;v.style.color=k&&(w>=SH_BREAK||pw<0.005)?TK.bad:k&&w>0.0005?TK.gold:'';}
   $('sPop').textContent=`${fmt(P.troops-(P.urbanArmy||0)+P.workers+(P.urban||0))} / ${fmt(P.maxPop+(P.urbanCap||0))}`;$('sTroops').textContent=fmt(P.troops);
   const hv=$('sHappy');hv.textContent=Math.round(P.happiness);hv.style.color=P.happiness<25?TK.bad:P.happiness<40?TK.gold:'';
   $('sLand').textContent=pct(P.tiles/G.totalLand);
@@ -7146,7 +7154,7 @@ const TOUR=[
     body:()=>`<p>Your capital is already placed. To move it, <b>tap open land</b> on the map: away from rivals, ideally near a coast for ports and ships.</p><p>Grassland is cheapest to expand into; forests, deserts and mountains cost more troops.</p>`,
     task:'Press <b>Begin now</b> when you are happy, or wait for the countdown.'},
   {el:['#hud .stats','#hud'],title:'Your supplies',
-    body:()=>`<p>The top bar shows what you have and how fast it grows (+) or shrinks (−) each second:</p><ul><li><b>Money</b> is your own currency, ${esc(me()?me().cur:'')}.</li><li><b>Gold bars</b> back your currency and buy big things.</li><li><b>Food, Wood, Stone, Oil</b> feed your people and pay for buildings.</li></ul>`},
+    body:()=>`<p>The top bar shows what you have and how fast it grows (+) or shrinks (−) each second:</p><ul><li><b>Money</b> is your own currency, ${esc(me()?me().cur:'')}.</li><li><b>Gold bars</b> back your currency and buy big things.</li><li><b>Food, Wood, Stone, Oil</b> feed your people and pay for buildings.</li><li><b>Golden Dome, Iron Dome</b> show how strong your two missile shields are right now.</li></ul>`},
   {el:['#hudPeace','#hudDate'],title:'The peace treaty',
     body:()=>`<p>Nobody can attack another nation until the peace runs out. Use it to claim open land and build your economy.</p><p>One season lasts 30 seconds, so a year is 2 minutes.</p>`},
   {el:['#armyBar'],title:'Claim open land',run:true,base:()=>({f:myFronts(),t:me()?me().tiles:0}),wait:b=>myFronts()>b.f||(me()&&me().tiles>b.t+4),
